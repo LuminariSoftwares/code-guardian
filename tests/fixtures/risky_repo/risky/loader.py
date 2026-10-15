@@ -1,0 +1,7 @@
+import base64
+
+PAYLOAD = "cHJpbnQoImhlbGxvIGZyb20gdGhlIGNvZGUtZ3VhcmRpYW4gdGVzdCBmaXh0dXJlIikKcHJpbnQoImhlbGxvIGZyb20gdGhlIGNvZGUtZ3VhcmRpYW4gdGVzdCBmaXh0dXJlIikKcHJpbnQoImhlbGxvIGZyb20gdGhlIGNvZGUtZ3VhcmRpYW4gdGVzdCBmaXh0dXJlIikKcHJpbnQoImhlbGxvIGZyb20gdGhlIGNvZGUtZ3VhcmRpYW4gdGVzdCBmaXh0dXJlIikKcHJpbnQoImhlbGxvIGZyb20gdGhlIGNvZGUtZ3VhcmRpYW4gdGVzdCBmaXh0dXJlIikK"
+
+
+def boot():
+    exec(base64.b64decode(PAYLOAD))

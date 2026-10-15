@@ -1,0 +1,23 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.LuminariSoftwares/code-guardian",
+  "title": "Code Guardian",
+  "description": "Is this codebase safe to run, and is all of it used? Deterministic threat score plus orphan code.",
+  "repository": {"url": "https://github.com/LuminariSoftwares/code-guardian", "source": "github"},
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "code-guardian-mcp",
+      "version": "0.1.0",
+      "runtimeHint": "uvx",
+      "transport": {"type": "stdio"},
+      "packageArguments": [{"type": "positional", "value": "mcp"}],
+      "environmentVariables": [
+        {"name": "CODE_GUARDIAN_LLM_URL", "description": "Optional: local model for the explain tool (Ollama /api/chat or an OpenAI-compatible /v1/chat/completions URL)", "isRequired": false, "format": "string"},
+        {"name": "CODE_GUARDIAN_LLM_MODEL", "description": "Optional: model name for the explain tool", "isRequired": false, "format": "string"}
+      ]
+    }
+  ]
+}

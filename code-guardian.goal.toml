@@ -1,0 +1,25 @@
+# code-guardian goal contract: see https://github.com/LuminariSoftwares/code-guardian#goal-contract
+goal = "Tell a non-coder whether a codebase is safe to run and whether all of it is used, without running it."
+
+# The two console commands, `python -m code_guardian`, and each module's `--selftest` main block.
+entry_points = [
+  "code_guardian.cli:main",
+  "code_guardian.mcp_server:main",
+  "code_guardian.__main__",
+  "code_guardian.finding:__main__",
+  "code_guardian.walk:__main__",
+  "code_guardian.scanners:__main__",
+  "code_guardian.manifests:__main__",
+  "code_guardian.score:__main__",
+  "code_guardian.goal:__main__",
+  "code_guardian.orphans:__main__",
+  "code_guardian.explain:__main__",
+  "code_guardian.report:__main__",
+  "code_guardian.cli:__main__",
+  "code_guardian.mcp_server:__main__",
+]
+
+keep = []
+
+# The fixture repos are deliberately risky or full of orphans: they are test input, not this project's code.
+exclude = ["tests/fixtures/*"]

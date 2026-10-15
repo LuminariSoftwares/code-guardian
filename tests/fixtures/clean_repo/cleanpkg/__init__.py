@@ -1,0 +1,1 @@
+"""cleanpkg: fetch one page."""

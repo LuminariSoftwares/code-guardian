@@ -1,0 +1,52 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: pytest (${{ matrix.os }}, py3.11)
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: python -m pip install -e . pytest
+      - name: Test
+        run: python -m pytest -q
+
+  wheel:
+    name: built wheel works (no editable install)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build
+        run: python -m pip install build && python -m build --outdir dist .
+      - name: The PyPI description carries the MCP Registry marker
+        run: |
+          python -c "import glob,zipfile;w=glob.glob('dist/*.whl')[0];m=zipfile.ZipFile(w).read([n for n in zipfile.ZipFile(w).namelist() if n.endswith('/METADATA')][0]).decode();assert 'mcp-name: io.github.LuminariSoftwares/code-guardian' in m.splitlines(),'marker missing from wheel METADATA';print('marker present in',w)"
+      - name: Install the wheel in a clean venv and scan the risky fixture
+        run: |
+          python -m venv /tmp/wv
+          /tmp/wv/bin/pip install dist/*.whl
+          python tests/make_risky.py /tmp/risky_repo
+          cd /tmp
+          set +e
+          /tmp/wv/bin/code-guardian scan /tmp/risky_repo --json > /tmp/report.json
+          rc=$?
+          set -e
+          echo "scan exit code: $rc"
+          test "$rc" = 1
+          python -c "import json;r=json.load(open('/tmp/report.json'));codes=sorted({f['code'] for f in r['findings']});print(len(codes),'codes:',codes);assert len(codes)==11,codes;assert r['threat']['raw']==340,r['threat']"
+          printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | /tmp/wv/bin/code-guardian-mcp mcp | python -c "import json,sys;r=json.loads(sys.stdin.readline());assert r['result']['serverInfo']['name']=='code-guardian',r;print('mcp ok',r['result']['serverInfo'])"

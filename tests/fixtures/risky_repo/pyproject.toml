@@ -1,0 +1,7 @@
+[project]
+name = "risky"
+version = "0.0.1"
+dependencies = ["flask>=2", "pyyaml==6.0.1"]
+
+[project.scripts]
+risky = "risky.runner:run_user_command"
