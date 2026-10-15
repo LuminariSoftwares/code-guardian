@@ -15,7 +15,7 @@ import sys
 import tempfile
 import warnings
 
-from . import __version__, explain as explain_mod, goal, manifests, orphans as orphans_mod, scanners, score, walk
+from . import __version__, explain as explain_mod, goal, manifests, orphans as orphans_mod, scanners, score, walk, works
 from .finding import LEVELS, make_finding, summarize
 
 SOURCE_EXT = frozenset({".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx", ".go", ".rs", ".java", ".kt", ".rb", ".php",
@@ -50,12 +50,6 @@ def _parse(rel, raw):
         return ast.parse(raw, filename=rel)
 
 
-def _unparsed(rel, exc):
-    return make_finding("parse.skipped", "partial", "INFO", "%s:%d" % (rel, getattr(exc, "lineno", None) or 1),
-                        "Python file does not parse; it got the secret scan only",
-                        ["error: %s" % type(exc).__name__], ["check it is Python 3 source"])
-
-
 def _languages(files):
     counts = {}
     for rel in files:
@@ -69,14 +63,14 @@ def scan(path, goal_file=None, explain=False, env=None):
     root = _root(path)
     contract, notes = _contract(root, goal_file)
     inv = walk.walk(root, exclude=contract["exclude"] if contract else ())
-    findings, trees, entries = [], {}, []
+    findings, trees, entries, broken, texts = [], {}, [], {}, {}
     for rel in inv["python"]:
         raw, text = walk.read(root, rel)
         findings.extend(scanners.scan_secret_text(rel, text, python=True))
         try:
             pf = scanners.PyFile(rel, raw, text)
         except PARSE_ERRORS as exc:
-            findings.append(_unparsed(rel, exc))
+            broken[rel] = exc
             continue
         trees[rel] = pf.tree
         findings.extend(scanners.scan_python(pf))
@@ -86,12 +80,19 @@ def scan(path, goal_file=None, explain=False, env=None):
         if rel.endswith(".py"):
             continue
         _, text = walk.read(root, rel)
+        texts[rel] = text
         findings.extend(scanners.scan_secret_text(rel, text, python=False))
         findings.extend(manifests.scan_manifest(rel, text))
         entries.extend(manifests.entry_points(rel, text))
     for rel in inv["other"]:
         _, text = walk.read(root, rel)
         findings.extend(scanners.scan_secret_text(rel, text, python=False))
+    for rel in inv["manifests"]:
+        if rel.endswith(".py"):
+            texts[rel] = walk.read(root, rel)[1]
+    project = {"root": root, "python": inv["python"], "trees": trees, "broken": broken, "texts": texts,
+               "files": sorted(inv["python"] + inv["manifests"] + inv["other"] + [r for r, _ in inv["skipped"]])}
+    findings.extend(works.check(project))
     findings = score.sort_findings(scanners.dedupe(findings))
     langs = _languages(inv["other"])
     if langs:
@@ -125,8 +126,10 @@ def scan(path, goal_file=None, explain=False, env=None):
 
 
 def _score(report):
-    """scores, per-dimension deductions, the top five and the weight table, from report["findings"]."""
-    dims = {name: score.dimension(report["findings"], name) for name in score.DIMENSIONS}
+    """scores, per-dimension deductions, the top five and the weight table, from report["findings"] plus the
+    hygiene section's orphan.dead (folded into Works at a low weight)."""
+    scored = report["findings"] + [f for f in report["hygiene"]["findings"] if f["code"] == "orphan.dead"]
+    dims = {name: score.dimension(scored, name) for name in score.DIMENSIONS}
     report["scores"] = score.scores(report["findings"], dims)
     report["dimensions"] = dims
     report["top"] = score.top(dims)
@@ -272,17 +275,19 @@ def selftest():
         put("app/run.py", "import os\ndef main():\n    os.system('ls')\ndef unused():\n    pass\n"
                           "if __name__ == '__main__':\n    main()\n")
         put("app/broken.py", "def (:\n")
+        put("tests/test_run.py", "from app import run\ndef test_main():\n    assert run.main\n")
         put("web/x.js", "fetch('/');\n")
         first, second = scan(tmp), scan(tmp)
         text = render(scan(tmp))
         checks = [
             ("deterministic", first == second),
-            ("score", first["scores"]["safe"] == 90 and first["scores"]["overall"] == 95 and first["scores"]["grade"] == "A"),
-            ("unparsed", first["files"]["unparsed"] == 1 and any(f["code"] == "parse.skipped" for f in first["findings"])),
+            ("score", first["scores"]["safe"] == 90 and first["scores"]["works"] == 67 and first["scores"]["grade"] == "B"),
+            ("unparsed", first["files"]["unparsed"] == 1 and any(f["code"] == "works.syntax" for f in first["findings"])),
             ("hygiene", [f["evidence"][0] for f in first["hygiene"]["findings"]] == ["name: app.run.unused"]),
             ("languages", first["other_languages"] == {".js": 1} and "secret scan only" in first["notes"][0]),
-            ("render", "Safe      90/100" in text and "Overall   95/100  grade A" in text and "hygiene (inferred" in text),
-            ("exit_code", exit_code(first["findings"]) == 0 and exit_code(first["findings"], "WARN") == 1),
+            ("render", "Safe      90/100" in text and "Works     67/100" in text and "hygiene (inferred" in text),
+            ("exit_code", exit_code(first["findings"]) == 1 and exit_code([f for f in first["findings"]
+                                                                           if f["level"] != "FAIL"]) == 0),
             ("orphans", orphans(tmp)["counts"]["orphan.dead"] == 1),
         ]
         try:

@@ -44,7 +44,16 @@ SAFE_WEIGHTS = {  # the v0.1 threat weights, unchanged
     ("fs.outside", "WARN"): 3,
     ("deps.unpinned", "INFO"): 0,
 }
-WORKS_WEIGHTS = {}
+WORKS_WEIGHTS = {
+    ("works.syntax", "FAIL"): 30,
+    ("works.syntax", "INFO"): 0,
+    ("works.import_unresolved", "WARN"): 10,
+    ("works.relative_missing", "FAIL"): 25,
+    ("works.tests_missing", "WARN"): 15,
+    ("works.test_no_assert", "WARN"): 5,
+    ("works.entry_missing", "FAIL"): 30,
+    ("orphan.dead", "WARN"): 3,  # from the hygiene section; only when entry points exist (contract or inferred)
+}
 COMPLETE_WEIGHTS = {}
 TABLES = {"safe": SAFE_WEIGHTS, "works": WORKS_WEIGHTS, "complete": COMPLETE_WEIGHTS}
 DIMENSIONS = ("safe", "works", "complete")

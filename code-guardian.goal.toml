@@ -13,6 +13,7 @@ entry_points = [
   "code_guardian.score:__main__",
   "code_guardian.goal:__main__",
   "code_guardian.orphans:__main__",
+  "code_guardian.works:__main__",
   "code_guardian.explain:__main__",
   "code_guardian.report:__main__",
   "code_guardian.cli:__main__",

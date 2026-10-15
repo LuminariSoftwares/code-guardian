@@ -5,7 +5,7 @@ import sys
 
 import pytest
 
-MODULES = ["finding", "walk", "scanners", "manifests", "score", "goal", "orphans", "explain", "report", "cli",
+MODULES = ["finding", "walk", "scanners", "manifests", "score", "goal", "orphans", "works", "explain", "report", "cli",
            "mcp_server"]
 
 

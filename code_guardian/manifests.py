@@ -7,6 +7,8 @@ Public contract:
     scan_manifest(rel, text, pyfile=None) -> [finding]     # install.hook (WARN) and deps.unpinned (INFO)
     bounded_pep508(req) -> bool / bounded_npm(spec) -> bool
     entry_points(rel, text) -> ["module:function"]         # console scripts, for orphan inference
+    scripts(rel, text) -> [(script name, "module:function", line)]
+    declared(rel, text, tree=None) -> [(distribution name, line, kind)]   # kind: runtime/optional/dev/build
 """
 
 import ast
@@ -210,8 +212,8 @@ def _clean_entry(value):
     return re.sub(r"\s*\[.*\]\s*$", "", str(value)).strip()
 
 
-def entry_points(rel, text):
-    """Console/GUI script targets ("module:function") a manifest declares; [] when it declares none or is unreadable."""
+def scripts(rel, text):
+    """(script name, "module:function", line) for each console/GUI script a manifest declares."""
     name = rel.rsplit("/", 1)[-1]
     out = []
     if name == "pyproject.toml":
@@ -220,14 +222,93 @@ def entry_points(rel, text):
         except tomllib.TOMLDecodeError:
             return []
         for key in ("scripts", "gui-scripts"):
-            out.extend(_clean_entry(v) for _, v in sorted((project.get(key) or {}).items()))
+            for script, target in sorted((project.get(key) or {}).items()):
+                out.append((script, _clean_entry(target), _script_line(text, script)))
     elif name == "setup.cfg":
         cp = _cfg(text)
         if cp is not None and cp.has_option("options.entry_points", "console_scripts"):
             for line in cp.get("options.entry_points", "console_scripts").splitlines():
                 if "=" in line:
-                    out.append(_clean_entry(line.split("=", 1)[1]))
-    return [e for e in out if e]
+                    script, target = (p.strip() for p in line.split("=", 1))
+                    out.append((script, _clean_entry(target), _script_line(text, script)))
+    return [s for s in out if s[1]]
+
+
+def _script_line(text, script):
+    for i, line in enumerate(text.splitlines(), 1):
+        if re.match(r"\s*[\"']?%s[\"']?\s*=" % re.escape(script), line):
+            return i
+    return line_of(text, script)
+
+
+def entry_points(rel, text):
+    """Console/GUI script targets ("module:function") a manifest declares; [] when it declares none or is unreadable."""
+    return [target for _, target, _ in scripts(rel, text)]
+
+
+def _reqs(text, kind, reqs):
+    return [(_name_of(r), line_of(text, r), kind) for r in reqs if isinstance(r, str) and r.strip()
+            and not r.strip().startswith(("#", "-"))]
+
+
+def declared(rel, text, tree=None):
+    """Every dependency a manifest declares, as (distribution name, line, kind); kind is runtime, optional, dev,
+    build or requirements. Reads pyproject ([project], dependency-groups, build-system, Poetry, PDM, uv), setup.cfg,
+    setup.py (parsed, never run), requirements*.txt and Pipfile."""
+    name = rel.rsplit("/", 1)[-1]
+    out = []
+    if name in ("pyproject.toml", "Pipfile"):
+        try:
+            data = tomllib.loads(text)
+        except tomllib.TOMLDecodeError:
+            return []
+        if name == "Pipfile":
+            for section, kind in (("packages", "runtime"), ("dev-packages", "dev")):
+                out.extend((d, line_of(text, d), kind) for d in sorted(data.get(section) or {}))
+            return out
+        project = data.get("project") or {}
+        out.extend(_reqs(text, "runtime", project.get("dependencies") or []))
+        for extra in sorted(project.get("optional-dependencies") or {}):
+            out.extend(_reqs(text, "optional", project["optional-dependencies"][extra] or []))
+        for group in sorted(data.get("dependency-groups") or {}):
+            out.extend(_reqs(text, "dev", data["dependency-groups"][group] or []))
+        out.extend(_reqs(text, "build", (data.get("build-system") or {}).get("requires") or []))
+        tool = data.get("tool") or {}
+        poetry = tool.get("poetry") or {}
+        tables = [("runtime", poetry.get("dependencies") or {}), ("dev", poetry.get("dev-dependencies") or {})]
+        tables += [("dev", (g or {}).get("dependencies") or {}) for _, g in sorted((poetry.get("group") or {}).items())]
+        for kind, table in tables:
+            out.extend((d, line_of(text, d), kind) for d in sorted(table) if d.lower() != "python")
+        out.extend(_reqs(text, "dev", (tool.get("uv") or {}).get("dev-dependencies") or []))
+        for group in sorted((tool.get("pdm") or {}).get("dev-dependencies") or {}):
+            out.extend(_reqs(text, "dev", tool["pdm"]["dev-dependencies"][group] or []))
+    elif name == "setup.cfg":
+        cp = _cfg(text)
+        if cp is None:
+            return []
+        for option, kind in (("install_requires", "runtime"), ("tests_require", "dev"), ("setup_requires", "build")):
+            if cp.has_option("options", option):
+                out.extend(_reqs(text, kind, cp.get("options", option).splitlines()))
+        if cp.has_section("options.extras_require"):
+            for _, value in sorted(cp.items("options.extras_require")):
+                out.extend(_reqs(text, "optional", value.splitlines()))
+    elif name == "setup.py" and tree is not None:
+        kinds = {"install_requires": "runtime", "tests_require": "dev", "setup_requires": "build", "extras_require": "optional"}
+        for n in ast.walk(tree):
+            if isinstance(n, ast.Call):
+                for kw in n.keywords:
+                    if kw.arg in kinds:
+                        values = kw.value.values if isinstance(kw.value, ast.Dict) else [kw.value]
+                        for v in values:
+                            for e in (v.elts if isinstance(v, (ast.List, ast.Tuple)) else []):
+                                if isinstance(e, ast.Constant) and isinstance(e.value, str):
+                                    out.append((_name_of(e.value), e.lineno, kinds[kw.arg]))
+    elif name.endswith(".txt"):
+        for i, line in enumerate(text.splitlines(), 1):
+            req = line.split(" #", 1)[0].strip()
+            if req and not req.startswith(("#", "-", "git+", "http", ".", "/")):
+                out.append((_name_of(req), i, "requirements"))
+    return out
 
 
 def main(argv=None):
@@ -265,7 +346,12 @@ def selftest():
          [("deps.unpinned", "setup.cfg:3")]),
         ("requirements", codes(scan_manifest("requirements.txt", "# c\nrequests\n-r other.txt\nflask==3\n")) ==
          [("deps.unpinned", "requirements.txt:2")]),
-        ("entry_points", entry_points("pyproject.toml", pyproject) == ["x.cli:main"]),
+        ("entry_points", entry_points("pyproject.toml", pyproject) == ["x.cli:main"]
+         and scripts("pyproject.toml", pyproject) == [("x", "x.cli:main", 5)]),
+        ("declared", [(d, k) for d, _, k in declared("pyproject.toml", pyproject)] ==
+         [("requests", "runtime"), ("flask", "runtime"), ("attrs", "runtime"), ("rich", "runtime")]
+         and [(d, k) for d, _, k in declared("setup.py", setup, ast.parse(setup))] == [("numpy", "runtime")]
+         and declared("requirements/base.txt", "pyyaml==6\n-r x.txt\n") == [("pyyaml", 1, "requirements")]),
         ("bad_json_is_empty", scan_manifest("package.json", "{nope") == []),
     ]
     return summarize("manifests", checks)

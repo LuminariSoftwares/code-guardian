@@ -99,7 +99,7 @@ def test_cli_explain_label_and_same_exit_code(stub, tmp_path):
                        capture_output=True, text=True, timeout=120, env=env)
     assert r.returncode == 1
     assert "model explanation (not part of the score):\n  Grade F: a key is in the code." in r.stdout
-    assert "Overall   50/100  grade D" in r.stdout
+    assert "Overall   44/100  grade D" in r.stdout
 
 
 def test_endpoint_detection():

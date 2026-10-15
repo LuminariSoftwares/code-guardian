@@ -78,7 +78,8 @@ def test_risky_repo_hand_computed(tmp_path):
     }
     assert rep["dimensions"]["safe"]["deducted"] == 237
     s = rep["scores"]
-    assert (s["safe"], s["works"], s["complete"], s["overall"], s["grade"]) == (0, 100, 100, 50, "D")
+    # Works: works.tests_missing 15 + orphan.dead x6 = 3 + min(3, ceil(3*5/4)) = 6 -> 79
+    assert (s["safe"], s["works"], s["complete"], s["overall"], s["grade"]) == (0, 79, 100, 44, "D")
     assert s["capped"] is True and s["grade_uncapped"] == "D"
     assert [(t["dimension"], t["code"], t["level"], t["deduction"], t["first"]) for t in rep["top"]] == [
         ("safe", "secret.key", "FAIL", 60, "deploy/id_rsa:1"),

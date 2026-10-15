@@ -10,6 +10,10 @@
 - **New report shape** (`scores`, `dimensions`, `top`, `weights`, `weights_rule`; `threat` is gone). Every report
   prints the weight table it used. The report no longer carries `elapsed_ms`: same repo, same output.
 - `--fail-on` gates on every scored finding (Safe, Works, Complete).
+- **Works checks** (`works.py`): `works.syntax`, `works.import_unresolved` (stdlib, repo tree and declared
+  dependencies, with an import-name → distribution table), `works.relative_missing`, `works.tests_missing`,
+  `works.test_no_assert`, `works.entry_missing`; `orphan.dead` folds into Works at weight 3. `parse.skipped` is
+  replaced by `works.syntax`. `requirements/*.txt` and `Pipfile` are read as manifests.
 
 ## code-guardian 0.1.0 — unreleased
 

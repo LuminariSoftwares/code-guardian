@@ -50,7 +50,7 @@ def is_test(rel):
     parts = rel.split("/")
     name = parts[-1]
     return (any(p in TEST_DIRS for p in parts[:-1]) or name.startswith("test_") or name.endswith("_test.py")
-            or name == "conftest.py")
+            or name in ("conftest.py", "tests.py"))
 
 
 def _is_main_guard(stmt):

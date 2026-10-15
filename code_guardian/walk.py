@@ -22,7 +22,7 @@ from .finding import summarize
 
 SKIP_DIRS = frozenset({".git", "venv", ".venv", "node_modules", "__pycache__", "dist", "build",
                        ".tox", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".eggs"})
-MANIFEST_NAMES = frozenset({"package.json", "setup.py", "setup.cfg", "pyproject.toml"})
+MANIFEST_NAMES = frozenset({"package.json", "setup.py", "setup.cfg", "pyproject.toml", "Pipfile"})
 MAX_BYTES = 2_000_000
 SNIFF_BYTES = 8192
 
@@ -69,8 +69,11 @@ def _excluded(relpath, globs):
     return any(fnmatch.fnmatchcase(relpath, g) or fnmatch.fnmatchcase(relpath + "/", g) for g in globs)
 
 
-def _is_manifest(name):
-    return name in MANIFEST_NAMES or (name.startswith("requirements") and name.endswith(".txt"))
+def _is_manifest(rel):
+    parts = rel.split("/")
+    name = parts[-1]
+    return (name in MANIFEST_NAMES or (name.startswith("requirements") and name.endswith(".txt"))
+            or (len(parts) > 1 and parts[-2] == "requirements" and name.endswith(".txt")))
 
 
 def walk(root, exclude=()):
@@ -120,7 +123,7 @@ def walk(root, exclude=()):
                 continue
             if name.endswith(".py"):
                 out["python"].append(rel)
-            if _is_manifest(name):
+            if _is_manifest(rel):
                 out["manifests"].append(rel)
             elif not name.endswith(".py"):
                 out["other"].append(rel)
