@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+_archive/
+.pytest_cache/
+dist_release/
+_to_delete_*/
+
+# mcp-publisher binary (MCP Registry publish)
+_tools/
+mcp-publisher.zip
