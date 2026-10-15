@@ -15,7 +15,8 @@ import sys
 import tempfile
 import warnings
 
-from . import __version__, complete, explain as explain_mod, goal, manifests, orphans as orphans_mod, scanners, score, walk, works
+from . import (__version__, complete, explain as explain_mod, goal, manifests, orphans as orphans_mod, scanners, score,
+               supply, walk, works)
 from .finding import LEVELS, make_finding, summarize
 
 SOURCE_EXT = frozenset({".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx", ".go", ".rs", ".java", ".kt", ".rb", ".php",
@@ -59,7 +60,7 @@ def _languages(files):
     return dict(sorted(counts.items()))
 
 
-def scan(path, goal_file=None, explain=False, env=None):
+def scan(path, goal_file=None, explain=False, env=None, online=False):
     root = _root(path)
     contract, notes = _contract(root, goal_file)
     inv = walk.walk(root, exclude=contract["exclude"] if contract else ())
@@ -96,6 +97,9 @@ def scan(path, goal_file=None, explain=False, env=None):
     if inv["python"] or inv["manifests"]:
         findings.extend(works.check(project))
         findings.extend(complete.check(project))
+        found, supply_notes = supply.check(project, online=online, env=env)
+        findings.extend(found)
+        notes.extend(supply_notes)
     else:
         notes.append("no Python source or manifest found: Works and Complete have nothing to check")
     findings = score.sort_findings(scanners.dedupe(findings))

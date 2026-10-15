@@ -36,6 +36,9 @@ jobs:
       - name: The PyPI description carries the MCP Registry marker
         run: |
           python -c "import glob,zipfile;w=glob.glob('dist/*.whl')[0];m=zipfile.ZipFile(w).read([n for n in zipfile.ZipFile(w).namelist() if n.endswith('/METADATA')][0]).decode();assert 'mcp-name: io.github.LuminariSoftwares/code-guardian' in m.splitlines(),'marker missing from wheel METADATA';print('marker present in',w)"
+      - name: The wheel carries the offline list of known packages
+        run: |
+          python -c "import glob,zipfile;w=glob.glob('dist/*.whl')[0];n=zipfile.ZipFile(w).namelist();assert 'code_guardian/data/known_packages.txt.gz' in n,n;print('known_packages list present in',w)"
       - name: Install the wheel in a clean venv and scan the risky fixture
         run: |
           python -m venv /tmp/wv

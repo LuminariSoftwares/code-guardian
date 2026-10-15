@@ -221,6 +221,31 @@ The MCP `scan` reply adds `exit_code`. Nothing in the report depends on the cloc
 The walk skips `.git`, `venv`/`.venv`, `node_modules`, `__pycache__`, `dist`, `build` and the tool caches, anything
 the root `.gitignore` matches (simple globs; `!` negation is ignored), binary files, files over 2 MB and symlinks.
 
+### Invented and lookalike packages (Safe)
+
+AI coding assistants sometimes suggest a package that does not exist. Anyone can register that name on PyPI and
+put anything in it, and attackers do exactly that with the names assistants invent. **A package existing is not
+proof it is safe**: these checks flag names worth a second look; they do not vouch for any package.
+
+| code | what it looks for | level | weight |
+|---|---|---|---|
+| `supply.unknown_package` | offline (default): a declared dependency or an unresolved import that is not in the bundled list of known packages; run with `--online` to check it exists | INFO | 0 |
+| `supply.unknown_package` | `--online`: PyPI has no such project (likely invented by an AI assistant; anyone could register the name) | FAIL | 40 |
+| `supply.unknown_package` | `--online`: the project's first release is under 90 days old, or it has only one release | WARN | 10 |
+| `supply.lookalike` | one or two edits (insert, delete, change, swap) away from a known package without being it; two edits only for names of 8+ characters, none under 5 | WARN | 15 |
+
+- **Offline is the default and makes no network call.** The bundled list,
+  `code_guardian/data/known_packages.txt.gz`, holds about 960 widely used PyPI projects. It is **hand-built**
+  (`tools/known_packages.txt`, written for this project and not derived from any download dataset) and verified to
+  exist on PyPI by `python tools/build_known_packages.py --verify`. The brief asked for the top ~15,000 projects by
+  downloads; the usual source (hugovk/top-pypi-packages) carries no licence we could confirm, so a smaller
+  hand-built list ships instead. A name missing from it is not suspicious by itself, which is why offline misses are
+  INFO.
+- **`--online`** asks `https://pypi.org/pypi/<name>/json` (override with `CODE_GUARDIAN_PYPI_URL`, timeout
+  `CODE_GUARDIAN_PYPI_TIMEOUT`, default 10 s) once per name per run. A timeout or error becomes a note; it never
+  fails the scan. Online answers depend on PyPI and on today's date, so `--online` output is not reproducible run
+  to run; offline output is.
+
 ## Works checks
 
 Will it work? Read from the parse and the manifests, never by importing or running anything.
@@ -391,8 +416,8 @@ python -m code_guardian.scanners --selftest
 scanners selftest: 18 checks, 18 passed, 0 failed
 ```
 
-Each of `finding`, `walk`, `scanners`, `manifests`, `score`, `goal`, `orphans`, `works`, `complete`, `explain`,
-`report`, `cli` and `mcp_server` has one; `tests/test_selftests.py` runs them all.
+Each of `finding`, `walk`, `scanners`, `manifests`, `score`, `goal`, `orphans`, `works`, `complete`, `supply`,
+`explain`, `report`, `cli` and `mcp_server` has one; `tests/test_selftests.py` runs them all.
 
 ## License
 

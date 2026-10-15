@@ -1,0 +1,118 @@
+# Hand-built list of widely used PyPI projects, written for code-guardian (not derived from any download dataset).
+# One name per line; blank lines and comments are ignored. tools/build_known_packages.py normalises, de-duplicates,
+# optionally verifies each name against PyPI (--verify) and writes code_guardian/data/known_packages.txt.gz.
+#
+# packaging and build
+pip setuptools wheel packaging build twine virtualenv pipenv poetry poetry-core pdm hatch hatchling flit flit-core
+setuptools-scm pip-tools pipx uv tox nox pyproject-hooks pyproject-api installer distlib platformdirs filelock
+importlib-metadata importlib-resources zipp typing-extensions tomli tomli-w tomlkit toml editables trove-classifiers
+pkginfo readme-renderer requests-toolbelt keyring jaraco-classes jaraco-functools jaraco-context more-itertools
+backports-tarfile cython pybind11 scikit-build scikit-build-core meson meson-python ninja cmake maturin cffi
+setuptools-rust nuitka pyinstaller cx-freeze py2app briefcase shiv pex conda
+# http and networking
+requests urllib3 certifi idna charset-normalizer chardet httpx httpcore h11 h2 hpack hyperframe anyio sniffio
+aiohttp aiosignal frozenlist multidict yarl async-timeout aiofiles aiodns aiosmtplib websockets websocket-client
+python-socketio python-engineio wsproto trio trio-websocket outcome exceptiongroup pycurl httplib2 requests-oauthlib
+oauthlib requests-mock responses httpretty respx pysocks dnspython paramiko scp fabric invoke netaddr netifaces
+ipaddress grpcio grpcio-tools grpcio-status protobuf googleapis-common-protos thrift zeroconf pyzmq paho-mqtt
+asyncssh pyopenssl service-identity twisted treq tornado gevent greenlet eventlet uvloop httptools curl-cffi
+requests-futures cachecontrol requests-cache tenacity backoff retrying retry ratelimit
+# web frameworks and servers
+flask werkzeug jinja2 markupsafe itsdangerous click blinker flask-cors flask-login flask-sqlalchemy flask-migrate
+flask-wtf wtforms flask-restful flask-restx flask-jwt-extended flask-limiter flask-caching flask-socketio flask-mail
+flask-babel flask-admin flask-bcrypt django djangorestframework django-cors-headers django-filter django-environ
+django-extensions django-debug-toolbar django-storages django-redis django-celery-beat django-celery-results
+django-crispy-forms django-allauth django-import-export django-model-utils django-silk channels channels-redis
+daphne asgiref fastapi starlette pydantic pydantic-core pydantic-settings annotated-types uvicorn gunicorn
+hypercorn waitress quart sanic aiohttp-cors bottle cherrypy pyramid falcon hug litestar starlette-exporter
+python-multipart email-validator itsdangerous slowapi sse-starlette fastapi-users sqlmodel strawberry-graphql
+graphene graphql-core ariadne gradio streamlit dash plotly-express panel bokeh voila nicegui reflex flet
+# databases and storage
+sqlalchemy alembic psycopg2 psycopg2-binary psycopg psycopg-binary asyncpg pymysql mysqlclient mysql-connector-python
+aiomysql aiosqlite sqlite-utils pymongo motor mongoengine redis hiredis aioredis elasticsearch elasticsearch-dsl
+opensearch-py cassandra-driver neo4j pyodbc cx-oracle oracledb duckdb clickhouse-connect clickhouse-driver
+peewee pony tortoise-orm databases records dataset tinydb lmdb plyvel h5py tables zarr pyarrow fastparquet
+snowflake-connector-python snowflake-sqlalchemy google-cloud-bigquery pandas-gbq pyathena influxdb-client
+prometheus-client pika kombu celery amqp vine billiard rq dramatiq huey apscheduler schedule kafka-python
+confluent-kafka aiokafka nats-py minio fsspec s3fs gcsfs adlfs smart-open diskcache cachetools pymemcache
+# data and science
+numpy pandas scipy matplotlib seaborn plotly altair statsmodels sympy numba llvmlite numexpr bottleneck xarray
+dask distributed polars pyspark koalas modin vaex openpyxl xlrd xlwt xlsxwriter xlwings odfpy tabulate
+pyyaml ruamel-yaml simplejson ujson orjson msgpack cbor2 jsonschema jsonpointer jsonpatch jmespath jsonpath-ng
+python-dateutil pytz tzdata tzlocal pendulum arrow dateparser babel humanize iso8601 isodate croniter
+networkx igraph graphviz pydot shapely geopandas pyproj fiona rasterio folium geopy rtree
+scikit-learn scikit-image pillow imageio opencv-python opencv-python-headless opencv-contrib-python tifffile
+astropy biopython pymc arviz lifelines patsy pingouin linearmodels cvxpy pulp ortools pyomo networkit
+jupyter jupyterlab notebook ipython ipykernel ipywidgets nbformat nbconvert nbclient jupyter-client jupyter-core
+traitlets tqdm rich colorama termcolor tabulate prettytable texttable pyfiglet halo yaspin alive-progress
+# machine learning and ai
+torch torchvision torchaudio tensorflow tensorflow-cpu keras jax jaxlib flax optax onnx onnxruntime
+transformers tokenizers datasets accelerate peft safetensors huggingface-hub sentence-transformers diffusers
+xgboost lightgbm catboost scikit-optimize optuna hyperopt ray mlflow wandb tensorboard torchmetrics
+pytorch-lightning lightning timm einops sentencepiece tiktoken openai anthropic cohere mistralai groq ollama
+google-generativeai google-genai langchain langchain-core langchain-community langchain-openai langchain-anthropic
+langgraph langsmith llama-index chromadb faiss-cpu pinecone-client qdrant-client weaviate-client pymilvus
+spacy nltk gensim textblob jieba rapidfuzz fuzzywuzzy python-levenshtein thefuzz unidecode ftfy emoji
+nest-asyncio instructor outlines guidance vllm llama-cpp-python bitsandbytes evaluate rouge-score sacrebleu
+seqeval jiwer librosa soundfile pydub sounddevice pyaudio openai-whisper speechrecognition pyttsx3 gtts
+mediapipe ultralytics albumentations kornia shap lime eli5 imbalanced-learn category-encoders featuretools
+# cloud
+boto3 botocore s3transfer aiobotocore awscli aws-requests-auth aws-xray-sdk moto azure-core azure-identity
+azure-storage-blob azure-keyvault-secrets azure-mgmt-resource azure-cosmos azure-functions msal msrest
+google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client google-api-core google-cloud-core
+google-cloud-storage google-cloud-pubsub google-cloud-firestore google-cloud-secret-manager google-cloud-logging
+google-resumable-media google-crc32c firebase-admin kubernetes docker docker-compose ansible ansible-core
+pulumi troposphere aws-cdk-lib constructs boto3-stubs mypy-boto3-s3 hvac openstacksdk salt fabric2 sshtunnel
+# security and crypto
+cryptography pycryptodome pycryptodomex bcrypt passlib argon2-cffi pyjwt python-jose authlib itsdangerous
+pynacl rsa ecdsa pyasn1 pyasn1-modules certvalidator oscrypto truststore keyrings-alt python-gnupg
+bandit safety pip-audit detect-secrets semgrep
+# testing
+pytest pytest-cov pytest-mock pytest-asyncio pytest-xdist pytest-timeout pytest-django pytest-benchmark
+pytest-randomly pytest-rerunfailures pytest-html pytest-sugar pytest-env pytest-httpx pytest-aiohttp
+pytest-socket pytest-subtests pytest-snapshot syrupy pytest-freezegun pytest-runner pytest-instafail
+coverage hypothesis mock freezegun time-machine faker factory-boy model-bakery mimesis nose nose2 unittest2
+tox-gh-actions behave pytest-bdd robotframework selenium playwright pytest-playwright splinter locust
+vcrpy betamax pyfakefs testfixtures parameterized ddt assertpy pyhamcrest deepdiff
+# code quality and docs
+black ruff flake8 pyflakes pycodestyle pydocstyle mccabe autopep8 yapf isort pylint astroid mypy mypy-extensions
+pyright pytype pre-commit commitizen bump2version bumpversion towncrier semantic-version semver
+sphinx sphinx-rtd-theme furo sphinx-autodoc-typehints sphinxcontrib-applehelp myst-parser docutils alabaster
+mkdocs mkdocs-material mkdocstrings pdoc pdoc3 numpydoc nbsphinx recommonmark markdown markdown-it-py mdurl
+mistune commonmark pygments rst2pdf weasyprint reportlab pypdf pypdf2 pdfminer-six pdfplumber pymupdf fpdf fpdf2
+python-docx python-pptx docx2txt openpyxl beautifulsoup4 soupsieve lxml html5lib bleach cssselect parsel scrapy
+mechanize mechanicalsoup feedparser html2text markdownify readability-lxml newspaper3k trafilatura
+types-requests types-pyyaml types-setuptools types-python-dateutil types-pytz types-redis types-toml
+types-six types-urllib3 typeshed-client typing-inspect typeguard beartype attrs cattrs dataclasses-json marshmallow
+marshmallow-sqlalchemy apispec pyrsistent immutables frozendict sortedcontainers bidict boltons toolz cytoolz
+funcy returns wrapt decorator deprecated deprecation lazy-object-proxy six future pathlib2 contextlib2
+# cli, config, logging
+click typer docopt fire argcomplete plumbum sh pexpect ptyprocess prompt-toolkit questionary inquirer
+python-dotenv environs dynaconf hydra-core omegaconf configparser configargparse python-decouple pydantic-yaml
+loguru structlog python-json-logger coloredlogs colorlog sentry-sdk rollbar watchdog watchfiles psutil
+py-cpuinfo distro gputil nvidia-ml-py pynvml setproctitle supervisor circus honcho schedule
+pyperclip keyboard pynput pyautogui pywin32 pywinauto comtypes wmi pyobjc pygobject dbus-python
+pyserial pyusb pyvisa bleak smbus2 rpi-gpio gpiozero adafruit-blinka pyfirmata pymodbus
+# templates, text, i18n, misc
+mako chameleon genshi pystache chevron jinja2-time python-slugify text-unidecode inflect inflection
+regex parse pyparsing ply lark lark-parser antlr4-python3-runtime sqlparse sqlglot pyhcl python-hcl2
+xmltodict defusedxml untangle dicttoxml lxml-stubs pyquery qrcode python-barcode pyzbar pytesseract
+pyotp phonenumbers pycountry validators email-validator python-magic filetype chardet cchardet
+pygame pyglet arcade kivy pyqt5 pyqt6 pyside2 pyside6 wxpython customtkinter pysimplegui
+matplotlib-inline pyzmq tornado jedi parso pexpect pickleshare decorator wcwidth executing asttokens
+pure-eval stack-data backcall traitlets entrypoints debugpy comm psutil send2trash terminado argon2-cffi
+pyrsistent attrs zipp jsonschema-specifications referencing rpds-py fastjsonschema tinycss2 webencodings
+defusedxml pandocfilters nest-asyncio prometheus-client overrides fqdn isoduration uri-template webcolors
+rfc3339-validator rfc3986-validator rfc3986 json5 jupyterlab-server jupyter-server jupyter-events
+jupyter-lsp notebook-shim babel ipython-genutils pywinpty
+greenlet zope-interface zope-event setuptools-git-versioning versioneer dunamai
+sqlalchemy-utils sqlalchemy2-stubs geoalchemy2 flask-marshmallow marshmallow-enum webargs
+pycparser pyrsistent wrapt jmespath s3transfer docutils rsa pyasn1 colorama
+humanfriendly verboselogs coloredlogs tabulate texttable
+gitpython gitdb smmap pygithub python-gitlab dulwich pygit2
+slack-sdk slackclient discord-py python-telegram-bot tweepy praw twilio sendgrid stripe
+ python-shopify
+jira atlassian-python-api notion-client airtable-python-wrapper gspread oauth2client pydrive2
+yt-dlp youtube-dl pytube moviepy ffmpeg-python imageio-ffmpeg av mutagen eyed3
+pyinstrument line-profiler memory-profiler py-spy scalene objgraph pympler guppy3
+apache-airflow prefect dagster luigi kedro great-expectations dbt-core sqlfluff pandera

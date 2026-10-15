@@ -1,6 +1,6 @@
 """code-guardian command line.
 
-    code-guardian scan PATH [--json] [--goal FILE] [--explain] [--fail-on LEVEL]
+    code-guardian scan PATH [--json] [--goal FILE] [--explain] [--online] [--fail-on LEVEL]
     code-guardian orphans PATH [--json] [--goal FILE] [--fail-on LEVEL]
     code-guardian init [PATH] [--force]
     code-guardian mcp                      # the MCP server on stdio (same as code-guardian-mcp)
@@ -31,6 +31,8 @@ def _parser():
     s.add_argument("--json", action="store_true", help="print the report as JSON")
     s.add_argument("--goal", metavar="FILE", help="goal contract (default PATH/%s if present)" % goal.FILENAME)
     s.add_argument("--explain", action="store_true", help="add a plain-English explanation from a local model")
+    s.add_argument("--online", action="store_true",
+                   help="ask PyPI whether unknown dependency names exist (network; off by default)")
     s.add_argument("--fail-on", **fail_on)
     o = sub.add_parser("orphans", help="code nothing reachable from the entry points uses")
     o.add_argument("path")
@@ -75,7 +77,7 @@ def main(argv=None):
     args = _parser().parse_args(argv)
     try:
         if args.command == "scan":
-            rep = report.scan(args.path, args.goal, explain=args.explain)
+            rep = report.scan(args.path, args.goal, explain=args.explain, online=args.online)
             sys.stdout.write(json.dumps(rep, indent=1) + "\n" if args.json else report.render(rep))
             return report.exit_code(rep["findings"], args.fail_on)
         if args.command == "orphans":
