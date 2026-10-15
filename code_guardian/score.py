@@ -54,7 +54,18 @@ WORKS_WEIGHTS = {
     ("works.entry_missing", "FAIL"): 30,
     ("orphan.dead", "WARN"): 3,  # from the hygiene section; only when entry points exist (contract or inferred)
 }
-COMPLETE_WEIGHTS = {}
+COMPLETE_WEIGHTS = {
+    ("complete.license_missing", "WARN"): 20,
+    ("complete.license_undeclared", "WARN"): 5,
+    ("complete.readme_missing", "WARN"): 20,
+    ("complete.readme_short", "WARN"): 10,
+    ("complete.readme_sections", "WARN"): 5,
+    ("complete.ci_missing", "WARN"): 10,
+    ("complete.metadata", "WARN"): 10,
+    ("complete.lockfile", "WARN"): 10,
+    ("complete.env_example", "WARN"): 10,
+    ("deps.declared_unused", "INFO"): 0,
+}
 TABLES = {"safe": SAFE_WEIGHTS, "works": WORKS_WEIGHTS, "complete": COMPLETE_WEIGHTS}
 DIMENSIONS = ("safe", "works", "complete")
 PREFIXES = {"works": ("works.", "orphan."), "complete": ("complete.",)}

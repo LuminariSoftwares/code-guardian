@@ -56,7 +56,7 @@ def test_unparseable_python_is_noted_not_fatal(tmp_path):
     (tmp_path / "ok.py").write_text("eval(x)\n", encoding="utf-8")
     rep = report.scan(str(tmp_path))
     assert rep["files"]["unparsed"] == 1
-    assert [(f["code"], f["node"]) for f in rep["findings"] if f["code"] != "works.tests_missing"] == [
+    assert [(f["code"], f["node"]) for f in rep["findings"] if f["code"] in ("exec.dynamic", "works.syntax")] == [
         ("exec.dynamic", "ok.py:1"), ("works.syntax", "old.py:1")]
 
 

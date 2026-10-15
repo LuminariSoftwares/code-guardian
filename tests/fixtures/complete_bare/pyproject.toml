@@ -1,0 +1,3 @@
+[project]
+name = "bare"
+dependencies = ["requests>=2,<3"]

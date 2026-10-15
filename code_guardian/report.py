@@ -15,7 +15,7 @@ import sys
 import tempfile
 import warnings
 
-from . import __version__, explain as explain_mod, goal, manifests, orphans as orphans_mod, scanners, score, walk, works
+from . import __version__, complete, explain as explain_mod, goal, manifests, orphans as orphans_mod, scanners, score, walk, works
 from .finding import LEVELS, make_finding, summarize
 
 SOURCE_EXT = frozenset({".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx", ".go", ".rs", ".java", ".kt", ".rb", ".php",
@@ -91,8 +91,13 @@ def scan(path, goal_file=None, explain=False, env=None):
         if rel.endswith(".py"):
             texts[rel] = walk.read(root, rel)[1]
     project = {"root": root, "python": inv["python"], "trees": trees, "broken": broken, "texts": texts,
-               "files": sorted(inv["python"] + inv["manifests"] + inv["other"] + [r for r, _ in inv["skipped"]])}
-    findings.extend(works.check(project))
+               "files": sorted(inv["python"] + inv["manifests"] + inv["other"] + [r for r, _ in inv["skipped"]]),
+               "read": lambda rel: walk.read(root, rel)[1]}
+    if inv["python"] or inv["manifests"]:
+        findings.extend(works.check(project))
+        findings.extend(complete.check(project))
+    else:
+        notes.append("no Python source or manifest found: Works and Complete have nothing to check")
     findings = score.sort_findings(scanners.dedupe(findings))
     langs = _languages(inv["other"])
     if langs:

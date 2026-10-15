@@ -8,7 +8,7 @@ import sys
 import make_risky
 from conftest import FIXTURES, HTTP, tailnet
 
-from code_guardian import report
+from code_guardian import report, score
 
 ALL_CODES = {"secret.key", "exec.dynamic", "exec.shell", "deser.unsafe", "net.egress", "net.bind_all", "tls.off",
              "install.hook", "obfuscation", "fs.outside", "deps.unpinned"}
@@ -29,7 +29,6 @@ RISKY_COUNTS = {
     ("obfuscation", "WARN"): 2,     # loader.py base64 blob, settings.py high-entropy token
     ("fs.outside", "WARN"): 1,      # storage.py open("/tmp/...", "w")
     ("deps.unpinned", "INFO"): 3,   # setup.py requests, pyproject flask>=2, package.json left-pad *
-    ("works.tests_missing", "WARN"): 1,  # no test files
 }
 # Safe deductions per check (weight once, +25% of it per extra occurrence rounded up, at most 2x):
 # secret.key 40+20, exec.shell FAIL 30, WARN 10, exec.dynamic 10+3, deser 10+3, egress WARN 2, bind_all 5, tls 25,
@@ -50,13 +49,16 @@ def cli(*args, env=None):
 
 def test_risky_counts_and_hand_computed_score(tmp_path):
     rep = report.scan(str(risky(tmp_path)))
-    counts = collections.Counter((f["code"], f["level"]) for f in rep["findings"])
+    counts = collections.Counter((f["code"], f["level"]) for f in rep["findings"] if score.dimension_of(f["code"]) == "safe")
     assert dict(counts) == RISKY_COUNTS
-    assert {c for c, _ in counts} - {"works.tests_missing"} == ALL_CODES  # every Safe scanner fired
+    assert {c for c, _ in counts} == ALL_CODES  # every Safe scanner fired
     assert RISKY_SAFE_DEDUCTED == 237
     assert rep["dimensions"]["safe"]["deducted"] == RISKY_SAFE_DEDUCTED
-    # Works: tests_missing 15 + orphan.dead x6 (3 + min(3, ceil(15/4))) = 21 -> 79; Overall (0 + 237 + 200) / 10
-    assert (rep["scores"]["safe"], rep["scores"]["works"], rep["scores"]["overall"], rep["scores"]["grade"]) == (0, 79, 44, "D")
+    # Works: tests_missing 15 + orphan.dead x6 (3 + min(3, ceil(15/4))) = 21 -> 79
+    # Complete: licence 20, README 20, CI 10, metadata (requires-python) 10, licence undeclared 5 = 65 -> 35
+    # Overall (0 + 237 + 70 + 5) // 10 = 31 -> F (already below the D cap)
+    s = rep["scores"]
+    assert (s["safe"], s["works"], s["complete"], s["overall"], s["grade"]) == (0, 79, 35, 31, "F")
 
 
 def test_risky_exact_nodes(tmp_path):
@@ -121,7 +123,7 @@ def test_orphan_keep_is_what_hides_the_plugin(tmp_path):
 def test_orphans_never_touch_the_safe_score():
     rep = report.scan(str(FIXTURES / "orphan_repo"))
     assert rep["hygiene"]["counts"]["orphan.dead"] == 1
-    assert rep["scores"]["safe"] == 100 and rep["scores"]["grade"] == "A"
+    assert rep["scores"]["safe"] == 100 and rep["scores"]["works"] == 97
 
 
 def test_exit_codes(tmp_path):
@@ -145,7 +147,7 @@ def test_exit_codes(tmp_path):
 def test_text_report(tmp_path):
     out = cli("scan", risky(tmp_path)).stdout
     assert "  Safe       0/100  is it safe to run?" in out
-    assert "  Overall   44/100  grade D" in out
+    assert "  Overall   31/100  grade F" in out
     assert "biggest deductions:" in out and "  -60  Safe     secret.key FAIL          x3   first at deploy/id_rsa:1" in out
     assert "egress inventory (4):" in out
     assert "hygiene (inferred entry points: 1): 6 dead, 0 test-only, 0 uncertain" in out  # + generated settings.py

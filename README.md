@@ -62,9 +62,9 @@ code-guardian 0.1.0  scan of risky_repo
 files: 7 Python, 3 manifests, 2 other (0 skipped, 0 excluded by the goal file)
 
   Safe       0/100  is it safe to run?           -237
-  Works    100/100  will it work?
-  Complete 100/100  does it have what it needs?
-  Overall   50/100  grade D  (a Safe check is FAIL (exec.shell, obfuscation, secret.key, tls.off): the grade is at most D)
+  Works     79/100  will it work?                -21
+  Complete  35/100  does it have what it needs?  -65
+  Overall   31/100  grade F  (a Safe check is FAIL (exec.shell, obfuscation, secret.key, tls.off): the grade is at most D)
 
 biggest deductions:
   -60  Safe     secret.key FAIL          x3   first at deploy/id_rsa:1
@@ -73,7 +73,7 @@ biggest deductions:
   -25  Safe     tls.off FAIL             x1   first at risky/network.py:11
   -23  Safe     install.hook WARN        x3   first at package.json:5
 
-findings (6 FAIL, 13 WARN, 6 INFO; egress listed below):
+findings (6 FAIL, 19 WARN, 7 INFO; egress listed below):
   Safe:
     FAIL  secret.key    deploy/id_rsa:1  private-key block in the source; value redacted
     WARN  install.hook  package.json:5  npm postinstall script runs on install
@@ -96,6 +96,15 @@ findings (6 FAIL, 13 WARN, 6 INFO; egress listed below):
     WARN  install.hook  setup.py:5  class PostInstall overrides the install command
     INFO  deps.unpinned setup.py:13  dependency requests has no pin or upper bound
     WARN  install.hook  setup.py:14  setup() cmdclass overrides build/install commands
+  Works:
+    WARN  works.tests_missing .  no test files: nothing checks that the code works
+  Complete:
+    WARN  complete.ci_missing .  no CI configuration: nothing runs the tests on each change
+    WARN  complete.license_missing .  no licence file: nobody may legally reuse this code
+    WARN  complete.readme_missing .  no README: nobody can tell what this is or how to run it
+    WARN  complete.license_undeclared pyproject.toml:1  the package metadata declares no licence
+    WARN  complete.metadata pyproject.toml:1  pyproject.toml [project] is missing: requires-python
+    INFO  deps.declared_unused pyproject.toml:4  dependency flask is declared but never imported
 
 egress inventory (4):
   WARN  risky/network.py:5  url   http://{host}:8080/upload
@@ -119,8 +128,13 @@ weights used (each check (code + level) deducts its weight once, plus a quarter 
            exec.shell WARN 10 · fs.outside WARN 3 · install.hook WARN 15 · net.bind_all WARN 5 ·
            net.egress INFO 0 · net.egress WARN 2 · obfuscation FAIL 40 · obfuscation WARN 10 ·
            secret.key FAIL 40 · tls.off FAIL 25
-  Works    (no checks yet)
-  Complete (no checks yet)
+  Works    orphan.dead WARN 3 · works.entry_missing FAIL 30 · works.import_unresolved WARN 10 ·
+           works.relative_missing FAIL 25 · works.syntax FAIL 30 · works.syntax INFO 0 ·
+           works.test_no_assert WARN 5 · works.tests_missing WARN 15
+  Complete complete.ci_missing WARN 10 · complete.env_example WARN 10 · complete.license_missing WARN 20 ·
+           complete.license_undeclared WARN 5 · complete.lockfile WARN 10 · complete.metadata WARN 10 ·
+           complete.readme_missing WARN 20 · complete.readme_sections WARN 5 · complete.readme_short WARN 10 ·
+           deps.declared_unused INFO 0
 
 static analysis: every finding is LIKELY; the scores come from fixed weights, never from a model
 ```
@@ -239,6 +253,36 @@ How `works.import_unresolved` decides:
 - A dependency that is only installed because another one pulls it in still counts as undeclared: it works by
   accident. Undeclared dependencies have one owner, this check; Complete does not report them again.
 
+## Complete checks
+
+Does it have what it needs? File presence plus basic parsing.
+
+| code | what it looks for | level | weight |
+|---|---|---|---|
+| `complete.license_missing` | no `LICENSE`, `LICENCE`, `COPYING` or `UNLICENSE` file at the root | WARN | 20 |
+| `complete.license_undeclared` | packaging metadata (`[project]`, Poetry, `setup.cfg`, `setup()`) declares no licence (`license`, `license-files` or a `License ::` classifier) | WARN | 5 |
+| `complete.readme_missing` | no README at the root | WARN | 20 |
+| `complete.readme_short` | the README is under 200 bytes | WARN | 10 |
+| `complete.readme_sections` | a README of 200+ bytes with no install heading (install, setup, getting started, quick start) or no usage heading (usage, examples, tutorial, run, CLI…) | WARN | 5 |
+| `complete.ci_missing` | no CI configuration (`.github/workflows/`, `.gitlab-ci.yml`, `.circleci/`, `azure-pipelines.yml`, `.travis.yml`, `Jenkinsfile`…) | WARN | 10 |
+| `complete.metadata` | `pyproject.toml` `[project]` without `name`, `version` (or `dynamic`) or `requires-python` | WARN | 10 |
+| `complete.lockfile` | an **application** with no lockfile (`uv.lock`, `poetry.lock`, `Pipfile.lock`, `pdm.lock`, `pixi.lock`, `requirements.lock`, or a fully pinned `requirements.txt`) | WARN | 10 |
+| `complete.env_example` | the code reads environment variables (`os.environ`, `os.getenv`, dotenv) and there is no `.env.example` (or `.env.sample`, `.env.template`, `example.env`) | WARN | 10 |
+| `deps.declared_unused` | a runtime dependency that nothing in the repo imports (runners, linters, `types-*` and `pytest-*` plugins are skipped) | INFO | 0 |
+
+**Lockfiles count only for applications.** A repo is an application when it has any of these markers: a
+`Dockerfile`/`Containerfile`; a `__main__.py` while the project declares no `[project.scripts]`; or a module-level
+web app object (`Flask(…)`, `FastAPI(…)`, `Starlette(…)`, `Quart(…)`, `Sanic(…)`, Django's
+`get_wsgi_application()`/`get_asgi_application()`). Markers under `examples/`, `docs/`, `tests/` and similar folders do
+not count. A library (it has `[project]` and none of these markers) is not penalised for having no lockfile.
+
+**`.env.example` is required only when the code reads environment variables**, outside tests and examples. A read
+through a variable that merely holds `os.environ` is not followed.
+
+**Undeclared dependencies are owned by `works.import_unresolved`**; Complete reports only the opposite case,
+declared but unused. A repo with no Python source and no manifest has nothing for Works or Complete to check: it
+scores 100 there, and the report says so.
+
 ## Goal contract
 
 `code-guardian.goal.toml` at the project root (optional) says what the project is for and where it starts:
@@ -347,8 +391,8 @@ python -m code_guardian.scanners --selftest
 scanners selftest: 18 checks, 18 passed, 0 failed
 ```
 
-Each of `finding`, `walk`, `scanners`, `manifests`, `score`, `goal`, `orphans`, `works`, `explain`, `report`, `cli`
-and `mcp_server` has one; `tests/test_selftests.py` runs them all.
+Each of `finding`, `walk`, `scanners`, `manifests`, `score`, `goal`, `orphans`, `works`, `complete`, `explain`,
+`report`, `cli` and `mcp_server` has one; `tests/test_selftests.py` runs them all.
 
 ## License
 

@@ -14,6 +14,9 @@
   dependencies, with an import-name → distribution table), `works.relative_missing`, `works.tests_missing`,
   `works.test_no_assert`, `works.entry_missing`; `orphan.dead` folds into Works at weight 3. `parse.skipped` is
   replaced by `works.syntax`. `requirements/*.txt` and `Pipfile` are read as manifests.
+- **Complete checks** (`complete.py`): licence file and declared licence, README (present, 200+ bytes, install and
+  usage headings), CI config, `[project]` metadata, lockfile (applications only), `.env.example` (only when the code
+  reads environment variables), and `deps.declared_unused` (INFO).
 
 ## code-guardian 0.1.0 — unreleased
 
