@@ -20,8 +20,8 @@ from deterministic checks with fixed weights: same repo, same version, same outp
 
 It parses the code (`ast` for Python; `json`, `tomllib` and `configparser` for manifests; regular expressions for
 secrets) and never executes, imports or installs it. A scan makes
-no network calls. Python 3.11+, standard library only. Status: **0.2.0, unreleased.** The fourth guardian, next to
-[stack-guardian](https://github.com/LuminariSoftwares/stack-guardian),
+no network calls. Python 3.11+, standard library only. Status: **0.2.0 is the current release.** The fourth guardian,
+next to [stack-guardian](https://github.com/LuminariSoftwares/stack-guardian),
 [context-guardian](https://github.com/LuminariSoftwares/context-guardian) and
 [tool-guardian](https://github.com/LuminariSoftwares/tool-guardian).
 
@@ -339,7 +339,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: LuminariSoftwares/code-guardian@main   # pin a release tag or commit once one exists
+      - uses: LuminariSoftwares/code-guardian@v0.2.0
         with:
           path: .
           fail-on: FAIL        # or WARN
@@ -355,7 +355,7 @@ environment variables, never by text substitution.
 ```yaml
 repos:
   - repo: https://github.com/LuminariSoftwares/code-guardian
-    rev: main            # pin a release tag or commit once one exists
+    rev: v0.2.0
     hooks:
       - id: code-guardian
         # args: [--fail-on, WARN]
