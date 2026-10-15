@@ -1,0 +1,10 @@
+# pre-commit hook: scans the whole repository (not the staged files) and fails on any FAIL finding.
+# Add `args: [--fail-on, WARN]` in your .pre-commit-config.yaml to be stricter.
+- id: code-guardian
+  name: code-guardian (Safe / Works / Complete)
+  description: Static scan that never runs your code; fails when a finding is at or above --fail-on.
+  entry: code-guardian scan .
+  language: python
+  pass_filenames: false
+  always_run: true
+  require_serial: true

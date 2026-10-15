@@ -53,3 +53,37 @@ jobs:
           test "$rc" = 1
           python -c "import json;r=json.load(open('/tmp/report.json'));codes=sorted({f['code'] for f in r['findings']});print(len(codes),'codes:',codes);safe={'deps.unpinned','deser.unsafe','exec.dynamic','exec.shell','fs.outside','install.hook','net.bind_all','net.egress','obfuscation','secret.key','tls.off'};assert safe<=set(codes),safe-set(codes);assert r['dimensions']['safe']['deducted']==237,r['dimensions']['safe'];assert (r['scores']['safe'],r['scores']['overall'],r['scores']['grade'])==(0,31,'F'),r['scores'];print('scores ok',r['scores'])"
           printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | /tmp/wv/bin/code-guardian-mcp mcp | python -c "import json,sys;r=json.loads(sys.stdin.readline());assert r['result']['serverInfo']['name']=='code-guardian',r;print('mcp ok',r['result']['serverInfo'])"
+
+  outputs:
+    name: SARIF schema, GitHub Action, pre-commit hook
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: SARIF validates against the official 2.1.0 schema (pinned)
+        run: |
+          python -m pip install -e . pytest jsonschema
+          curl -sSfL -o /tmp/sarif-schema-2.1.0.json https://raw.githubusercontent.com/oasis-tcs/sarif-spec/1742a253eb654bf8a4ed7c60eaef7412b2c23553/sarif-2.1/schema/sarif-schema-2.1.0.json
+          CODE_GUARDIAN_SARIF_SCHEMA=/tmp/sarif-schema-2.1.0.json python -m pytest -q -rs tests/test_outputs.py -k schema | tee /tmp/schema.txt
+          grep -q "1 passed" /tmp/schema.txt
+      - name: The composite action runs from this checkout (no upload)
+        id: cg
+        uses: ./
+        with:
+          path: tests/fixtures/clean_repo
+          upload-sarif: "false"
+      - name: The action's outputs and SARIF file
+        env:
+          OVERALL: ${{ steps.cg.outputs.overall }}
+          GRADE: ${{ steps.cg.outputs.grade }}
+          RC: ${{ steps.cg.outputs.exit-code }}
+        run: |
+          echo "overall=$OVERALL grade=$GRADE exit-code=$RC"
+          test "$OVERALL" = 100 && test "$GRADE" = A && test "$RC" = 0
+          python -c "import json;s=json.load(open('code-guardian.sarif'));assert s['version']=='2.1.0';print(len(s['runs'][0]['tool']['driver']['rules']),'rules')"
+      - name: The pre-commit hook passes on this repo
+        run: |
+          python -m pip install pre-commit
+          pre-commit try-repo . code-guardian --all-files

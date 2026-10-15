@@ -119,6 +119,7 @@ def scan(path, goal_file=None, explain=False, env=None, online=False):
                   "skipped": len(inv["skipped"]), "ignored": inv["ignored"], "excluded": inv["excluded"],
                   "unparsed": len(inv["python"]) - len(trees)},
         "other_languages": langs,
+        "anchor": _anchor(inv),
         "findings": findings,
         "egress": [{"node": f["node"], "level": f["level"], "kind": f["evidence"][0][6:], "target": f["evidence"][1][8:]}
                    for f in findings if f["code"] == "net.egress"],
@@ -132,6 +133,20 @@ def scan(path, goal_file=None, explain=False, env=None, online=False):
             report["explanation"] = {"label": explain_mod.LABEL, "text": text}
         report["notes"].append(note)
     return report
+
+
+ANCHORS = ("pyproject.toml", "setup.py", "setup.cfg", "requirements.txt", "README.md", "README.rst", "README.txt",
+           "README")
+
+
+def _anchor(inv):
+    """The file repo-level findings are attached to in SARIF (code scanning needs a file for every result)."""
+    root_files = {r for r in inv["python"] + inv["manifests"] + inv["other"] if "/" not in r}
+    for name in ANCHORS:
+        if name in root_files:
+            return name
+    every = sorted(inv["python"] + inv["manifests"] + inv["other"])
+    return every[0] if every else "."
 
 
 def _score(report):

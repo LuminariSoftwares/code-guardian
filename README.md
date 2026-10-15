@@ -308,6 +308,55 @@ through a variable that merely holds `os.environ` is not followed.
 declared but unused. A repo with no Python source and no manifest has nothing for Works or Complete to check: it
 scores 100 there, and the report says so.
 
+## Outputs, GitHub Action and pre-commit
+
+| flag | prints |
+|---|---|
+| *(none)* | the text report shown above |
+| `--json` | the full report (shape above) |
+| `--sarif` | SARIF 2.1.0 for GitHub code scanning: one rule per check code (title, meaning, fix and false-positive notes from the catalogue below; Safe rules carry `security-severity`), one result per finding. Repo-level findings (no file) are attached to the root manifest or README, because code scanning needs a file for every result. Validated in CI against the official schema |
+| `--markdown` | a Markdown report for a pull-request comment or a job summary |
+
+Every format is deterministic: no timestamps, no absolute paths. `--fail-on` works the same with each. The MCP
+`scan` tool keeps returning JSON.
+
+**GitHub Action** (`action.yml` in this repo, a composite action). It installs code-guardian from the action's own
+checkout, writes `code-guardian.sarif`, adds the Markdown report to the job summary, uploads the SARIF to code
+scanning, and then fails the job when a finding is at or above `fail-on`:
+
+```yaml
+name: code-guardian
+on: [push, pull_request]
+permissions:
+  contents: read
+  security-events: write   # for the SARIF upload
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: LuminariSoftwares/code-guardian@main   # pin a release tag or commit once one exists
+        with:
+          path: .
+          fail-on: FAIL        # or WARN
+          online: "false"      # "true" asks PyPI about unknown dependency names
+```
+
+Inputs: `path`, `fail-on`, `online`, `sarif-file` (default `code-guardian.sarif`), `upload-sarif` (default `true`),
+`python-version` (default `3.11`). Outputs: `overall`, `grade`, `exit-code`. Inputs reach the shell only through
+environment variables, never by text substitution.
+
+**pre-commit** (`.pre-commit-hooks.yaml`). It scans the whole repository, not just the staged files:
+
+```yaml
+repos:
+  - repo: https://github.com/LuminariSoftwares/code-guardian
+    rev: main            # pin a release tag or commit once one exists
+    hooks:
+      - id: code-guardian
+        # args: [--fail-on, WARN]
+```
+
 ## Goal contract
 
 `code-guardian.goal.toml` at the project root (optional) says what the project is for and where it starts:
