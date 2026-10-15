@@ -22,7 +22,7 @@ import sys
 
 from .finding import make_finding, summarize
 from .manifests import declared as declared_deps, scripts as manifest_scripts
-from .orphans import is_test, module_name
+from .orphans import is_test
 
 # sys.stdlib_module_names is per interpreter; this union keeps the answer the same on every Python >= 3.11.
 REMOVED_AFTER_311 = frozenset({"aifc", "asynchat", "asyncore", "audioop", "cgi", "cgitb", "chunk", "crypt",
@@ -129,11 +129,26 @@ def _handler_names(handler):
     return {e.attr if isinstance(e, ast.Attribute) else getattr(e, "id", "") for e in elts}
 
 
-def _guarded(node, parents):
-    """Inside try/except ImportError (either branch: the try is the preferred import, the handler the fallback), or
-    under `if TYPE_CHECKING:`: an optional, alternative or typing-only import."""
+def _guard_flags(tree):
+    """Names assigned inside an import-guarded try (has_simplejson = True): an `if` on them guards an import too."""
+    flags = set()
+    for t in ast.walk(tree):
+        if isinstance(t, ast.Try) and any(_handler_names(h) & GUARD_ERRORS for h in t.handlers):
+            for part in t.body + [s for h in t.handlers for s in h.body]:
+                for n in ast.walk(part):
+                    if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store):
+                        flags.add(n.id)
+    return flags
+
+
+def _guarded(node, parents, flags=frozenset()):
+    """Inside try/except ImportError (either branch: the try is the preferred import, the handler the fallback),
+    under `if TYPE_CHECKING:`, or under an `if` on a flag an import-guarded try set: an optional, alternative or
+    typing-only import."""
     child, cur = node, parents.get(node)
     while cur is not None:
+        if isinstance(cur, ast.If) and any(isinstance(n, ast.Name) and n.id in flags for n in ast.walk(cur.test)):
+            return True
         if isinstance(cur, ast.Try) and child in cur.body and any(_handler_names(h) & GUARD_ERRORS for h in cur.handlers):
             return True
         if isinstance(cur, ast.ExceptHandler) and _handler_names(cur) & GUARD_ERRORS:
@@ -147,6 +162,7 @@ def _guarded(node, parents):
 def unresolved_imports(rel, tree, local, declared):
     """[(line, top-level module)] for absolute imports nothing in the repo or its manifests provides; one per module."""
     parents = _parents(tree)
+    flags = _guard_flags(tree)
     test = is_test(rel)
     setup = rel.rsplit("/", 1)[-1] == "setup.py"
     out, seen = [], set()
@@ -160,11 +176,16 @@ def unresolved_imports(rel, tree, local, declared):
         for full in names:
             top = full.split(".")[0]
             if (top in seen or top == "__future__" or top in STDLIB or top in local or import_declared(top, declared)
-                    or (test and top in TEST_TOOLS) or (setup and top in SETUP_TOOLS) or _guarded(n, parents)):
+                    or (test and top in TEST_TOOLS) or (setup and top in SETUP_TOOLS) or _guarded(n, parents, flags)):
                 continue
             seen.add(top)
             out.append((n.lineno, top))
     return sorted(out)
+
+
+def product(rel):
+    """Not a test and not under docs/: test and documentation dependencies are dev tools, not what the product needs."""
+    return not is_test(rel) and not any(p in ("docs", "doc") for p in rel.split("/")[:-1])
 
 
 def _finding(code, level, node, summary, evidence=(), try_=()):
@@ -246,13 +267,17 @@ def test_no_assert(rel, tree):
                     return True
         return False
 
-    top = [s for s in tree.body if isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef))]
+    def fixture(fn):
+        return any("fixture" in ast.dump(d) for d in fn.decorator_list)
+
+    top = [s for s in tree.body if isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef)) and not fixture(s)]
     helpers = {f.name for f in top if not f.name.startswith("test") and asserts(f, set())}
     tests = [(f.name, f) for f in top if f.name.startswith("test")]
     for cls in (s for s in tree.body if isinstance(s, ast.ClassDef)):
         if cls.name.startswith("Test") or cls.bases:
             tests.extend(("%s.%s" % (cls.name, f.name), f) for f in cls.body
-                         if isinstance(f, (ast.FunctionDef, ast.AsyncFunctionDef)) and f.name.startswith("test"))
+                         if isinstance(f, (ast.FunctionDef, ast.AsyncFunctionDef)) and f.name.startswith("test")
+                         and not fixture(f))
     silent = [(f.lineno, name) for name, f in tests if not asserts(f, helpers)]
     return (silent[0][0] if silent else 0), len(tests), [name for _, name in silent]
 
@@ -266,18 +291,22 @@ def _requires_python(texts):
     return None
 
 
-def entry_missing(texts, trees, modules, by_dir, dirs):
+def entry_missing(texts, trees, by_dir, dirs):
+    """Scripts resolve next to the manifest that declares them (flat or src/ layout), so an example sub-project's
+    pyproject.toml is judged against its own folder."""
     out = []
     for rel, text in sorted(texts.items()):
+        prefix = rel.rpartition("/")[0]
+        prefix = prefix + "/" if prefix else ""
         for script, target, line in manifest_scripts(rel, text):
             mod, _, attr = target.partition(":")
             node = "%s:%d" % (rel, line)
-            if mod not in modules:
-                path = mod.replace(".", "/")
-                if not (_module_exists(path, by_dir, dirs) or _module_exists("src/" + path, by_dir, dirs)):
-                    out.append((node, "script %r points at %s, but module %s is not in the repo" % (script, target, mod)))
+            path = mod.replace(".", "/")
+            found = next((p for p in (prefix + path, prefix + "src/" + path) if _module_exists(p, by_dir, dirs)), None)
+            if found is None:
+                out.append((node, "script %r points at %s, but module %s is not in the repo" % (script, target, mod)))
                 continue
-            tree = trees.get(modules[mod])
+            tree = trees.get(found + ".py", trees.get(found + "/__init__.py"))
             bound = bound_names(tree) if tree is not None else None
             if attr and bound is not None and attr.split(".")[0] not in bound:
                 out.append((node, "script %r points at %s, but %s defines no %s" % (script, target, mod, attr)))
@@ -309,10 +338,9 @@ def check(project):
     declared = {normalise(name) for rel, text in texts.items()
                 for name, _, _ in declared_deps(rel, text, trees.get(rel))}
     local = local_names(files) | registered_modules(trees)
-    modules = {module_name(rel): rel for rel in py}
     for rel in sorted(trees):
         tree = trees[rel]
-        for line, mod in unresolved_imports(rel, tree, local, declared):
+        for line, mod in ([] if not product(rel) else unresolved_imports(rel, tree, local, declared)):
             out.append(_finding("works.import_unresolved", "WARN", "%s:%d" % (rel, line),
                                 "import %s: not in the standard library, the repo, or a declared dependency" % mod,
                                 ["module: %s" % mod, "declared dependencies: %d" % len(declared)],
@@ -333,7 +361,7 @@ def check(project):
         out.append(_finding("works.tests_missing", "WARN", ".", "no test files: nothing checks that the code works",
                             ["looked for: tests/, test_*.py, *_test.py, tests.py, conftest.py"],
                             ["add a tests/ folder with at least one test per entry point"]))
-    for node, summary in entry_missing(texts, trees, modules, by_dir, dirs):
+    for node, summary in entry_missing(texts, trees, by_dir, dirs):
         out.append(_finding("works.entry_missing", "FAIL", node, summary, ["the installed command would crash on start"],
                             ["point the script at an existing module:function"]))
     return out

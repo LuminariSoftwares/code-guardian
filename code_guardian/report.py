@@ -102,7 +102,7 @@ def scan(path, goal_file=None, explain=False, env=None, online=False):
         notes.extend(supply_notes)
     else:
         notes.append("no Python source or manifest found: Works and Complete have nothing to check")
-    findings = score.sort_findings(scanners.dedupe(findings))
+    findings = score.sort_findings(scanners.dedupe(_test_code_to_info(findings)))
     langs = _languages(inv["other"])
     if langs:
         notes.append("code-guardian analyses Python only: %d file(s) in other languages (%s) got the secret scan only"
@@ -111,7 +111,7 @@ def scan(path, goal_file=None, explain=False, env=None, online=False):
         notes.append("skipped %s (%s)" % (rel, why))
     if inv["excluded"]:
         notes.append("%d path(s) excluded by the goal file" % inv["excluded"])
-    hygiene = orphans_mod.analyse(trees, contract, entries)
+    hygiene = orphans_mod.analyse(trees, contract, entries, library=_is_library(project))
     report = {
         "tool": "code-guardian", "version": __version__, "path": path,
         "goal_file": os.path.relpath(contract["path"], root).replace(os.sep, "/") if contract else None,
@@ -133,6 +133,45 @@ def scan(path, goal_file=None, explain=False, env=None, online=False):
             report["explanation"] = {"label": explain_mod.LABEL, "text": text}
         report["notes"].append(note)
     return report
+
+
+def _is_library(project):
+    """Packaging metadata at the root and no application marker (the same markers as the lockfile rule)."""
+    texts = project["texts"]
+    meta = "setup.py" in texts or "setup.cfg" in texts or ("pyproject.toml" in texts
+                                                          and "[project]" in texts["pyproject.toml"])
+    return meta and not complete.app_markers(project)
+
+
+TEST_DATA_DIRS = frozenset({"fixtures", "testdata", "test_data"})
+DOC_DIRS = frozenset({"docs", "doc"})
+DOC_EXTS = (".md", ".markdown", ".rst", ".txt", ".adoc")
+
+
+def not_product(node):
+    """'test code' or 'documentation' when the finding's file is a test, test data or a documentation file."""
+    rel = str(node).rpartition(":")[0] or str(node)
+    parts = rel.split("/")
+    if orphans_mod.is_test(rel) or any(p in TEST_DATA_DIRS for p in parts[:-1]):
+        return "test code"
+    if any(p in DOC_DIRS for p in parts[:-1]) or parts[-1].lower().endswith(DOC_EXTS) and parts[-1] != "requirements.txt":
+        return "documentation"
+    return None
+
+
+def _test_code_to_info(findings):
+    """Safe findings in test code or documentation are reported at INFO: users run the product, not its tests or its
+    doc samples, and tests exercise unsafe APIs on purpose. Two exceptions stay as they are: API-key shapes (a real
+    key is leaked wherever it sits) and exec of decoded data (a payload in conftest.py runs on every pytest)."""
+    for f in findings:
+        where = not_product(f["node"]) if f["level"] in ("WARN", "FAIL") else None
+        if (where is None or score.dimension_of(f["code"]) != "safe"
+                or (f["code"] == "obfuscation" and f["level"] == "FAIL")
+                or (f["code"] == "secret.key" and any("privacy pattern" in e for e in f["evidence"]))):
+            continue
+        f["evidence"].append("in %s: reported at INFO (was %s)" % (where, f["level"]))
+        f["level"] = "INFO"
+    return findings
 
 
 ANCHORS = ("pyproject.toml", "setup.py", "setup.cfg", "requirements.txt", "README.md", "README.rst", "README.txt",
@@ -172,10 +211,12 @@ def orphans(path, goal_file=None, infer=False):
             trees[rel] = _parse(rel, walk.read(root, rel)[0])
         except PARSE_ERRORS:
             notes.append("%s does not parse; left out of the call graph" % rel)
-    for rel in inv["manifests"]:
+    texts = {rel: walk.read(root, rel)[1] for rel in inv["manifests"]}
+    for rel, text in texts.items():
         if not rel.endswith(".py"):
-            entries.extend(manifests.entry_points(rel, walk.read(root, rel)[1]))
-    hygiene = orphans_mod.analyse(trees, None if infer else contract, entries)
+            entries.extend(manifests.entry_points(rel, text))
+    project = {"files": sorted(inv["python"] + inv["manifests"] + inv["other"]), "trees": trees, "texts": texts}
+    hygiene = orphans_mod.analyse(trees, None if infer else contract, entries, library=_is_library(project))
     hygiene["notes"] = notes + hygiene["notes"]
     hygiene["files"] = {"python": len(inv["python"]), "parsed": len(trees)}
     return hygiene

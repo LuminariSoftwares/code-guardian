@@ -35,7 +35,7 @@ from pathlib import Path
 
 from .finding import make_finding, summarize
 from .manifests import declared as declared_deps
-from .works import IMPORT_DISTS, local_names, normalise, registered_modules, unresolved_imports
+from .works import IMPORT_DISTS, local_names, normalise, product, registered_modules, unresolved_imports
 
 DATA = Path(__file__).resolve().parent / "data" / "known_packages.txt.gz"
 PYPI = "https://pypi.org/pypi"
@@ -96,7 +96,7 @@ def candidates(project):
                 out.append((key, "%s:%d" % (rel, line)))
     declared = {k for k, _ in out} | own
     local = local_names(project["files"]) | registered_modules(trees)
-    for rel in sorted(trees):
+    for rel in sorted(t for t in trees if product(t)):
         for line, module in unresolved_imports(rel, trees[rel], local, declared):
             key = normalise((IMPORT_DISTS.get(module) or (module,))[0])
             if key not in seen:

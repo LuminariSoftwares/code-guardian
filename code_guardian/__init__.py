@@ -5,4 +5,4 @@ plain-English explanation from a local model that never changes the score. Stand
 is parsed, never executed, imported or installed.
 """
 
-__version__ = "0.1.0"  # keep equal to pyproject.toml version and mcp_server.VERSION
+__version__ = "0.2.0"  # keep equal to pyproject.toml version and mcp_server.VERSION

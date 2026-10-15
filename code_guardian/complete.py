@@ -8,7 +8,7 @@
     complete.ci_missing          WARN  no CI configuration
     complete.metadata            WARN  pyproject [project] without name, version or requires-python
     complete.lockfile            WARN  an application (see APP MARKERS) without a lockfile
-    complete.env_example         WARN  the code reads environment variables but there is no .env.example
+    complete.env_example         WARN  an application reads environment variables but has no .env.example
     deps.declared_unused         INFO  a runtime dependency that nothing imports
 
 Application markers (a library, with [project] and none of these, needs no lockfile): a Dockerfile or
@@ -248,7 +248,7 @@ def check(project):
                              "looked for: %s, a fully pinned requirements.txt" % ", ".join(LOCKFILES)],
                             ["commit a lockfile (uv lock, poetry lock, or pip-compile)"]))
     reads = [(rel, line, key) for rel in sorted(trees) if _product(rel) for line, key in env_reads(rel, trees[rel])]
-    if reads and not any(f.rsplit("/", 1)[-1] in ENV_EXAMPLES for f in files):
+    if markers and reads and not any(f.rsplit("/", 1)[-1] in ENV_EXAMPLES for f in files):
         names = sorted({k for _, _, k in reads if k})
         out.append(_finding("complete.env_example", "WARN", "%s:%d" % reads[0][:2],
                             "the code reads environment variables but there is no .env.example",

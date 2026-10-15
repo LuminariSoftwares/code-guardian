@@ -3,8 +3,12 @@
 A static call graph built with ast from imports, `from x import y`, attribute use on imported modules and method
 calls. It never claims more than the parse proves:
   - a method counts as used when its class is used and its name is read as an attribute anywhere reachable;
-  - anything named by getattr/globals()/importlib with a computed name, named in a string, or wrapped in a
-    registering decorator is `orphan.uncertain`, never `orphan.dead`;
+  - anything named by getattr/globals()/importlib with a computed name, or named in a string, is
+    `orphan.uncertain`, never `orphan.dead`;
+  - a def wrapped in a registering decorator (@app.get, @click.command) and a module-level dunder (__getattr__) are
+    reached with their module: the decorator or the interpreter calls them;
+  - for a library (inferred entry points, packaging metadata, no application marker) the public API and its
+    re-exports count as entry points;
   - something only tests reach is `orphan.test_only`.
 Orphans are hygiene, not threat: they never touch the threat score.
 
@@ -142,8 +146,13 @@ class Graph:
                     yield from self._toplevel(h.body)
 
     def _add(self, node):
-        self.nodes[node.q] = node
-        return node
+        """A name defined twice (property getter and setter, @overload, if/else defs) is one node: keep both bodies."""
+        old = self.nodes.get(node.q)
+        if old is None:
+            self.nodes[node.q] = node
+            return node
+        old.decorators.extend(node.decorators)
+        return old
 
     def _collect(self, mod, rel, tree):
         test = is_test(rel)
@@ -154,22 +163,23 @@ class Graph:
     def _statement(self, mod, rel, stmt, mnode, test):
         if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
             node = self._add(Node("%s.%s" % (mod, stmt.name), "function", rel, stmt.lineno, mod, test=test))
-            node.decorators = [self._decorator(mod, d) for d in stmt.decorator_list]
+            node.decorators += [self._decorator(mod, d) for d in stmt.decorator_list]
             self._scan(mod, rel, [stmt], node)
         elif isinstance(stmt, ast.ClassDef):
             cq = "%s.%s" % (mod, stmt.name)
             cnode = self._add(Node(cq, "class", rel, stmt.lineno, mod, test=test))
-            cnode.decorators = [self._decorator(mod, d) for d in stmt.decorator_list]
-            cnode.bases = [self._qualify(mod, b) for b in stmt.bases]
+            cnode.decorators += [self._decorator(mod, d) for d in stmt.decorator_list]
+            cnode.bases += [self._qualify(mod, b) for b in stmt.bases]
             head = list(stmt.bases) + [k.value for k in stmt.keywords] + list(stmt.decorator_list)
             body = [s for s in stmt.body if not isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef))]
             self._scan(mod, rel, head + body, cnode)
             for s in stmt.body:
                 if isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     m = self._add(Node("%s.%s" % (cq, s.name), "method", rel, s.lineno, mod, cls=cq, test=test))
-                    m.decorators = [self._decorator(mod, d) for d in s.decorator_list]
+                    m.decorators += [self._decorator(mod, d) for d in s.decorator_list]
                     self._scan(mod, rel, [s], m)
-                    self.methods[cq].append(m.q)
+                    if m.q not in self.methods[cq]:
+                        self.methods[cq].append(m.q)
         elif _is_main_guard(stmt):
             main = self._add(Node("%s:__main__" % mod, "main", rel, stmt.lineno, mod, test=test))
             self._scan(mod, rel, stmt.body, main)
@@ -251,6 +261,8 @@ class Graph:
         if isinstance(n, ast.Name) and not isinstance(n.ctx, ast.Store):
             if n.id not in local:
                 node.refs.add(self._name(mod, n.id))
+                if n.id in self.defs.get(mod, ()) and n.id in self.aliases.get(mod, {}):
+                    node.refs.add(self.aliases[mod][n.id])  # bound twice (try: import / except: def): follow both
         elif isinstance(n, ast.Attribute):
             node.attrs.add(n.attr)
             base = n
@@ -318,6 +330,9 @@ class Graph:
                 alias = self.aliases[head].get(parts[i])
                 if alias and depth < 6 and alias != q:
                     return self.resolve(".".join([alias] + parts[i + 1:]), depth + 1) + [head]
+                for star in self.stars.get(head, ()):  # from .x import * re-exports x's names
+                    if parts[i] in self.defs.get(star, ()) and depth < 6:
+                        return self.resolve(".".join([star] + parts[i:]), depth + 1) + [head]
                 return [head]
             if head in self.nodes:
                 return [head]
@@ -347,10 +362,24 @@ class Graph:
                 return True
         return False
 
+    def registered(self, node):
+        """Defined at import time and handed to something else: a module-level dunder (__getattr__, __dir__: the
+        interpreter calls them) or a def wrapped in a registering decorator (@app.get, @click.command...)."""
+        short = node.q.rsplit(".", 1)[-1]
+        if node.kind == "function" and short.startswith("__") and short.endswith("__"):
+            return True
+        return node.kind in ("function", "class", "method") and any(
+            d not in PURE_DECORATORS and not str(d).endswith((".setter", ".getter", ".deleter")) for d in node.decorators)
+
     def reach(self, roots):
-        """Every node reachable from roots, plus the attribute names read along the way."""
+        """Every node reachable from roots, plus the attribute names read along the way. Reaching a module or a
+        class also reaches what it registers at import time."""
         seen, attrs = set(), set()
         queue = collections.deque(roots)
+        auto = collections.defaultdict(list)
+        for q, n in self.nodes.items():
+            if self.registered(n):
+                auto[n.cls if n.kind == "method" else n.module].append(q)
         while True:
             while queue:
                 q = queue.popleft()
@@ -358,6 +387,7 @@ class Graph:
                     continue
                 seen.add(q)
                 node = self.nodes[q]
+                queue.extend(auto.get(q, ()))
                 queue.extend(self.parents(node))
                 for ref in node.refs:
                     queue.extend(self.resolve(ref))
@@ -404,6 +434,9 @@ def _roots(graph, entries):
             roots.append(mod)
         else:
             hits = graph.resolve("%s.%s" % (mod, attr))
+            alias = graph.aliases.get(mod, {}).get(attr.split(".")[0])
+            if alias:  # also bound by an import (try: import / except: def): root both
+                roots.extend(r for r in graph.resolve(alias) if graph.nodes[r].kind != "module")
             if hits and graph.nodes[hits[0]].kind != "module":
                 roots.append(hits[0])
             else:
@@ -426,9 +459,6 @@ def _uncertain_reason(graph, node, markers, strings):
             return "%s with a computed name in %s may reach it" % (kind, rq)
     if short in strings:
         return "its name appears in a string in reachable code (a registry or dispatch table may use it)"
-    registering = [d for d in node.decorators if d not in PURE_DECORATORS and not str(d).endswith((".setter", ".getter", ".deleter"))]
-    if registering:
-        return "decorated with @%s, which may register it" % registering[0]
     return None
 
 
@@ -448,7 +478,44 @@ def _orphan(code, node, why, source, n_entries, inside=0):
     return make_finding(code, "partial", LEVELS[code], "%s:%d" % (node.rel, node.line), summary, evidence, try_)
 
 
-def analyse(trees, goal=None, manifest_entries=()):
+def public_api(graph):
+    """For a library: every public module, its public functions and classes, their public methods, and whatever a
+    public module re-exports (from ._client import Client, from ._transports import *)."""
+    out = set()
+
+    def add(q):
+        n = graph.nodes.get(q)
+        if n is None or n.kind not in ("function", "class") or q in out:
+            return
+        out.add(q)
+        if n.kind == "class":
+            out.update(m for m in graph.methods.get(q, ()) if not m.rsplit(".", 1)[-1].startswith("_"))
+
+    def star(module, seen):
+        if module in seen or module not in graph.modules:
+            return
+        seen.add(module)
+        for name in graph.defs.get(module, ()):
+            if not name.startswith("_"):
+                add("%s.%s" % (module, name))
+        for inner in graph.stars.get(module, ()):
+            star(inner, seen)
+
+    for mod in sorted(graph.modules):
+        if graph.nodes[mod].test or any(p.startswith("_") for p in mod.split(".")):
+            continue
+        out.add(mod)
+        star(mod, set())
+        for name, target in graph.aliases.get(mod, {}).items():
+            if not name.startswith("_"):
+                for q in graph.resolve(target):
+                    add(q)
+    return sorted(out)
+
+
+def analyse(trees, goal=None, manifest_entries=(), library=False):
+    """library=True (packaging metadata, no application marker) adds the public API to inferred entry points: a
+    library's public functions are used by its consumers, which the repo cannot show."""
     graph = Graph(trees)
     notes = ["%s maps to a module name already taken; not analysed for orphans" % d for d in graph.dupes]
     keep = list((goal or {}).get("keep") or [])
@@ -460,6 +527,9 @@ def analyse(trees, goal=None, manifest_entries=()):
             notes.append("the goal file lists no entry_points; they were inferred")
     roots, more = _roots(graph, entries)
     notes.extend(more)
+    if source == "inferred" and library:
+        source = "inferred (library public API)"
+        roots += public_api(graph)
     tool_run = sorted(module_name(r) for r in graph.modules.values() if r in TOOL_RUN)
     kept = sorted(q for q in graph.nodes if _kept(q, keep))
     result = {"source": source, "goal": (goal or {}).get("goal", ""), "entry_points": entries, "keep": keep,

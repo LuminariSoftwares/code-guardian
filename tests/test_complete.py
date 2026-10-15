@@ -99,6 +99,7 @@ def test_loose_requirements_is_not_a_lockfile(tmp_path):
 
 
 def test_env_example_only_when_env_is_read(tmp_path):
+    (tmp_path / "Dockerfile").write_text("FROM x\n", encoding="utf-8")  # an application (the rule applies to apps only)
     (tmp_path / "a.py").write_text("import os\nprint(os.getcwd())\n", encoding="utf-8")
     (tmp_path / "test_a.py").write_text("import os\ndef test_x():\n    assert os.environ.get('CI') is None or True\n",
                                         encoding="utf-8")

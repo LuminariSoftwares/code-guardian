@@ -87,7 +87,7 @@ def test_markdown(risky):
     md = outputs.to_markdown(risky)
     assert md.startswith("# code-guardian: risky_repo\n")
     assert "| **Safe** | 0/100 | is it safe to run? |" in md
-    assert "| **Overall** | 31/100 | grade **F** |" in md
+    assert "| **Overall** | 33/100 | grade **F** |" in md
     assert "## Biggest deductions" in md and "| -60 | Safe | `secret.key` FAIL | 3 | `deploy/id_rsa:1` |" in md
     assert "### Safe" in md and "### Works" in md and "### Complete" in md and "## Hygiene" in md
     assert "| FAIL | `tls.off` | `risky/network.py:11` |" in md

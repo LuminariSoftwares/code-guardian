@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 # "code-guardian" on PyPI belongs to another project; the commands are still code-guardian and code-guardian-mcp.
 name = "code-guardian-mcp"
-version = "0.1.0"
+version = "0.2.0"
 description = "Is this codebase safe to run, and is all of it used? A deterministic threat score, orphan code against a goal contract, and an optional local-model explanation."
 readme = "README.md"
 requires-python = ">=3.11"

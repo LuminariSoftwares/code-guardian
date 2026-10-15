@@ -19,7 +19,10 @@ def build(dest):
     key = "sk-" + "A" * 24
     password = "Tr0ub4dor" + "-and-3"
     alphabet = string.ascii_letters + string.digits
-    token = "".join(alphabet[(i * 7) % len(alphabet)] for i in range(48))  # 48 distinct characters: high entropy
+    seed, token = 12345, ""
+    for _ in range(48):  # a fixed pseudo-random draw: high entropy, and it repeats characters like a real token
+        seed = (seed * 1103515245 + 12345) % 2 ** 31
+        token += alphabet[(seed >> 16) % len(alphabet)]
     (dest / "risky" / "settings.py").write_text(
         'API_KEY_VALUE = "%s"\npassword = "%s"\nTOKEN_BLOB = "%s"\n' % (key, password, token), encoding="utf-8")
     (dest / "deploy").mkdir()

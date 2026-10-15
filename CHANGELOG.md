@@ -2,6 +2,9 @@
 
 ## code-guardian 0.2.0 — unreleased
 
+One command now answers three questions about any repo without running it: is it **safe** to run, will it
+**work**, does it have what it **needs**.
+
 - **Three health scores, higher is better:** Safe (is it safe to run?), Works (will it work?) and Complete (does it
   have what it needs?), each 0–100, plus Overall = 0.5·Safe + 0.3·Works + 0.2·Complete and an A–F grade
   (A ≥ 90, B ≥ 75, C ≥ 60, D ≥ 40). Safe = 100 − the v0.1 threat score, with the v0.1 weights.
@@ -25,6 +28,13 @@
   `--markdown`. A composite **GitHub Action** (`action.yml`: scan, job summary, SARIF upload, gate) and a
   **pre-commit hook** (`.pre-commit-hooks.yaml`). A check catalogue (`catalogue.py`) holds each code's meaning, fix
   and false-positive notes.
+- **Calibrated** against requests, click, rich, httpx, flask and the four guardian repos (`calibration.md`): no FAIL
+  on any of them. Fixes from calibration: Safe findings in test code and documentation are INFO (API-key shapes and
+  exec of decoded data excepted); `tls.off` is WARN when only a caller's opt-out reaches it; alphabets are not
+  high-entropy secrets; import flags set by guarded imports guard too; scripts resolve next to their own manifest;
+  `works.import_unresolved` checks product code only; `.env.example` is asked of applications only; pytest fixtures
+  are not tests; XML namespace URIs are not egress; a library's public API and re-exports count as entry points; star
+  re-exports, double bindings, property setters, module `__getattr__` and decorator-registered handlers are followed.
 
 ## code-guardian 0.1.0 — unreleased
 
