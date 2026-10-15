@@ -54,11 +54,11 @@ def test_risky_counts_and_hand_computed_score(tmp_path):
     assert {c for c, _ in counts} == ALL_CODES  # every Safe scanner fired
     assert RISKY_SAFE_DEDUCTED == 237
     assert rep["dimensions"]["safe"]["deducted"] == RISKY_SAFE_DEDUCTED
-    # Works: tests_missing 15 + orphan.dead x6 (3 + min(3, ceil(15/4))) = 21 -> 79
+    # Works: tests_missing 15 -> 85 (a library: its public API counts as entry points, so no dead code)
     # Complete: licence 20, README 20, CI 10, metadata (requires-python) 10, licence undeclared 5 = 65 -> 35
-    # Overall (0 + 237 + 70 + 5) // 10 = 31 -> F (already below the D cap)
+    # Overall (0 + 255 + 70 + 5) // 10 = 33 -> F (already below the D cap)
     s = rep["scores"]
-    assert (s["safe"], s["works"], s["complete"], s["overall"], s["grade"]) == (0, 79, 35, 31, "F")
+    assert (s["safe"], s["works"], s["complete"], s["overall"], s["grade"]) == (0, 85, 35, 33, "F")
 
 
 def test_risky_exact_nodes(tmp_path):
@@ -95,7 +95,7 @@ def test_clean_repo_grade_a():
     assert [(f["code"], f["level"], f["node"]) for f in rep["findings"]] == [
         ("net.egress", "INFO", "cleanpkg/fetch.py:3"), ("net.egress", "INFO", "cleanpkg/fetch.py:7")]
     assert not [f for f in rep["findings"] if f["level"] == "FAIL"]
-    assert rep["hygiene"]["source"] == "inferred"
+    assert rep["hygiene"]["source"] == "inferred (library public API)"
     assert rep["hygiene"]["entry_points"] == ["cleanpkg.cli:main"]
     assert rep["hygiene"]["findings"] == []
 
@@ -147,10 +147,10 @@ def test_exit_codes(tmp_path):
 def test_text_report(tmp_path):
     out = cli("scan", risky(tmp_path)).stdout
     assert "  Safe       0/100  is it safe to run?" in out
-    assert "  Overall   31/100  grade F" in out
+    assert "  Overall   33/100  grade F" in out
     assert "biggest deductions:" in out and "  -60  Safe     secret.key FAIL          x3   first at deploy/id_rsa:1" in out
     assert "egress inventory (4):" in out
-    assert "hygiene (inferred entry points: 1): 6 dead, 0 test-only, 0 uncertain" in out  # + generated settings.py
+    assert "hygiene (inferred (library public API) entry points: 1): 0 dead, 0 test-only, 0 uncertain" in out
 
 
 def test_init_writes_inferred_entry_points(tmp_path):

@@ -38,6 +38,7 @@ SAFE_WEIGHTS = {  # the v0.1 threat weights, unchanged
     ("net.egress", "WARN"): 2,
     ("net.bind_all", "WARN"): 5,
     ("tls.off", "FAIL"): 25,
+    ("tls.off", "WARN"): 10,
     ("install.hook", "WARN"): 15,
     ("obfuscation", "WARN"): 10,
     ("obfuscation", "FAIL"): 40,

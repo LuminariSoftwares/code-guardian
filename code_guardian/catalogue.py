@@ -131,7 +131,7 @@ CATALOGUE = {
         "Test helpers kept in the package on purpose."),
     "orphan.uncertain": _e(
         "Maybe used dynamically",
-        "getattr/globals/importlib with a computed name, a string registry or a registering decorator could reach it.",
+        "getattr/globals/importlib with a computed name, or a string registry, could reach it.",
         "List it in keep if it is loaded by name; otherwise delete it.",
         "It is reported as uncertain precisely because the parse cannot tell."),
     # Complete

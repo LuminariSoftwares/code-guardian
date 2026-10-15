@@ -28,3 +28,13 @@ def test_every_scored_readme_row_is_in_the_code():
     for key, weight in readme_rows().items():
         if weight:
             assert score.TABLES[score.dimension_of(key[0])].get(key) == weight, key
+
+
+def test_every_catalogue_code_is_in_the_readme_catalogue():
+    from code_guardian import catalogue
+    text = (ROOT / "README.md").read_text(encoding="utf-8")
+    section = text[text.index("## Check catalogue"):text.index("## Goal contract")]
+    for code, entry in catalogue.CATALOGUE.items():
+        row = [ln for ln in section.splitlines() if ln.startswith("| `%s` |" % code)]
+        assert len(row) == 1, code
+        assert entry["fix"].replace("|", "\\|") in row[0], code

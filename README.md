@@ -20,7 +20,7 @@ from deterministic checks with fixed weights: same repo, same version, same outp
 
 It parses the code (`ast` for Python; `json`, `tomllib` and `configparser` for manifests; regular expressions for
 secrets) and never executes, imports or installs it. A scan makes
-no network calls. Python 3.11+, standard library only. Status: **0.1.0, unreleased.** The fourth guardian, next to
+no network calls. Python 3.11+, standard library only. Status: **0.2.0, unreleased.** The fourth guardian, next to
 [stack-guardian](https://github.com/LuminariSoftwares/stack-guardian),
 [context-guardian](https://github.com/LuminariSoftwares/context-guardian) and
 [tool-guardian](https://github.com/LuminariSoftwares/tool-guardian).
@@ -58,13 +58,13 @@ code-guardian scan risky_repo
 Real output:
 
 ```
-code-guardian 0.1.0  scan of risky_repo
+code-guardian 0.2.0  scan of risky_repo
 files: 7 Python, 3 manifests, 2 other (0 skipped, 0 excluded by the goal file)
 
   Safe       0/100  is it safe to run?           -237
-  Works     79/100  will it work?                -21
+  Works     85/100  will it work?                -15
   Complete  35/100  does it have what it needs?  -65
-  Overall   31/100  grade F  (a Safe check is FAIL (exec.shell, obfuscation, secret.key, tls.off): the grade is at most D)
+  Overall   33/100  grade F  (a Safe check is FAIL (exec.shell, obfuscation, secret.key, tls.off): the grade is at most D)
 
 biggest deductions:
   -60  Safe     secret.key FAIL          x3   first at deploy/id_rsa:1
@@ -112,13 +112,7 @@ egress inventory (4):
   INFO  risky/network.py:7  ip    100.64.0.5
   INFO  risky/network.py:11  call  requests.post
 
-hygiene (inferred entry points: 1): 6 dead, 0 test-only, 0 uncertain
-  WARN  orphan.dead       risky/loader.py:1  module risky.loader is never reached from the entry points
-  WARN  orphan.dead       risky/network.py:1  module risky.network is never reached from the entry points
-  WARN  orphan.dead       risky/runner.py:10  function risky.runner.list_files is never reached from the entry points
-  WARN  orphan.dead       risky/runner.py:14  function risky.runner.calculate is never reached from the entry points
-  WARN  orphan.dead       risky/settings.py:1  module risky.settings is never reached from the entry points
-  WARN  orphan.dead       risky/storage.py:1  module risky.storage is never reached from the entry points
+hygiene (inferred (library public API) entry points: 1): 0 dead, 0 test-only, 0 uncertain
 
 notes:
   - code-guardian analyses Python only: 1 file(s) in other languages (.js 1) got the secret scan only
@@ -127,7 +121,8 @@ weights used (each check (code + level) deducts its weight once, plus a quarter 
   Safe     deps.unpinned INFO 0 · deser.unsafe WARN 10 · exec.dynamic WARN 10 · exec.shell FAIL 30 ·
            exec.shell WARN 10 · fs.outside WARN 3 · install.hook WARN 15 · net.bind_all WARN 5 ·
            net.egress INFO 0 · net.egress WARN 2 · obfuscation FAIL 40 · obfuscation WARN 10 ·
-           secret.key FAIL 40 · tls.off FAIL 25
+           secret.key FAIL 40 · supply.lookalike WARN 15 · supply.unknown_package FAIL 40 ·
+           supply.unknown_package INFO 0 · supply.unknown_package WARN 10 · tls.off FAIL 25 · tls.off WARN 10
   Works    orphan.dead WARN 3 · works.entry_missing FAIL 30 · works.import_unresolved WARN 10 ·
            works.relative_missing FAIL 25 · works.syntax FAIL 30 · works.syntax INFO 0 ·
            works.test_no_assert WARN 5 · works.tests_missing WARN 15
@@ -179,6 +174,7 @@ this README drift from them.
   "tool", "version", "path", "goal_file",
   "files": {"python", "manifests", "other", "skipped", "ignored", "excluded", "unparsed"},
   "other_languages": {".js": 1, ...},
+  "anchor": "pyproject.toml",                (the file repo-level findings are attached to in SARIF)
   "scores": {"safe", "works", "complete", "overall", "grade", "grade_uncapped", "capped", "cap_reason"},
   "dimensions": {"safe" | "works" | "complete": {"score", "deducted",
                  "checks": [{"code", "level", "count", "weight", "deduction", "first"}]}},
@@ -207,7 +203,8 @@ The MCP `scan` reply adds `exit_code`. Nothing in the report depends on the cloc
 | `net.egress` | every URL and IP literal plus every `urllib`/`requests`/`httpx`/`socket.connect` call site: the **egress inventory** | INFO | 0 |
 | `net.egress` | a publicly routable IP, or plain `http`/`ws`/`ftp` to a public name or to a host chosen at runtime | WARN | 2 |
 | `net.bind_all` | binding `0.0.0.0` or `::` | WARN | 5 |
-| `tls.off` | `verify=False`, `ssl._create_unverified_context`, `CERT_NONE`, `check_hostname = False` | FAIL | 25 |
+| `tls.off` | `verify=False`, `ssl._create_unverified_context`, `CERT_NONE`, `check_hostname = False`, hard-coded | FAIL | 25 |
+| `tls.off` | …only under an `if` on a function parameter: the caller opts out (how `httpx` implements `verify=False`) | WARN | 10 |
 | `install.hook` | `setup.py` `cmdclass` or install-command subclasses, `package.json` `preinstall`/`install`/`postinstall`, an in-tree build backend | WARN | 15 |
 | `obfuscation` | `exec`/`eval` of `base64`/`zlib`/`marshal`/hex-decoded data | FAIL | 40 |
 | `obfuscation` | base64 or hex blobs of 200+ characters, high-entropy string literals | WARN | 10 |
@@ -273,8 +270,10 @@ How `works.import_unresolved` decides:
   `dateutil`→python-dateutil…) plus the normalised name, `python-X`/`pyX`/`X-python` forms and namespace packages
   (`google`→`google-cloud-*`). It never reads the scanner's own installed packages: they describe this machine, not
   the repo.
-- **Not reported**: imports inside `try: … except ImportError` (optional) and under `if TYPE_CHECKING:`; `pytest`,
-  `hypothesis` and `mock` in test files; `setuptools` and friends in `setup.py`.
+- **Product code only**: test files and `docs/` are not checked (their dependencies are dev tools, and tests often
+  import modules they write at runtime).
+- **Not reported**: imports inside either branch of `try: … except ImportError`, under `if TYPE_CHECKING:`, or under an
+  `if` on a flag such a `try` sets (`if has_simplejson:`); `setuptools` and friends in `setup.py`.
 - A dependency that is only installed because another one pulls it in still counts as undeclared: it works by
   accident. Undeclared dependencies have one owner, this check; Complete does not report them again.
 
@@ -301,8 +300,10 @@ web app object (`Flask(…)`, `FastAPI(…)`, `Starlette(…)`, `Quart(…)`, `S
 `get_wsgi_application()`/`get_asgi_application()`). Markers under `examples/`, `docs/`, `tests/` and similar folders do
 not count. A library (it has `[project]` and none of these markers) is not penalised for having no lockfile.
 
-**`.env.example` is required only when the code reads environment variables**, outside tests and examples. A read
-through a variable that merely holds `os.environ` is not followed.
+**`.env.example` is required only for applications that read environment variables** (the same markers as the
+lockfile rule), outside tests and examples. Libraries read optional variables such as `NO_COLOR` all the time and do
+not ship `.env` files; calibration showed every clean library tripping the check otherwise. A read through a variable
+that merely holds `os.environ` is not followed.
 
 **Undeclared dependencies are owned by `works.import_unresolved`**; Complete reports only the opposite case,
 declared but unused. A repo with no Python source and no manifest has nothing for Works or Complete to check: it
@@ -357,6 +358,55 @@ repos:
         # args: [--fail-on, WARN]
 ```
 
+## Check catalogue
+
+Every finding code: what it means, how to fix it, and when it can be wrong. Weights are in the dimension tables
+above. Two rules apply across Safe:
+
+- **Test code and documentation are reported at INFO.** Safe findings in tests (`tests/`, `test_*.py`,
+  `conftest.py`, fixture and test-data folders) and in documentation (`docs/`, `.md`, `.rst`, `.txt`) keep their
+  place in the report but do not score: users run the product, not its tests or its doc samples. Two
+  exceptions keep their level: API-key shapes (a real key is leaked wherever it sits) and `exec` of decoded data
+  (a payload in `conftest.py` runs on every `pytest`).
+- **Calibration.** Each false-positive note below comes from scanning five well-known clean projects and the
+  four guardian repositories; see [calibration.md](calibration.md).
+
+| code | dimension | what it means | how to fix it | false positives |
+|---|---|---|---|---|
+| `check.crashed` | Safe | One of code-guardian's own checks raised on this file; the rest of the scan ran. | Report it at github.com/LuminariSoftwares/code-guardian/issues with the file if you can share it. | It is a code-guardian bug, never a finding about your code. |
+| `deps.unpinned` | Safe | A dependency with no pin and no upper bound. | Pin it (==) or cap it (< next major). | Libraries often prefer open ranges on purpose; INFO, never scored. |
+| `deser.unsafe` | Safe | pickle, marshal, yaml.load without SafeLoader, or torch.load without weights_only=True can run code hidden in the data. | Load only files you created, or use a data-only format (json, safetensors, yaml.safe_load). | Caches the program writes and reads itself are lower risk. |
+| `exec.dynamic` | Safe | eval, exec or compile runs a non-literal string, or __import__ loads a module named at runtime. | Use a parser, a lookup table or ast.literal_eval; import modules by name. | Plugin loaders and REPL-style tools use these on purpose. |
+| `exec.shell` | Safe | os.system, os.popen or subprocess with shell=True; FAIL when the command text comes from input, the environment or the network. | Pass an argument list without shell=True; validate any outside value against an allow-list. | Fixed command strings in build scripts are WARN, not FAIL; taint is tracked one function deep. |
+| `fs.outside` | Safe | A write, delete or move aimed at an absolute path, the home directory or a .. escape. | Write under the project or under a path the user passes in. | Tools whose job is to write to /tmp or a user config folder. |
+| `install.hook` | Safe | setup.py cmdclass or install-command subclasses, package.json preinstall/install/postinstall, or an in-tree build backend. | Read what the hook runs before installing; prefer packages without install-time code. | Projects that compile extensions legitimately customise build commands. |
+| `net.bind_all` | Safe | A server binds 0.0.0.0 or ::, so other machines can reach it. | Bind to 127.0.0.1 unless other machines must connect. | Containers usually must bind 0.0.0.0; a test that asserts the bind is refused still matches. |
+| `net.egress` | Safe | The egress inventory: every URL and IP literal and every network call site. WARN for a public IP, or plain http/ws/ftp to a public name or to a host set at runtime. | Use https, and confirm each destination is expected. | Local-network and documentation hosts stay INFO; a URL in a help string is still inventoried. |
+| `obfuscation` | Safe | exec/eval of base64, zlib, marshal or hex-decoded data (FAIL); long encoded blobs or high-entropy literals (WARN). | Decode the payload offline and read what it does before running anything. | Embedded icons, test vectors and hashes can look like blobs. |
+| `secret.key` | Safe | An API-key shape, a private-key block or a password-like literal is written into a file. | Move it to an environment variable or a secret store, and rotate it: it is in the history. | Test fixtures and documentation samples; values that call themselves fake (mock, dummy, example) are skipped. |
+| `supply.lookalike` | Safe | The name is one or two edits away from a known package without being it: the typosquatting pattern. | Check you meant the well-known package. | Real packages with names close to a popular one. |
+| `supply.unknown_package` | Safe | Offline: the name is not in the bundled list of known packages (INFO). Online: PyPI has no such project (FAIL), or it is new or has a single release (WARN). | Check the name is the one you meant; remove names an assistant invented; run with --online. | Offline misses are common for less-known real packages, which is why they are INFO. Existing is not safe. |
+| `tls.off` | Safe | verify=False, ssl._create_unverified_context, CERT_NONE or check_hostname = False. | Remove it; point at a CA bundle if the certificate is private. | Rare: code that deliberately probes broken servers. |
+| `orphan.dead` | Works | A function, class or module nothing reachable from the entry points uses. | Delete it, or list it in keep if something loads it by name. | Code loaded by name (plugins, entry points of other tools); add those to keep. |
+| `orphan.test_only` | Works | Only tests reach this code; the product never does. | Delete it with its tests, or call it from the product. | Test helpers kept in the package on purpose. |
+| `orphan.uncertain` | Works | getattr/globals/importlib with a computed name, or a string registry, could reach it. | List it in keep if it is loaded by name; otherwise delete it. | It is reported as uncertain precisely because the parse cannot tell. |
+| `works.entry_missing` | Works | A [project.scripts] (or setup.cfg console script) target module:function is not in the tree. | Point the script at an existing module:function. | Modules generated at build time. |
+| `works.import_unresolved` | Works | An absolute import that is not in the standard library, not in the repo and not a declared dependency. | Declare the distribution that provides it, or guard an optional import with try/except ImportError. | Packages pulled in only by another dependency (they work by accident); import names the mapping table misses. |
+| `works.relative_missing` | Works | from .x import y points at a module (or a package name) the repo does not have. | Fix the module path or add the missing module. | Modules generated at build time. |
+| `works.syntax` | Works | ast.parse rejects the file, so it cannot be imported or run (INFO when the project needs a newer Python than the one scanning). | Fix the syntax error; port Python 2 code to Python 3. | Files kept on purpose for another interpreter, or templates with a .py name. |
+| `works.test_no_assert` | Works | Test functions with no assert, no pytest.raises/warns, no self.assert* and no call to an asserting helper. | Assert on the result; use pytest.raises for expected errors. | Smoke tests that only check nothing raises; helpers defined in another file. |
+| `works.tests_missing` | Works | There are no test files at all. | Add a tests/ folder with at least one test per entry point. | Tests kept in another repository. |
+| `complete.ci_missing` | Complete | No CI configuration was found. | Add a CI workflow that runs the tests on each change. | CI configured outside the repository. |
+| `complete.env_example` | Complete | The code reads environment variables but there is no .env.example listing them. | Add a .env.example with every variable and a safe placeholder. | Libraries that read only optional, well-known variables (NO_COLOR, TERM). |
+| `complete.license_missing` | Complete | There is no LICENSE, LICENCE, COPYING or UNLICENSE file at the root. | Add a LICENSE file. | Licences kept only in a subfolder. |
+| `complete.license_undeclared` | Complete | Packaging metadata exists but declares no licence. | Add license = "..." (or license-files) to [project]. | Licences declared only by a build plugin. |
+| `complete.lockfile` | Complete | The repo is an application (a Dockerfile, a __main__.py without scripts, or a web app object) and has no lockfile. | Commit a lockfile (uv lock, poetry lock or pip-compile). | Libraries are never asked for one; an example app outside examples/ can make a library look like an app. |
+| `complete.metadata` | Complete | pyproject.toml [project] lacks name, version (or dynamic) or requires-python. | Add the missing keys to [project]. | None known. |
+| `complete.readme_missing` | Complete | There is no README at the root. | Add a README.md that says what it is, how to install it and how to use it. | README kept under docs/ only. |
+| `complete.readme_sections` | Complete | A README of 200+ bytes with no install heading or no usage heading. | Add an Install heading and a Usage heading. | Headings worded differently from the words the check knows. |
+| `complete.readme_short` | Complete | The README is under 200 bytes. | Describe what it does, how to install it and how to use it. | A README that only links to full documentation. |
+| `deps.declared_unused` | Complete | A runtime dependency nothing in the repo imports. | Remove it, or note why it is needed (a plugin or a runner). | Plugins and runners loaded by other tools; INFO, never scored. |
+
 ## Goal contract
 
 `code-guardian.goal.toml` at the project root (optional) says what the project is for and where it starts:
@@ -384,10 +434,15 @@ Anything not reachable from an entry point is an orphan:
 |---|---|---|
 | `orphan.dead` | nothing reachable uses it | WARN |
 | `orphan.test_only` | only tests reach it | INFO |
-| `orphan.uncertain` | `getattr`/`globals()`/`importlib` with a computed name could reach it, its name is a string in reachable code (a registry), or a registering decorator wraps it | INFO |
+| `orphan.uncertain` | `getattr`/`globals()`/`importlib` with a computed name could reach it, or its name is a string in reachable code (a registry) | INFO |
 
 A method counts as used when its class is used and its name is read as an attribute anywhere reachable; a class with a
-base outside the project (a framework) keeps all its methods. Orphans go into the **hygiene** section and never touch
+base outside the project (a framework) keeps all its methods. A def wrapped in a registering decorator (`@app.get`,
+`@click.command`, `@pytest.fixture`) and a module-level `__getattr__` are reached with their module, because the
+decorator or the interpreter calls them. For a **library** (inferred entry points, packaging metadata and no
+application marker), the public API counts as entry points: every public module, its public functions and classes,
+their public methods, and everything a public module re-exports (`from ._client import Client`,
+`from ._transports import *`); the hygiene source then reads "inferred (library public API)". Orphans go into the **hygiene** section and never touch
 the Safe score.
 
 ## `--explain`

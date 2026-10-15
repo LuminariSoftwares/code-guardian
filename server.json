@@ -4,13 +4,13 @@
   "title": "Code Guardian",
   "description": "Is this codebase safe to run, and is all of it used? Deterministic threat score plus orphan code.",
   "repository": {"url": "https://github.com/LuminariSoftwares/code-guardian", "source": "github"},
-  "version": "0.1.0",
+  "version": "0.2.0",
   "packages": [
     {
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "code-guardian-mcp",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "runtimeHint": "uvx",
       "transport": {"type": "stdio"},
       "packageArguments": [{"type": "positional", "value": "mcp"}],

@@ -203,6 +203,7 @@ SECRET_TEXT = re.compile(r"(?i)\b(?:password|passwd|pwd|passphrase|secret|api_?k
 _ENV_NAME = re.compile(r"[A-Z][A-Z0-9_]+")
 
 
+SELF_NAMED = frozenset({"secret", "password", "passwd", "pass", "pwd", "token", "apikey", "api_key", "username", "user"})
 PLACEHOLDER_WORDS = frozenset({"mock", "fake", "dummy", "example", "placeholder", "sample", "redacted", "test",
                                "testing", "notreal", "changeit"})
 
@@ -214,7 +215,7 @@ def _real_secret(value):
         return False
     if any(m in value for m in ("<", ">", "{", "}", "$", "%s", "***", "xxx", "XXX", "...")):
         return False
-    if PLACEHOLDER_WORDS & set(re.split(r"[^a-z]+", value.lower())):
+    if PLACEHOLDER_WORDS & set(re.split(r"[^a-z]+", value.lower())) or value.lower() in SELF_NAMED:
         return False
     return len(set(value)) > 1
 
@@ -383,6 +384,9 @@ def _ip(text):
 LOCAL_SUFFIXES = (".local", ".lan", ".internal", ".home.arpa", ".localdomain")
 # RFC 2606 / RFC 6761 names: documentation and testing only, never a real third party.
 RESERVED = ("example.com", "example.net", "example.org")
+# XML namespace identifiers look like URLs but are never fetched.
+NAMESPACE_HOSTS = frozenset({"www.w3.org", "w3.org", "schemas.xmlsoap.org", "schemas.openxmlformats.org", "purl.org",
+                             "ns.adobe.com", "schemas.microsoft.com", "xmlns.com", "www.opengis.net"})
 RESERVED_SUFFIXES = (".example.com", ".example.net", ".example.org", ".test", ".example", ".invalid", ".localhost")
 
 
@@ -397,6 +401,8 @@ def classify_host(scheme, host):
     ip = _ip(host)
     if host == "localhost" or (ip is not None and ip.is_loopback):
         return "INFO", "loopback"
+    if host.lower() in NAMESPACE_HOSTS:
+        return "INFO", "XML namespace identifier"
     if ip is not None:
         return ("WARN", "public IP address") if ip.is_global else ("INFO", "local-network address")
     if "." not in host or host.lower().endswith(LOCAL_SUFFIXES):
@@ -483,11 +489,33 @@ def scan_bind_all(pf):
 VERIFY_KWARGS = ("verify", "verify_ssl", "ssl_verify")
 
 
+def caller_controlled(pf, node):
+    """node sits under an `if` whose test reads a parameter of the enclosing function: it runs only when asked."""
+    scope = pf.scope(node)
+    if not isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+        return False
+    a = scope.args
+    params = {x.arg for x in a.posonlyargs + a.args + a.kwonlyargs + [a.vararg, a.kwarg] if x}
+    cur = pf.parents.get(node)
+    while cur is not None and cur is not scope:
+        if isinstance(cur, (ast.If, ast.IfExp)) and any(isinstance(n, ast.Name) and n.id in params for n in ast.walk(cur.test)):
+            return True
+        cur = pf.parents.get(cur)
+    return False
+
+
 def scan_tls_off(pf):
-    """Certificate checks switched off: verify=False, ssl._create_unverified_context, CERT_NONE, check_hostname=False."""
+    """Certificate checks switched off: verify=False, ssl._create_unverified_context, CERT_NONE, check_hostname=False.
+    FAIL when hard-coded; WARN when it happens only under an `if` on a function parameter (the caller opts out)."""
     out = []
 
     def hit(node, how):
+        if caller_controlled(pf, node):
+            out.append(finding("tls.off", "WARN", node_of(pf, node),
+                               "TLS certificate checking can be switched off by the caller (%s)" % how,
+                               ["code: %s" % how, "runs only under an if on a function parameter"],
+                               ["make sure callers cannot pass it by accident; keep it out of defaults"]))
+            return
         out.append(finding("tls.off", "FAIL", node_of(pf, node), "TLS certificate checking is switched off (%s)" % how,
                            ["code: %s" % how], ["remove it; point at a CA bundle instead if the certificate is private"]))
 
@@ -542,7 +570,9 @@ def scan_obfuscation(pf):
             kind = "hex" if _HEX.fullmatch(compact) else "base64-like"
             out.append(finding("obfuscation", "WARN", node_of(pf, node), "%s blob of %d characters" % (kind, len(compact)),
                                ["kind: %s blob" % kind, "length: %d" % len(compact)], ["decode it and check what it holds"]))
-        elif len(compact) >= TOKEN_MIN and "://" not in compact and _B64.fullmatch(compact) and entropy(compact) >= TOKEN_ENTROPY:
+        elif (len(compact) >= TOKEN_MIN and "://" not in compact and _B64.fullmatch(compact)
+              and entropy(compact) >= TOKEN_ENTROPY and len(set(compact)) < 0.95 * len(compact)):
+            # all-distinct characters is an alphabet (A-Za-z0-9...), not a token: random strings repeat characters
             out.append(finding("obfuscation", "WARN", node_of(pf, node), "high-entropy literal of %d characters" % len(compact),
                                ["kind: high-entropy literal", "entropy: %.2f bits/char" % entropy(compact)],
                                ["check whether it is a credential or an encoded payload"]))
