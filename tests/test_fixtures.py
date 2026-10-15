@@ -30,9 +30,12 @@ RISKY_COUNTS = {
     ("fs.outside", "WARN"): 1,      # storage.py open("/tmp/...", "w")
     ("deps.unpinned", "INFO"): 3,   # setup.py requests, pyproject flask>=2, package.json left-pad *
 }
-# 3*40 + 30 + 10 + 2*10 + 2*10 + 2 + 0 + 5 + 25 + 3*15 + 40 + 2*10 + 3 + 0
-RISKY_RAW = 120 + 30 + 10 + 20 + 20 + 2 + 0 + 5 + 25 + 45 + 40 + 20 + 3 + 0
-RISKY_TRACKED_RAW = RISKY_RAW - 3 * 40 - 10  # without make_risky's three secrets and the high-entropy token
+# Safe deductions per check (weight once, +25% of it per extra occurrence rounded up, at most 2x):
+# secret.key 40+20, exec.shell FAIL 30, WARN 10, exec.dynamic 10+3, deser 10+3, egress WARN 2, bind_all 5, tls 25,
+# install.hook 15+8, obfuscation FAIL 40, WARN 10+3, fs.outside 3
+RISKY_SAFE_DEDUCTED = 60 + 30 + 10 + 13 + 13 + 2 + 5 + 25 + 23 + 40 + 13 + 3
+# without make_risky's three secrets (60) and the high-entropy token (obfuscation WARN drops from 13 to 10)
+RISKY_TRACKED_DEDUCTED = RISKY_SAFE_DEDUCTED - 60 - 3
 
 
 def risky(tmp_path):
@@ -49,21 +52,9 @@ def test_risky_counts_and_hand_computed_score(tmp_path):
     counts = collections.Counter((f["code"], f["level"]) for f in rep["findings"])
     assert dict(counts) == RISKY_COUNTS
     assert {c for c, _ in counts} == ALL_CODES  # every scanner fired
-    assert RISKY_RAW == 340
-    assert rep["threat"]["raw"] == RISKY_RAW
-    assert rep["threat"]["score"] == 100
-    assert rep["threat"]["grade"] == "F"
-
-
-def test_risky_top_five(tmp_path):
-    top = report.scan(str(risky(tmp_path)))["threat"]["top"]
-    assert [(t["weight"], t["code"], t["node"]) for t in top] == [
-        (40, "secret.key", "deploy/id_rsa:1"),
-        (40, "obfuscation", "risky/loader.py:7"),
-        (40, "secret.key", "risky/settings.py:1"),
-        (40, "secret.key", "risky/settings.py:2"),
-        (30, "exec.shell", "risky/runner.py:7"),
-    ]
+    assert RISKY_SAFE_DEDUCTED == 237
+    assert rep["dimensions"]["safe"]["deducted"] == RISKY_SAFE_DEDUCTED
+    assert (rep["scores"]["safe"], rep["scores"]["overall"], rep["scores"]["grade"]) == (0, 50, "D")
 
 
 def test_risky_exact_nodes(tmp_path):
@@ -90,13 +81,13 @@ def test_risky_secret_values_never_printed(tmp_path):
 
 def test_tracked_risky_repo_without_secrets():
     rep = report.scan(str(FIXTURES / "risky_repo"))
-    assert rep["threat"]["raw"] == RISKY_TRACKED_RAW == 210
+    assert rep["dimensions"]["safe"]["deducted"] == RISKY_TRACKED_DEDUCTED == 174
     assert not [f for f in rep["findings"] if f["code"] == "secret.key"]
 
 
 def test_clean_repo_grade_a():
     rep = report.scan(str(FIXTURES / "clean_repo"))
-    assert rep["threat"] == {"score": 0, "raw": 0, "grade": "A", "top": []}
+    assert rep["dimensions"]["safe"] == {"score": 100, "deducted": 0, "checks": []} and rep["top"] == []
     assert [(f["code"], f["level"], f["node"]) for f in rep["findings"]] == [
         ("net.egress", "INFO", "cleanpkg/fetch.py:3"), ("net.egress", "INFO", "cleanpkg/fetch.py:7")]
     assert not [f for f in rep["findings"] if f["level"] == "FAIL"]
@@ -125,10 +116,10 @@ def test_orphan_keep_is_what_hides_the_plugin(tmp_path):
     assert ("orphan.dead", "name: greeter.plugins") in [(f["code"], f["evidence"][0]) for f in h["findings"]]
 
 
-def test_orphans_never_touch_the_threat_score():
+def test_orphans_never_touch_the_safe_score():
     rep = report.scan(str(FIXTURES / "orphan_repo"))
     assert rep["hygiene"]["counts"]["orphan.dead"] == 1
-    assert rep["threat"]["raw"] == 0 and rep["threat"]["grade"] == "A"
+    assert rep["scores"]["safe"] == 100 and rep["scores"]["grade"] == "A"
 
 
 def test_exit_codes(tmp_path):
@@ -136,7 +127,7 @@ def test_exit_codes(tmp_path):
     assert cli("scan", FIXTURES / "clean_repo").returncode == 0
     assert cli("scan", FIXTURES / "clean_repo", "--fail-on", "INFO").returncode == 1
     assert cli("scan", FIXTURES / "clean_repo", "--fail-on", "WARN").returncode == 0
-    assert cli("scan", FIXTURES / "orphan_repo").returncode == 0  # orphans are hygiene: scan gates on threat only
+    assert cli("scan", FIXTURES / "orphan_repo").returncode == 0  # orphans are hygiene, not scored findings
     assert cli("orphans", FIXTURES / "orphan_repo").returncode == 0
     assert cli("orphans", FIXTURES / "orphan_repo", "--fail-on", "WARN").returncode == 1
     assert cli("scan", tmp_path / "missing").returncode == 2
@@ -151,8 +142,9 @@ def test_exit_codes(tmp_path):
 
 def test_text_report(tmp_path):
     out = cli("scan", risky(tmp_path)).stdout
-    assert "threat score 100/100 (raw 340)  grade F" in out
-    assert "top contributors:" in out and "   40  secret.key    FAIL  deploy/id_rsa:1" in out
+    assert "  Safe       0/100  is it safe to run?" in out
+    assert "  Overall   50/100  grade D" in out
+    assert "biggest deductions:" in out and "  -60  Safe     secret.key FAIL          x3   first at deploy/id_rsa:1" in out
     assert "egress inventory (4):" in out
     assert "hygiene (inferred entry points: 1): 6 dead, 0 test-only, 0 uncertain" in out  # + generated settings.py
 
@@ -172,7 +164,5 @@ def test_init_writes_inferred_entry_points(tmp_path):
 def test_scan_is_deterministic(tmp_path):
     path = str(risky(tmp_path))
     a, b = report.scan(path), report.scan(path)
-    a.pop("elapsed_ms")
-    b.pop("elapsed_ms")
     assert a == b
     assert json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)

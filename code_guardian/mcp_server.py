@@ -25,8 +25,9 @@ def _annotations(title, open_world):
 
 TOOL_SPECS = [
     {"name": "scan", "title": "Scan a codebase",
-     "description": "Deterministic threat score (0-100, grade A-F) from static scanners, every finding with file:line, "
-                    "the network egress inventory and orphan-code hygiene. Parses only; never runs the code.",
+     "description": "Is it safe to run, will it work, does it have what it needs? Safe, Works and Complete scores "
+                    "(0-100, higher is better), Overall and an A-F grade, every finding with file:line, the egress "
+                    "inventory and orphan-code hygiene. Deterministic; parses only, never runs the code.",
      "inputSchema": {"type": "object", "properties": {"path": _PATH, "goal": _GOAL,
                                                       "fail_on": {"type": "string", "enum": ["INFO", "WARN", "FAIL"]}},
                      "required": ["path"]},
@@ -134,8 +135,7 @@ def make_tools(scan_fn, orphans_fn, exit_fn):
 
     def explain(a):
         rep = scan_fn(resolve_path(a.get("path")), goal_of(a), True)
-        return {"score": rep["threat"]["score"], "grade": rep["threat"]["grade"],
-                "explanation": rep.get("explanation"), "notes": rep["notes"]}
+        return {"scores": rep["scores"], "explanation": rep.get("explanation"), "notes": rep["notes"]}
 
     return {"scan": scan, "orphans": orphans, "explain": explain}
 
@@ -170,7 +170,7 @@ def _selftest():
 
     def fake_scan(path, goal, explain):
         calls.append((path, goal, explain))
-        return {"threat": {"score": 0, "grade": "A"}, "findings": [{"level": "WARN"}], "notes": ["n"]}
+        return {"scores": {"overall": 100, "grade": "A"}, "findings": [{"level": "WARN"}], "notes": ["n"]}
 
     tools = make_tools(fake_scan, lambda p, g: {"path": p}, lambda f, lv: 1 if lv != "FAIL" else 0)
 
@@ -196,7 +196,7 @@ def _selftest():
         ("path_resolved", calls[0][0] == os.path.realpath(here)),
         ("missing_path_is_error", call("scan", {"path": os.path.join(here, "no-such-dir")})[0] is True),
         ("path_required", call("orphans", {})[0] is True),
-        ("explain_sets_flag", body("explain", {"path": here})["grade"] == "A" and calls[-1][2] is True),
+        ("explain_sets_flag", body("explain", {"path": here})["scores"]["grade"] == "A" and calls[-1][2] is True),
         ("unknown_tool", call("delete_everything", {}) == (True, "unknown tool: delete_everything")),
         ("serve_lines", serve(['{"jsonrpc":"2.0","id":1,"method":"ping"}', "", "nope"], [].append, tools) == 2),
         ("annotations", all(t["annotations"]["readOnlyHint"] and not t["annotations"]["destructiveHint"] for t in TOOL_SPECS)

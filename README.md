@@ -5,9 +5,15 @@
 
 mcp-name: io.github.LuminariSoftwares/code-guardian
 
-One command that answers: **is this codebase safe to run, and is all of it actually used?**
+One command that tells you three things about any repo, without running it:
 
-- A **threat score** (0–100, grade A–F) computed only by deterministic scanners: same input, same score, every time.
+- **Safe**: is it safe to run?
+- **Works**: will it work?
+- **Complete**: does it have what it needs?
+
+Each is a score out of 100 (higher is better), combined into an **Overall** score and an A–F grade. Scores come only
+from deterministic checks with fixed weights: same repo, same version, same output, every time. On top of that:
+
 - **Orphan code**: functions, classes and modules nothing reachable from the project's entry points uses, judged
   against a small goal contract.
 - An optional **plain-English explanation** from a local model, which never adds, removes or rescores a finding.
@@ -55,36 +61,41 @@ Real output:
 code-guardian 0.1.0  scan of risky_repo
 files: 7 Python, 3 manifests, 2 other (0 skipped, 0 excluded by the goal file)
 
-threat score 100/100 (raw 340)  grade F
-top contributors:
-   40  secret.key    FAIL  deploy/id_rsa:1  private-key block in the source; value redacted
-   40  obfuscation   FAIL  risky/loader.py:7  exec() runs decoded or decompressed data
-   40  secret.key    FAIL  risky/settings.py:1  sk- key shape (privacy pattern 5) in the source; value redacted
-   40  secret.key    FAIL  risky/settings.py:2  password-like literal assigned to 'password' in the source; value redacted
-   30  exec.shell    FAIL  risky/runner.py:7  os.system runs a shell command built from input, env or network
+  Safe       0/100  is it safe to run?           -237
+  Works    100/100  will it work?
+  Complete 100/100  does it have what it needs?
+  Overall   50/100  grade D  (a Safe check is FAIL (exec.shell, obfuscation, secret.key, tls.off): the grade is at most D)
+
+biggest deductions:
+  -60  Safe     secret.key FAIL          x3   first at deploy/id_rsa:1
+  -40  Safe     obfuscation FAIL         x1   first at risky/loader.py:7
+  -30  Safe     exec.shell FAIL          x1   first at risky/runner.py:7
+  -25  Safe     tls.off FAIL             x1   first at risky/network.py:11
+  -23  Safe     install.hook WARN        x3   first at package.json:5
 
 findings (6 FAIL, 13 WARN, 6 INFO; egress listed below):
-  FAIL  secret.key    deploy/id_rsa:1  private-key block in the source; value redacted
-  WARN  install.hook  package.json:5  npm postinstall script runs on install
-  INFO  deps.unpinned package.json:8  dependency left-pad has no pin or upper bound
-  INFO  deps.unpinned pyproject.toml:4  dependency flask has no pin or upper bound
-  WARN  obfuscation   risky/loader.py:3  base64-like blob of 340 characters
-  WARN  exec.dynamic  risky/loader.py:7  exec() runs code built at runtime
-  FAIL  obfuscation   risky/loader.py:7  exec() runs decoded or decompressed data
-  FAIL  tls.off       risky/network.py:11  TLS certificate checking is switched off (verify=False)
-  WARN  net.bind_all  risky/network.py:16  binds to all interfaces (0.0.0.0)
-  FAIL  exec.shell    risky/runner.py:7  os.system runs a shell command built from input, env or network
-  WARN  exec.shell    risky/runner.py:11  subprocess.run(shell=True) runs a command through the shell
-  WARN  exec.dynamic  risky/runner.py:15  eval() runs code built at runtime
-  FAIL  secret.key    risky/settings.py:1  sk- key shape (privacy pattern 5) in the source; value redacted
-  FAIL  secret.key    risky/settings.py:2  password-like literal assigned to 'password' in the source; value redacted
-  WARN  obfuscation   risky/settings.py:3  high-entropy literal of 48 characters
-  WARN  deser.unsafe  risky/storage.py:8  pickle.load can run code hidden in the data
-  WARN  deser.unsafe  risky/storage.py:12  yaml.load without SafeLoader can build arbitrary Python objects
-  WARN  fs.outside    risky/storage.py:16  writes outside the project: /tmp/risky-report.txt (absolute path)
-  WARN  install.hook  setup.py:5  class PostInstall overrides the install command
-  INFO  deps.unpinned setup.py:13  dependency requests has no pin or upper bound
-  WARN  install.hook  setup.py:14  setup() cmdclass overrides build/install commands
+  Safe:
+    FAIL  secret.key    deploy/id_rsa:1  private-key block in the source; value redacted
+    WARN  install.hook  package.json:5  npm postinstall script runs on install
+    INFO  deps.unpinned package.json:8  dependency left-pad has no pin or upper bound
+    INFO  deps.unpinned pyproject.toml:4  dependency flask has no pin or upper bound
+    WARN  obfuscation   risky/loader.py:3  base64-like blob of 340 characters
+    WARN  exec.dynamic  risky/loader.py:7  exec() runs code built at runtime
+    FAIL  obfuscation   risky/loader.py:7  exec() runs decoded or decompressed data
+    FAIL  tls.off       risky/network.py:11  TLS certificate checking is switched off (verify=False)
+    WARN  net.bind_all  risky/network.py:16  binds to all interfaces (0.0.0.0)
+    FAIL  exec.shell    risky/runner.py:7  os.system runs a shell command built from input, env or network
+    WARN  exec.shell    risky/runner.py:11  subprocess.run(shell=True) runs a command through the shell
+    WARN  exec.dynamic  risky/runner.py:15  eval() runs code built at runtime
+    FAIL  secret.key    risky/settings.py:1  sk- key shape (privacy pattern 5) in the source; value redacted
+    FAIL  secret.key    risky/settings.py:2  password-like literal assigned to 'password' in the source; value redacted
+    WARN  obfuscation   risky/settings.py:3  high-entropy literal of 48 characters
+    WARN  deser.unsafe  risky/storage.py:8  pickle.load can run code hidden in the data
+    WARN  deser.unsafe  risky/storage.py:12  yaml.load without SafeLoader can build arbitrary Python objects
+    WARN  fs.outside    risky/storage.py:16  writes outside the project: /tmp/risky-report.txt (absolute path)
+    WARN  install.hook  setup.py:5  class PostInstall overrides the install command
+    INFO  deps.unpinned setup.py:13  dependency requests has no pin or upper bound
+    WARN  install.hook  setup.py:14  setup() cmdclass overrides build/install commands
 
 egress inventory (4):
   WARN  risky/network.py:5  url   http://{host}:8080/upload
@@ -101,13 +112,21 @@ hygiene (inferred entry points: 1): 6 dead, 0 test-only, 0 uncertain
   WARN  orphan.dead       risky/storage.py:1  module risky.storage is never reached from the entry points
 
 notes:
-  - v1 analyses Python only: 1 file(s) in other languages (.js 1) got the secret scan only
+  - code-guardian analyses Python only: 1 file(s) in other languages (.js 1) got the secret scan only
 
-static analysis: every finding is LIKELY; scanned in 0.01 s
+weights used (each check (code + level) deducts its weight once, plus a quarter of the weight per extra occurrence (rounded up), at most 2x the weight; INFO is never scored):
+  Safe     deps.unpinned INFO 0 · deser.unsafe WARN 10 · exec.dynamic WARN 10 · exec.shell FAIL 30 ·
+           exec.shell WARN 10 · fs.outside WARN 3 · install.hook WARN 15 · net.bind_all WARN 5 ·
+           net.egress INFO 0 · net.egress WARN 2 · obfuscation FAIL 40 · obfuscation WARN 10 ·
+           secret.key FAIL 40 · tls.off FAIL 25
+  Works    (no checks yet)
+  Complete (no checks yet)
+
+static analysis: every finding is LIKELY; the scores come from fixed weights, never from a model
 ```
 
-Exit code 1: there are FAIL findings. `--json` prints the same report as JSON; `--fail-on WARN` (or `INFO`) lowers
-the bar for CI.
+Exit code 1: there are FAIL findings. `--json` prints the same report as JSON (shape below); `--fail-on WARN` (or
+`INFO`) lowers the bar for CI.
 
 | exit | meaning |
 |---|---|
@@ -115,17 +134,54 @@ the bar for CI.
 | 1 | findings at or above it |
 | 2 | usage error, a missing PATH, or a bad goal file |
 
-`scan` gates on the threat findings; `code-guardian orphans PATH` gates on the hygiene findings.
+`scan` gates on every scored finding (Safe, Works and Complete); `code-guardian orphans PATH` gates on the hygiene
+findings.
 
-## Scanners and weights
+## How the scores work
 
-Every scanner is a small pure function with its own tests. Every finding has the guardian family's shape (`code`,
+Every check is a small pure function with its own tests. Every finding has the guardian family's shape (`code`,
 `severity`, `level`, `node` = `file:line`, `summary` of at most 120 characters, `evidence`, `try`) and confidence
-`LIKELY`: a parse proves the code is there, not that it runs.
+`LIKELY`: a parse proves the code is there, not that it runs. Each check code belongs to one dimension: Safe, Works or
+Complete.
 
-**Threat score** = min(100, Σ weight), with one fixed weight per code and level (`WEIGHTS` in
-`code_guardian/score.py`). Grade: **A** 0–9 · **B** 10–24 · **C** 25–49 · **D** 50–74 · **F** 75+. The report
-shows the score, the uncapped sum (`raw`), the grade and the top five contributors.
+- **Per check, not per occurrence.** A check (one row of the tables below: a code at a level) deducts its weight
+  once, plus a quarter of the weight for each extra occurrence (rounded up), at most twice the weight. Fifty copies of
+  one minor issue cannot zero a score.
+- **Dimension score** = max(0, 100 − its deductions). Safe is 100 minus the v0.1 threat score; its weights are the
+  v0.1 weights, unchanged.
+- **Overall** = 0.5 × Safe + 0.3 × Works + 0.2 × Complete, rounded half up.
+- **Grade**: **A** ≥ 90 · **B** ≥ 75 · **C** ≥ 60 · **D** ≥ 40 · **F** below 40.
+- **FAIL cap**: any Safe finding at FAIL caps the grade at **D**, whatever the average. One leaked key never hides
+  behind a good README.
+- INFO findings are never scored. Every report prints the weight table it used.
+
+The weight tables live in `code_guardian/score.py` (`TABLES`); `tests/test_readme_sync.py` fails if the tables in
+this README drift from them.
+
+### JSON shape (`--json`, and the MCP `scan` tool)
+
+```
+{
+  "tool", "version", "path", "goal_file",
+  "files": {"python", "manifests", "other", "skipped", "ignored", "excluded", "unparsed"},
+  "other_languages": {".js": 1, ...},
+  "scores": {"safe", "works", "complete", "overall", "grade", "grade_uncapped", "capped", "cap_reason"},
+  "dimensions": {"safe" | "works" | "complete": {"score", "deducted",
+                 "checks": [{"code", "level", "count", "weight", "deduction", "first"}]}},
+  "top": [the five biggest deductions, each a check row plus "dimension"],
+  "weights": {"safe" | "works" | "complete": {"code LEVEL": weight}},
+  "weights_rule": "...",
+  "findings": [{"code", "severity", "level", "node", "summary", "evidence", "try", "confidence", "fix"}],
+  "egress": [{"node", "level", "kind", "target"}],
+  "hygiene": {"source", "goal", "entry_points", "keep", "findings", "counts", "notes"},
+  "notes": [...],
+  "explanation": {"label", "text"}          (only with --explain and a model that answered)
+}
+```
+
+The MCP `scan` reply adds `exit_code`. Nothing in the report depends on the clock.
+
+## Safe checks
 
 | code | what it looks for | level | weight |
 |---|---|---|---|
@@ -183,7 +239,7 @@ Anything not reachable from an entry point is an orphan:
 
 A method counts as used when its class is used and its name is read as an attribute anywhere reachable; a class with a
 base outside the project (a framework) keeps all its methods. Orphans go into the **hygiene** section and never touch
-the threat score.
+the Safe score.
 
 ## `--explain`
 
@@ -197,10 +253,10 @@ by path (a bare host means Ollama, a `.../v1` base means OpenAI-compatible). Opt
 
 Guarantees, each covered by a test against a stub model on loopback:
 
-- **It never changes the score.** The report with `--explain` equals the report without it, plus one block labelled
+- **It never changes a score.** The report with `--explain` equals the report without it, plus one block labelled
   `model explanation (not part of the score)` and one note line.
-- **It sends findings only:** `code`, `level`, `file:line` and the ≤120-character summary, plus the score, grade and
-  hygiene counts. No source code, no evidence lines, no secret values.
+- **It sends findings only:** `code`, `level`, `file:line` and the ≤120-character summary, plus the scores, grade
+  and hygiene counts. No source code, no evidence lines, no secret values.
 - **It talks to one URL:** the one you configured, directly (no proxy). The scan itself never touches the network.
 - **It fails soft:** with the URL unset or unreachable, the report is unchanged and one note line says why.
 
@@ -239,7 +295,7 @@ The `env` block is only needed for `explain`.
 
 ## Limitations
 
-- **v1 analyses Python only.** Manifests (`package.json`, `setup.py`, `setup.cfg`, `pyproject.toml`,
+- **Only Python is analysed.** Manifests (`package.json`, `setup.py`, `setup.cfg`, `pyproject.toml`,
   `requirements*.txt`) are read for install hooks and pins; every other language gets the secret scan only, and the
   report says which files.
 - **Static analysis cannot see runtime behaviour.** A finding means the code is there, not that it runs; code that

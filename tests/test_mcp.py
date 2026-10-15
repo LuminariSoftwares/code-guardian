@@ -37,12 +37,12 @@ def test_stdio_end_to_end():
     assert out[1]["result"]["serverInfo"] == {"name": "code-guardian", "version": code_guardian.__version__}
     assert [t["name"] for t in out[2]["result"]["tools"]] == ["scan", "orphans", "explain"]
     scan = json.loads(out[3]["result"]["content"][0]["text"])
-    assert scan["threat"]["grade"] == "A" and scan["exit_code"] == 0
+    assert scan["scores"]["grade"] == "A" and scan["exit_code"] == 0
     orphans = json.loads(out[4]["result"]["content"][0]["text"])
     assert orphans["counts"] == {"orphan.dead": 1, "orphan.test_only": 1, "orphan.uncertain": 1}
     assert out[5]["result"]["isError"] is True and "does not exist" in out[5]["result"]["content"][0]["text"]
     explained = json.loads(out[6]["result"]["content"][0]["text"])
-    assert explained["grade"] == "A" and explained["explanation"] is None
+    assert explained["scores"]["grade"] == "A" and explained["explanation"] is None
 
 
 def test_mcp_subcommand_and_positional():
