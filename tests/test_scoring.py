@@ -79,8 +79,9 @@ def test_risky_repo_hand_computed(tmp_path):
     assert rep["dimensions"]["safe"]["deducted"] == 237
     s = rep["scores"]
     # Works: works.tests_missing 15 + orphan.dead x6 = 3 + min(3, ceil(3*5/4)) = 6 -> 79
-    assert (s["safe"], s["works"], s["complete"], s["overall"], s["grade"]) == (0, 79, 100, 44, "D")
-    assert s["capped"] is True and s["grade_uncapped"] == "D"
+    # Complete: licence 20 + README 20 + CI 10 + metadata 10 + licence undeclared 5 = 65 -> 35
+    assert (s["safe"], s["works"], s["complete"], s["overall"], s["grade"]) == (0, 79, 35, 31, "F")
+    assert s["capped"] is True and s["grade_uncapped"] == "F"  # the cap never raises a grade
     assert [(t["dimension"], t["code"], t["level"], t["deduction"], t["first"]) for t in rep["top"]] == [
         ("safe", "secret.key", "FAIL", 60, "deploy/id_rsa:1"),
         ("safe", "obfuscation", "FAIL", 40, "risky/loader.py:7"),

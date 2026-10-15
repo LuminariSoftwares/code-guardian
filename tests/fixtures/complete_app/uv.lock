@@ -1,0 +1,5 @@
+version = 1
+
+[[package]]
+name = "flask"
+version = "3.0.3"

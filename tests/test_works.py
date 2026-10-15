@@ -35,7 +35,8 @@ def test_broken_repo_hand_computed_works_score():
                     ("works.entry_missing", "FAIL"): 38, ("works.import_unresolved", "WARN"): 10,
                     ("works.tests_missing", "WARN"): 15}
     s = rep["scores"]
-    assert (s["safe"], s["works"], s["overall"], s["grade"]) == (100, 0, 70, "C")
+    # Complete: no licence 20, no README 20, no CI 10, licence undeclared 5 -> 45; Overall (500 + 0 + 90) / 10 = 59
+    assert (s["safe"], s["works"], s["complete"], s["overall"], s["grade"]) == (100, 0, 45, 59, "D")
     assert s["capped"] is False  # Works FAILs never cap: only Safe does
 
 
