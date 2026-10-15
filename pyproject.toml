@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+# "code-guardian" on PyPI belongs to another project; the commands are still code-guardian and code-guardian-mcp.
+name = "code-guardian-mcp"
+version = "0.1.0"
+description = "Is this codebase safe to run, and is all of it used? A deterministic threat score, orphan code against a goal contract, and an optional local-model explanation."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "LuminariSoftwares" }]
+keywords = ["security", "static-analysis", "dead-code", "supply-chain", "secrets", "mcp", "local-llm"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Environment :: Console",
+  "Topic :: Security",
+  "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/LuminariSoftwares/code-guardian"
+Issues = "https://github.com/LuminariSoftwares/code-guardian/issues"
+Changelog = "https://github.com/LuminariSoftwares/code-guardian/blob/main/CHANGELOG.md"
+
+[project.scripts]
+code-guardian = "code_guardian.cli:main"
+code-guardian-mcp = "code_guardian.mcp_server:main"
+
+[tool.setuptools]
+packages = ["code_guardian"]

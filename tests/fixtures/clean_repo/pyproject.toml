@@ -1,0 +1,7 @@
+[project]
+name = "cleanpkg"
+version = "1.0.0"
+dependencies = ["requests>=2.31,<3"]
+
+[project.scripts]
+cleanpkg = "cleanpkg.cli:main"

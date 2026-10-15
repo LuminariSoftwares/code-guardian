@@ -1,0 +1,3 @@
+goal = "Greet people from the command line."
+entry_points = ["greeter.cli:main"]
+keep = ["greeter.plugins.*"]

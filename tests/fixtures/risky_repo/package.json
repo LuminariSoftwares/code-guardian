@@ -1,0 +1,10 @@
+{
+  "name": "risky-web",
+  "version": "0.0.1",
+  "scripts": {
+    "postinstall": "node web/setup.js"
+  },
+  "dependencies": {
+    "left-pad": "*"
+  }
+}
