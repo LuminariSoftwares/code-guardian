@@ -17,6 +17,10 @@
 - **Complete checks** (`complete.py`): licence file and declared licence, README (present, 200+ bytes, install and
   usage headings), CI config, `[project]` metadata, lockfile (applications only), `.env.example` (only when the code
   reads environment variables), and `deps.declared_unused` (INFO).
+- **Invented and lookalike packages** (`supply.py`): `supply.unknown_package` (offline INFO against a bundled,
+  hand-built list of ~960 known PyPI projects; with `--online`, FAIL when PyPI has no such project and WARN for new or
+  single-release projects) and `supply.lookalike` (one or two edits from a known package). `--online` is the only
+  network use besides `--explain`.
 
 ## code-guardian 0.1.0 — unreleased
 

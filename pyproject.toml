@@ -33,3 +33,7 @@ code-guardian-mcp = "code_guardian.mcp_server:main"
 
 [tool.setuptools]
 packages = ["code_guardian"]
+
+[tool.setuptools.package-data]
+# the offline list of known PyPI projects; without this a wheel installs with no list
+code_guardian = ["data/*.gz"]

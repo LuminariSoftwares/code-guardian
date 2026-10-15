@@ -43,6 +43,10 @@ SAFE_WEIGHTS = {  # the v0.1 threat weights, unchanged
     ("obfuscation", "FAIL"): 40,
     ("fs.outside", "WARN"): 3,
     ("deps.unpinned", "INFO"): 0,
+    ("supply.unknown_package", "FAIL"): 40,
+    ("supply.unknown_package", "WARN"): 10,
+    ("supply.unknown_package", "INFO"): 0,
+    ("supply.lookalike", "WARN"): 15,
 }
 WORKS_WEIGHTS = {
     ("works.syntax", "FAIL"): 30,

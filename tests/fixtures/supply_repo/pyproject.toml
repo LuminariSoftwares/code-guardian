@@ -1,0 +1,6 @@
+[project]
+name = "supplydemo"
+version = "0.1.0"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = ["requests>=2,<3", "reqeusts==1.0", "flask-gpt-helperz==0.1"]

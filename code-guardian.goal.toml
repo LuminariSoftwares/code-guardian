@@ -15,6 +15,8 @@ entry_points = [
   "code_guardian.orphans:__main__",
   "code_guardian.works:__main__",
   "code_guardian.complete:__main__",
+  "code_guardian.supply:__main__",
+  "tools.build_known_packages:__main__",
   "code_guardian.explain:__main__",
   "code_guardian.report:__main__",
   "code_guardian.cli:__main__",
