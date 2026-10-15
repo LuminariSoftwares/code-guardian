@@ -30,6 +30,8 @@ from .finding import make_finding, summarize
 # Each table is documented in the README's check catalogue: change both together.
 SAFE_WEIGHTS = {  # the v0.1 threat weights, unchanged
     ("secret.key", "FAIL"): 40,
+    ("secret.key", "INFO"): 0,
+    ("exec.dynamic", "FAIL"): 30,
     ("exec.dynamic", "WARN"): 10,
     ("exec.shell", "WARN"): 10,
     ("exec.shell", "FAIL"): 30,
@@ -196,6 +198,8 @@ def selftest():
         ("routing", dimension_of("works.syntax") == "works" and dimension_of("complete.readme") == "complete"
          and dimension_of("secret.key") == "safe" and dimension_of("orphan.dead") == "works"),
         ("node_key", node_key("x/y.py:10") == ("x/y.py", 10) and node_key("odd") == ("odd", 0)),
+        ("tainted_exec_fail", scores([f("exec.dynamic", "FAIL")])["safe"] == 70
+         and scores([f("secret.key", "INFO")])["safe"] == 100),
     ]
     return summarize("score", checks)
 

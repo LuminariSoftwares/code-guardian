@@ -58,7 +58,7 @@ code-guardian scan risky_repo
 Real output:
 
 ```
-code-guardian 0.2.0  scan of risky_repo
+code-guardian 0.2.0  scan of risky
 files: 7 Python, 3 manifests, 2 other (0 skipped, 0 excluded by the goal file)
 
   Safe       0/100  is it safe to run?           -237
@@ -118,11 +118,12 @@ notes:
   - code-guardian analyses Python only: 1 file(s) in other languages (.js 1) got the secret scan only
 
 weights used (each check (code + level) deducts its weight once, plus a quarter of the weight per extra occurrence (rounded up), at most 2x the weight; INFO is never scored):
-  Safe     deps.unpinned INFO 0 · deser.unsafe WARN 10 · exec.dynamic WARN 10 · exec.shell FAIL 30 ·
-           exec.shell WARN 10 · fs.outside WARN 3 · install.hook WARN 15 · net.bind_all WARN 5 ·
-           net.egress INFO 0 · net.egress WARN 2 · obfuscation FAIL 40 · obfuscation WARN 10 ·
-           secret.key FAIL 40 · supply.lookalike WARN 15 · supply.unknown_package FAIL 40 ·
-           supply.unknown_package INFO 0 · supply.unknown_package WARN 10 · tls.off FAIL 25 · tls.off WARN 10
+  Safe     deps.unpinned INFO 0 · deser.unsafe WARN 10 · exec.dynamic FAIL 30 · exec.dynamic WARN 10 ·
+           exec.shell FAIL 30 · exec.shell WARN 10 · fs.outside WARN 3 · install.hook WARN 15 ·
+           net.bind_all WARN 5 · net.egress INFO 0 · net.egress WARN 2 · obfuscation FAIL 40 ·
+           obfuscation WARN 10 · secret.key FAIL 40 · secret.key INFO 0 · supply.lookalike WARN 15 ·
+           supply.unknown_package FAIL 40 · supply.unknown_package INFO 0 · supply.unknown_package WARN 10 ·
+           tls.off FAIL 25 · tls.off WARN 10
   Works    orphan.dead WARN 3 · works.entry_missing FAIL 30 · works.import_unresolved WARN 10 ·
            works.relative_missing FAIL 25 · works.syntax FAIL 30 · works.syntax INFO 0 ·
            works.test_no_assert WARN 5 · works.tests_missing WARN 15
@@ -195,8 +196,10 @@ The MCP `scan` reply adds `exit_code`. Nothing in the report depends on the cloc
 
 | code | what it looks for | level | weight |
 |---|---|---|---|
-| `secret.key` | API-key shapes (the privacy workflow's built-in list: `sk-`, `sk-or-`, `tvly-`, `ghp_`, `github_pat_`, `nvapi-`, `gsk_`, `AIza`), private-key blocks, `password = "<literal>"` (also `api_key`, `secret`, `access_token`…). Values are never printed; values that call themselves fake (`mock`, `dummy`, `example`…) are skipped | FAIL | 40 |
+| `secret.key` | API-key shapes (the privacy workflow's built-in list: `sk-` (which covers Anthropic's `sk-ant-`), `sk-or-`, `tvly-`, `ghp_`, `github_pat_`, `nvapi-`, `gsk_`, `AIza`; plus AWS access key IDs `AKIA`/`ASIA` + 16, Stripe `sk_live_`/`rk_live_`, Slack `xox[abprs]-`, Hugging Face `hf_` + 30 letters), a 40-character AWS secret key assigned to a name containing `aws` and `secret`, private-key blocks, `password = "<literal>"` (also `api_key`, `secret`, `access_token`…), and any `*_KEY` / `*_TOKEN` name holding a long, high-entropy literal. One finding per line. Values are never printed; values that call themselves fake (`mock`, `dummy`, `example`…) are skipped | FAIL | 40 |
+| `secret.key` | a Stripe test-mode key (`sk_test_`) | INFO | 0 |
 | `exec.dynamic` | `eval`, `exec`, `compile` on non-literal input; `__import__` with a variable | WARN | 10 |
+| `exec.dynamic` | …when `eval` or `exec` runs text from `input()`, `sys.argv`, request data, `os.environ` or a network read (the `exec.shell` taint rule, one function deep; `exec(compile(...))` counts at the `exec`): "runs code typed by the user" | FAIL | 30 |
 | `exec.shell` | `os.system`, `os.popen`, `subprocess.*(..., shell=True)` | WARN | 10 |
 | `exec.shell` | …when the command is built from `input()`, `os.environ`, `sys.argv` or a network read | FAIL | 30 |
 | `deser.unsafe` | `pickle.load(s)`, `marshal.loads`, `yaml.load` without `SafeLoader`, `torch.load` without `weights_only=True` | WARN | 10 |
@@ -376,14 +379,14 @@ above. Two rules apply across Safe:
 | `check.crashed` | Safe | One of code-guardian's own checks raised on this file; the rest of the scan ran. | Report it at github.com/LuminariSoftwares/code-guardian/issues with the file if you can share it. | It is a code-guardian bug, never a finding about your code. |
 | `deps.unpinned` | Safe | A dependency with no pin and no upper bound. | Pin it (==) or cap it (< next major). | Libraries often prefer open ranges on purpose; INFO, never scored. |
 | `deser.unsafe` | Safe | pickle, marshal, yaml.load without SafeLoader, or torch.load without weights_only=True can run code hidden in the data. | Load only files you created, or use a data-only format (json, safetensors, yaml.safe_load). | Caches the program writes and reads itself are lower risk. |
-| `exec.dynamic` | Safe | eval, exec or compile runs a non-literal string, or __import__ loads a module named at runtime. | Use a parser, a lookup table or ast.literal_eval; import modules by name. | Plugin loaders and REPL-style tools use these on purpose. |
+| `exec.dynamic` | Safe | eval, exec or compile runs a non-literal string, or __import__ loads a module named at runtime; FAIL when eval or exec runs text from input(), sys.argv, request data, the environment or the network. | Use a parser, a lookup table or ast.literal_eval; import modules by name; never run input as code. | Plugin loaders and REPL-style tools use these on purpose. |
 | `exec.shell` | Safe | os.system, os.popen or subprocess with shell=True; FAIL when the command text comes from input, the environment or the network. | Pass an argument list without shell=True; validate any outside value against an allow-list. | Fixed command strings in build scripts are WARN, not FAIL; taint is tracked one function deep. |
 | `fs.outside` | Safe | A write, delete or move aimed at an absolute path, the home directory or a .. escape. | Write under the project or under a path the user passes in. | Tools whose job is to write to /tmp or a user config folder. |
 | `install.hook` | Safe | setup.py cmdclass or install-command subclasses, package.json preinstall/install/postinstall, or an in-tree build backend. | Read what the hook runs before installing; prefer packages without install-time code. | Projects that compile extensions legitimately customise build commands. |
 | `net.bind_all` | Safe | A server binds 0.0.0.0 or ::, so other machines can reach it. | Bind to 127.0.0.1 unless other machines must connect. | Containers usually must bind 0.0.0.0; a test that asserts the bind is refused still matches. |
 | `net.egress` | Safe | The egress inventory: every URL and IP literal and every network call site. WARN for a public IP, or plain http/ws/ftp to a public name or to a host set at runtime. | Use https, and confirm each destination is expected. | Local-network and documentation hosts stay INFO; a URL in a help string is still inventoried. |
 | `obfuscation` | Safe | exec/eval of base64, zlib, marshal or hex-decoded data (FAIL); long encoded blobs or high-entropy literals (WARN). | Decode the payload offline and read what it does before running anything. | Embedded icons, test vectors and hashes can look like blobs. |
-| `secret.key` | Safe | An API-key shape, a private-key block or a password-like literal is written into a file. | Move it to an environment variable or a secret store, and rotate it: it is in the history. | Test fixtures and documentation samples; values that call themselves fake (mock, dummy, example) are skipped. |
+| `secret.key` | Safe | An API-key shape (OpenAI-style sk-, GitHub, Google, AWS, Stripe live, Slack, Hugging Face and others), an AWS secret key, a private-key block, a password-like literal or a high-entropy literal in a name ending _KEY or _TOKEN is written into a file (a Stripe test key is INFO). | Move it to an environment variable or a secret store, and rotate it: it is in the history. | Test fixtures and documentation samples; values that call themselves fake (mock, dummy, example) are skipped. |
 | `supply.lookalike` | Safe | The name is one or two edits away from a known package without being it: the typosquatting pattern. | Check you meant the well-known package. | Real packages with names close to a popular one. |
 | `supply.unknown_package` | Safe | Offline: the name is not in the bundled list of known packages (INFO). Online: PyPI has no such project (FAIL), or it is new or has a single release (WARN). | Check the name is the one you meant; remove names an assistant invented; run with --online. | Offline misses are common for less-known real packages, which is why they are INFO. Existing is not safe. |
 | `tls.off` | Safe | verify=False, ssl._create_unverified_context, CERT_NONE or check_hostname = False. | Remove it; point at a CA bundle if the certificate is private. | Rare: code that deliberately probes broken servers. |
