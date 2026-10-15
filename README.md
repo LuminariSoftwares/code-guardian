@@ -199,7 +199,6 @@ The MCP `scan` reply adds `exit_code`. Nothing in the report depends on the cloc
 | `obfuscation` | base64 or hex blobs of 200+ characters, high-entropy string literals | WARN | 10 |
 | `fs.outside` | writes, deletes and moves aimed at absolute paths, `~`, or `..` escapes | WARN | 3 |
 | `deps.unpinned` | dependencies with no pin or upper bound (`pyproject.toml`, `setup.py`, `setup.cfg`, `requirements*.txt`, `package.json`) | INFO | 0 |
-| `parse.skipped` | a `.py` file that does not parse as Python 3 (it still gets the secret scan) | INFO | 0 |
 
 `net.egress` targets that stay in the inventory at INFO: https to a named host, loopback, the local network
 (non-global addresses such as 10/8, 192.168/16 and 100.64/10, single-label names like `gpu-box`, `.local`, `.lan`,
@@ -207,6 +206,38 @@ The MCP `scan` reply adds `exit_code`. Nothing in the report depends on the cloc
 
 The walk skips `.git`, `venv`/`.venv`, `node_modules`, `__pycache__`, `dist`, `build` and the tool caches, anything
 the root `.gitignore` matches (simple globs; `!` negation is ignored), binary files, files over 2 MB and symlinks.
+
+## Works checks
+
+Will it work? Read from the parse and the manifests, never by importing or running anything.
+
+| code | what it looks for | level | weight |
+|---|---|---|---|
+| `works.syntax` | a `.py` file that `ast.parse` rejects (Python 2 code, a typo); it still gets the secret scan | FAIL | 30 |
+| `works.syntax` | …when the project's `requires-python` is newer than the Python running code-guardian (it cannot tell) | INFO | 0 |
+| `works.import_unresolved` | an absolute import that is not in the standard library, not a module or package in the repo, and not a declared dependency | WARN | 10 |
+| `works.relative_missing` | a relative import (`from .x import y`) that points at a module the repo does not have | FAIL | 25 |
+| `works.tests_missing` | no test files at all (`tests/`, `test_*.py`, `*_test.py`, `tests.py`, `conftest.py`) | WARN | 15 |
+| `works.test_no_assert` | test functions with no `assert`, no `pytest.raises`/`warns`, no `self.assert*` and no call to a local helper that asserts; once per file, with the count | WARN | 5 |
+| `works.entry_missing` | a `[project.scripts]` (or `setup.cfg` console script) target `module:function` whose module or function is not in the tree | FAIL | 30 |
+| `orphan.dead` | dead code from the hygiene section (below), folded in at a low weight, only when entry points exist | WARN | 3 |
+
+How `works.import_unresolved` decides:
+
+- **Standard library**: `sys.stdlib_module_names` plus the modules removed after 3.11 (`distutils`, `imp`, `cgi`…)
+  and added since (`annotationlib`, `compression`), so the answer does not depend on which Python runs the scan.
+- **In the repo**: any directory name or module stem in the tree (a script's sibling module counts).
+- **Declared**: every dependency in `pyproject.toml` (`[project]`, optional dependencies, `dependency-groups`,
+  `build-system.requires`, Poetry, PDM, uv), `setup.py` (parsed, never run), `setup.cfg`, `requirements*.txt`,
+  `requirements/*.txt` and `Pipfile`. Import names map to distributions through a bundled table of known
+  mismatches (`yaml`→PyYAML, `PIL`→Pillow, `cv2`→opencv-python, `sklearn`→scikit-learn, `bs4`→beautifulsoup4,
+  `dateutil`→python-dateutil…) plus the normalised name, `python-X`/`pyX`/`X-python` forms and namespace packages
+  (`google`→`google-cloud-*`). It never reads the scanner's own installed packages: they describe this machine, not
+  the repo.
+- **Not reported**: imports inside `try: … except ImportError` (optional) and under `if TYPE_CHECKING:`; `pytest`,
+  `hypothesis` and `mock` in test files; `setuptools` and friends in `setup.py`.
+- A dependency that is only installed because another one pulls it in still counts as undeclared: it works by
+  accident. Undeclared dependencies have one owner, this check; Complete does not report them again.
 
 ## Goal contract
 
@@ -301,6 +332,8 @@ The `env` block is only needed for `explain`.
 - **Static analysis cannot see runtime behaviour.** A finding means the code is there, not that it runs; code that
   builds its behaviour at runtime (downloaded plugins, `exec` of fetched text) is flagged where the parse can see it
   and invisible where it cannot. A grade A is "nothing the scanners recognise", not "proven safe".
+- Python files are parsed by the interpreter running code-guardian. Run it with a Python at least as new as the
+  project's `requires-python`; when it is older, a parse failure is reported as `works.syntax` INFO, not FAIL.
 - Taint tracking for `exec.shell` FAIL is one function deep: assignments inside the same function, not calls between
   functions.
 - The orphan graph over-approximates "used" (a method name read anywhere keeps every reached class's method of that
@@ -314,8 +347,8 @@ python -m code_guardian.scanners --selftest
 scanners selftest: 18 checks, 18 passed, 0 failed
 ```
 
-Each of `finding`, `walk`, `scanners`, `manifests`, `score`, `goal`, `orphans`, `explain`, `report`, `cli` and
-`mcp_server` has one; `tests/test_selftests.py` runs them all.
+Each of `finding`, `walk`, `scanners`, `manifests`, `score`, `goal`, `orphans`, `works`, `explain`, `report`, `cli`
+and `mcp_server` has one; `tests/test_selftests.py` runs them all.
 
 ## License
 

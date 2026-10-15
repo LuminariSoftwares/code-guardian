@@ -56,7 +56,8 @@ def test_unparseable_python_is_noted_not_fatal(tmp_path):
     (tmp_path / "ok.py").write_text("eval(x)\n", encoding="utf-8")
     rep = report.scan(str(tmp_path))
     assert rep["files"]["unparsed"] == 1
-    assert [(f["code"], f["node"]) for f in rep["findings"]] == [("exec.dynamic", "ok.py:1"), ("parse.skipped", "old.py:1")]
+    assert [(f["code"], f["node"]) for f in rep["findings"] if f["code"] != "works.tests_missing"] == [
+        ("exec.dynamic", "ok.py:1"), ("works.syntax", "old.py:1")]
 
 
 def test_gitignore_and_skip_dirs(tmp_path):
@@ -65,4 +66,4 @@ def test_gitignore_and_skip_dirs(tmp_path):
         (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / rel).write_text("eval(x)\n", encoding="utf-8")
     rep = report.scan(str(tmp_path))
-    assert [f["node"] for f in rep["findings"]] == ["keep.py:1"]
+    assert [f["node"] for f in rep["findings"] if f["code"] == "exec.dynamic"] == ["keep.py:1"]
