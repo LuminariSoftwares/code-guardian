@@ -1,19 +1,34 @@
-"""The threat score: a fixed weight per (code, level), summed and capped. No model, no randomness, no clock.
+"""Three health scores (higher is better): Safe, Works and Complete, each 0-100, plus Overall and an A-F grade.
+
+No model, no randomness, no clock: the same findings always give the same scores.
+
+    deduction(weight, n) = weight + min(weight, ceil(weight * (n - 1) / 4))
+        A check (one row of a table: code + level) deducts its weight once, plus a quarter of the weight for each
+        extra occurrence, capped at twice the weight. Fifty copies of one minor issue cannot zero a score.
+    dimension score      = max(0, 100 - sum of its deductions)      (Safe = 100 - the v0.1 threat score)
+    Overall              = 0.5*Safe + 0.3*Works + 0.2*Complete, rounded half up
+    grade                = A >= 90, B >= 75, C >= 60, D >= 40, F below 40
+    FAIL cap             = any Safe finding at FAIL caps the grade at D, whatever the average
 
 Public contract:
-    WEIGHTS                        # {(code, level): points}; anything not listed weighs 0
-    weight(finding) -> int
-    grade(score) -> "A".."F"       # A 0-9 · B 10-24 · C 25-49 · D 50-74 · F 75+
-    threat(findings, top=5) -> {"score", "raw", "grade", "top": [{"weight", "code", "level", "node", "summary"}]}
-    node_key(node) -> sortable key for "file:line"
+    TABLES = {"safe": {...}, "works": {...}, "complete": {...}}   # {(code, level): weight}; unlisted weighs 0
+    DIMENSIONS, WEIGHTS_RULE
+    dimension_of(code) -> "safe" | "works" | "complete"
+    weight(finding) -> int          deduction(weight, n) -> int
+    dimension(findings, name) -> {"score", "deducted", "checks": [{"code","level","count","weight","deduction","first"}]}
+    overall(safe, works, complete) -> int        grade(overall) -> "A".."F"
+    scores(findings) -> {"safe","works","complete","overall","grade","grade_uncapped","capped","cap_reason"}
+    top(dimensions, n=5) -> the biggest deductions across dimensions
+    weight_table() -> {dimension: {"code LEVEL": weight}}
+    node_key(node), sort_findings(findings)
 """
 
 import sys
 
 from .finding import make_finding, summarize
 
-# Documented in the README's scanner table: change both together.
-WEIGHTS = {
+# Each table is documented in the README's check catalogue: change both together.
+SAFE_WEIGHTS = {  # the v0.1 threat weights, unchanged
     ("secret.key", "FAIL"): 40,
     ("exec.dynamic", "WARN"): 10,
     ("exec.shell", "WARN"): 10,
@@ -29,19 +44,38 @@ WEIGHTS = {
     ("fs.outside", "WARN"): 3,
     ("deps.unpinned", "INFO"): 0,
 }
-GRADES = ((75, "F"), (50, "D"), (25, "C"), (10, "B"), (0, "A"))
-CAP = 100
+WORKS_WEIGHTS = {}
+COMPLETE_WEIGHTS = {}
+TABLES = {"safe": SAFE_WEIGHTS, "works": WORKS_WEIGHTS, "complete": COMPLETE_WEIGHTS}
+DIMENSIONS = ("safe", "works", "complete")
+PREFIXES = {"works": ("works.", "orphan."), "complete": ("complete.",)}
+OVERALL_TENTHS = {"safe": 5, "works": 3, "complete": 2}
+GRADE_BANDS = ((90, "A"), (75, "B"), (60, "C"), (40, "D"), (0, "F"))
+FAIL_CAP = "D"
+GRADE_ORDER = "ABCDF"
+WEIGHTS_RULE = ("each check (code + level) deducts its weight once, plus a quarter of the weight per extra "
+                "occurrence (rounded up), at most 2x the weight; INFO is never scored")
+
+
+def dimension_of(code):
+    for name in DIMENSIONS:
+        if any(c == code for c, _ in TABLES[name]):
+            return name
+    for name, prefixes in PREFIXES.items():
+        if str(code).startswith(prefixes):
+            return name
+    return "safe"
 
 
 def weight(f):
-    return WEIGHTS.get((f.get("code"), f.get("level")), 0)
+    return TABLES[dimension_of(f.get("code"))].get((f.get("code"), f.get("level")), 0)
 
 
-def grade(score):
-    for floor, letter in GRADES:
-        if score >= floor:
-            return letter
-    return "A"
+def deduction(weight_, count):
+    if weight_ <= 0 or count <= 0:
+        return 0
+    extra = -(-weight_ * (count - 1) // 4)  # ceil without floats
+    return weight_ + min(weight_, extra)
 
 
 def node_key(node):
@@ -54,13 +88,55 @@ def sort_findings(findings):
     return sorted(findings, key=lambda f: (node_key(f["node"]), f["code"], f["summary"]))
 
 
-def threat(findings, top=5):
-    raw = sum(weight(f) for f in findings)
-    score = min(CAP, raw)
-    ranked = sorted((f for f in findings if weight(f) > 0), key=lambda f: (-weight(f), node_key(f["node"]), f["code"]))
-    return {"score": score, "raw": raw, "grade": grade(score),
-            "top": [{"weight": weight(f), "code": f["code"], "level": f["level"], "node": f["node"],
-                     "summary": f["summary"]} for f in ranked[:top]]}
+def dimension(findings, name):
+    groups = {}
+    for f in findings:
+        if dimension_of(f["code"]) == name and weight(f) > 0:
+            groups.setdefault((f["code"], f["level"]), []).append(f["node"])
+    checks = []
+    for (code, level), nodes in groups.items():
+        w = TABLES[name][(code, level)]
+        checks.append({"code": code, "level": level, "count": len(nodes), "weight": w,
+                       "deduction": deduction(w, len(nodes)), "first": min(nodes, key=node_key)})
+    checks.sort(key=lambda r: (-r["deduction"], r["code"], r["level"]))
+    deducted = sum(r["deduction"] for r in checks)
+    return {"score": max(0, 100 - deducted), "deducted": deducted, "checks": checks}
+
+
+def overall(safe, works, complete):
+    tenths = (OVERALL_TENTHS["safe"] * safe + OVERALL_TENTHS["works"] * works
+              + OVERALL_TENTHS["complete"] * complete)
+    return (tenths + 5) // 10
+
+
+def grade(value):
+    for floor, letter in GRADE_BANDS:
+        if value >= floor:
+            return letter
+    return "F"
+
+
+def scores(findings, dimensions=None):
+    dims = dimensions or {name: dimension(findings, name) for name in DIMENSIONS}
+    s, w, c = (dims[n]["score"] for n in DIMENSIONS)
+    total = overall(s, w, c)
+    uncapped = grade(total)
+    fails = sorted({f["code"] for f in findings if f["level"] == "FAIL" and dimension_of(f["code"]) == "safe"})
+    capped = bool(fails) and GRADE_ORDER.index(uncapped) < GRADE_ORDER.index(FAIL_CAP)
+    return {"safe": s, "works": w, "complete": c, "overall": total,
+            "grade": FAIL_CAP if capped else uncapped, "grade_uncapped": uncapped, "capped": bool(fails),
+            "cap_reason": ("a Safe check is FAIL (%s): the grade is at most %s" % (", ".join(fails), FAIL_CAP))
+            if fails else None}
+
+
+def top(dimensions, n=5):
+    rows = [dict(r, dimension=name) for name in DIMENSIONS for r in dimensions[name]["checks"]]
+    rows.sort(key=lambda r: (-r["deduction"], DIMENSIONS.index(r["dimension"]), r["code"], r["level"]))
+    return rows[:n]
+
+
+def weight_table():
+    return {name: {"%s %s" % key: w for key, w in sorted(TABLES[name].items())} for name in DIMENSIONS}
 
 
 def main(argv=None):
@@ -72,23 +148,29 @@ def main(argv=None):
 
 
 def selftest():
-    def f(code, level, node):
+    def f(code, level, node="a.py:1"):
         return make_finding(code, "partial", level, node, "s")
 
-    many = [f("secret.key", "FAIL", "a.py:%d" % i) for i in range(1, 4)]
-    mixed = [f("net.egress", "INFO", "a.py:1"), f("fs.outside", "WARN", "b.py:10"), f("fs.outside", "WARN", "b.py:9"),
-             f("tls.off", "FAIL", "c.py:2"), f("unknown.code", "FAIL", "d.py:1")]
-    t = threat(mixed)
+    key = scores([f("secret.key", "FAIL")])
+    many = [f("net.egress", "WARN", "a.py:%d" % i) for i in range(1, 51)]
+    mixed = dimension([f("fs.outside", "WARN", "b.py:10"), f("fs.outside", "WARN", "b.py:9"), f("tls.off", "FAIL", "c.py:2"),
+                       f("net.egress", "INFO", "a.py:1")], "safe")
     checks = [
-        ("grades", [grade(s) for s in (0, 9, 10, 24, 25, 49, 50, 74, 75, 100)] ==
+        ("band_edges", [grade(v) for v in (100, 90, 89, 75, 74, 60, 59, 40, 39, 0)] ==
          ["A", "A", "B", "B", "C", "C", "D", "D", "F", "F"]),
-        ("sum", t["raw"] == 31 and t["score"] == 31 and t["grade"] == "C"),
-        ("cap", threat(many)["raw"] == 120 and threat(many)["score"] == 100 and threat(many)["grade"] == "F"),
-        ("top_order", [x["node"] for x in t["top"]] == ["c.py:2", "b.py:9", "b.py:10"]),
-        ("top_limit", len(threat(many, top=2)["top"]) == 2),
-        ("empty", threat([]) == {"score": 0, "raw": 0, "grade": "A", "top": []}),
+        ("count_factor", [deduction(10, n) for n in (1, 2, 3, 4, 5, 6, 100)] == [10, 13, 15, 18, 20, 20, 20]),
+        ("count_ceiling", deduction(40, 1000) == 80 and deduction(3, 1000) == 6 and deduction(0, 5) == 0),
+        ("fifty_minor", scores(many)["safe"] == 96),
+        ("empty_repo", scores([]) == {"safe": 100, "works": 100, "complete": 100, "overall": 100, "grade": "A",
+                                       "grade_uncapped": "A", "capped": False, "cap_reason": None}),
+        ("overall_round", overall(0, 100, 100) == 50 and overall(81, 70, 66) == 75 and overall(80, 70, 65) == 74),
+        ("fail_cap", key["overall"] == 80 and key["grade_uncapped"] == "B" and key["grade"] == "D"),
+        ("cap_never_raises", scores([f("secret.key", "FAIL")] * 9 + [f("tls.off", "FAIL")])["grade"] in ("D", "F")),
+        ("dimension_rows", mixed["deducted"] == 29 and [r["code"] for r in mixed["checks"]] == ["tls.off", "fs.outside"]
+         and mixed["checks"][1]["first"] == "b.py:9"),
+        ("routing", dimension_of("works.syntax") == "works" and dimension_of("complete.readme") == "complete"
+         and dimension_of("secret.key") == "safe" and dimension_of("orphan.dead") == "works"),
         ("node_key", node_key("x/y.py:10") == ("x/y.py", 10) and node_key("odd") == ("odd", 0)),
-        ("weights_levels", all(level in ("OK", "INFO", "WARN", "FAIL") for _, level in WEIGHTS)),
     ]
     return summarize("score", checks)
 

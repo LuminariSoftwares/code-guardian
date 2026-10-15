@@ -31,17 +31,18 @@ import urllib.request
 from .finding import summarize
 
 LABEL = "model explanation (not part of the score)"
-SYSTEM = ("You explain the results of a static security and hygiene scan to someone who does not write code. "
-          "Use only the JSON you are given. Do not add, remove, merge or re-grade findings, and do not invent file "
-          "names. In at most 150 words: say what the grade means, then the two or three most important things to "
-          "do first, in plain words.")
+SYSTEM = ("You explain the results of a static code scan to someone who does not write code. It scores three "
+          "things out of 100, higher is better: Safe (is it safe to run?), Works (will it work?) and Complete (does "
+          "it have what it needs?), plus an Overall score and grade. Use only the JSON you are given. Do not add, "
+          "remove, merge or re-grade findings, and do not invent file names. In at most 150 words: say what the "
+          "scores mean, then the two or three most important things to do first, in plain words.")
 FIELDS = ("code", "level", "node", "summary")
 
 
 def payload(report):
-    threat = report.get("threat") or {}
+    s = report.get("scores") or {}
     hygiene = report.get("hygiene") or {}
-    return {"score": threat.get("score"), "grade": threat.get("grade"),
+    return {"scores": {k: s.get(k) for k in ("safe", "works", "complete", "overall", "grade")},
             "findings": [{k: f.get(k) for k in FIELDS} for f in report.get("findings") or []],
             "hygiene": {"source": hygiene.get("source"), "counts": hygiene.get("counts") or {},
                         "findings": [{k: f.get(k) for k in FIELDS} for f in hygiene.get("findings") or []]}}
@@ -141,7 +142,7 @@ def selftest():
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Stub)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     base = "http://127.0.0.1:%d" % server.server_port
-    report = {"threat": {"score": 40, "grade": "C"}, "findings": [
+    report = {"scores": {"safe": 60, "overall": 80, "grade": "D"}, "findings": [
         {"code": "secret.key", "level": "FAIL", "node": "a.py:1", "summary": "s", "evidence": ["SOURCE"], "try": []}],
         "hygiene": {"source": "inferred", "counts": {"orphan.dead": 0}, "findings": []}}
     try:

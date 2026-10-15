@@ -13,7 +13,6 @@ import os
 import shutil
 import sys
 import tempfile
-import time
 import warnings
 
 from . import __version__, explain as explain_mod, goal, manifests, orphans as orphans_mod, scanners, score, walk
@@ -67,7 +66,6 @@ def _languages(files):
 
 
 def scan(path, goal_file=None, explain=False, env=None):
-    started = time.perf_counter()
     root = _root(path)
     contract, notes = _contract(root, goal_file)
     inv = walk.walk(root, exclude=contract["exclude"] if contract else ())
@@ -97,7 +95,7 @@ def scan(path, goal_file=None, explain=False, env=None):
     findings = score.sort_findings(scanners.dedupe(findings))
     langs = _languages(inv["other"])
     if langs:
-        notes.append("v1 analyses Python only: %d file(s) in other languages (%s) got the secret scan only"
+        notes.append("code-guardian analyses Python only: %d file(s) in other languages (%s) got the secret scan only"
                      % (sum(langs.values()), ", ".join("%s %d" % kv for kv in langs.items())))
     for rel, why in inv["skipped"]:
         notes.append("skipped %s (%s)" % (rel, why))
@@ -111,20 +109,29 @@ def scan(path, goal_file=None, explain=False, env=None):
                   "skipped": len(inv["skipped"]), "ignored": inv["ignored"], "excluded": inv["excluded"],
                   "unparsed": len(inv["python"]) - len(trees)},
         "other_languages": langs,
-        "threat": score.threat(findings),
         "findings": findings,
         "egress": [{"node": f["node"], "level": f["level"], "kind": f["evidence"][0][6:], "target": f["evidence"][1][8:]}
                    for f in findings if f["code"] == "net.egress"],
         "hygiene": hygiene,
         "notes": notes,
     }
+    _score(report)
     if explain:
         text, note = explain_mod.explain(report, env)
         if text:
             report["explanation"] = {"label": explain_mod.LABEL, "text": text}
         report["notes"].append(note)
-    report["elapsed_ms"] = int((time.perf_counter() - started) * 1000)
     return report
+
+
+def _score(report):
+    """scores, per-dimension deductions, the top five and the weight table, from report["findings"]."""
+    dims = {name: score.dimension(report["findings"], name) for name in score.DIMENSIONS}
+    report["scores"] = score.scores(report["findings"], dims)
+    report["dimensions"] = dims
+    report["top"] = score.top(dims)
+    report["weights"] = score.weight_table()
+    report["weights_rule"] = score.WEIGHTS_RULE
 
 
 def orphans(path, goal_file=None, infer=False):
@@ -171,22 +178,54 @@ def _hygiene_lines(h):
     return lines
 
 
+LABELS = {"safe": "Safe", "works": "Works", "complete": "Complete"}
+QUESTIONS = {"safe": "is it safe to run?", "works": "will it work?", "complete": "does it have what it needs?"}
+
+
+def _weight_lines(report):
+    lines = ["weights used (%s):" % report["weights_rule"]]
+    for name in score.DIMENSIONS:
+        table = report["weights"][name]
+        row = "  %-9s" % LABELS[name]
+        for i, entry in enumerate("%s %d" % kv for kv in table.items()):
+            piece = entry if i == 0 else " · " + entry
+            if len(row) + len(piece) > 110:
+                lines.append(row + " ·")
+                row, piece = " " * 11, entry
+            row += piece
+        if table:
+            lines.append(row)
+        else:
+            lines.append("  %-8s (no checks yet)" % LABELS[name])
+    return lines
+
+
 def render(report):
-    t = report["threat"]
+    s = report["scores"]
     fl = report["files"]
     name = os.path.basename(os.path.abspath(report["path"])) or report["path"]
     lines = ["code-guardian %s  scan of %s" % (report["version"], name),
              "files: %d Python, %d manifests, %d other (%d skipped, %d excluded by the goal file)"
-             % (fl["python"], fl["manifests"], fl["other"], fl["skipped"], fl["excluded"]),
-             "",
-             "threat score %d/100 (raw %d)  grade %s" % (t["score"], t["raw"], t["grade"])]
-    if t["top"]:
-        lines.append("top contributors:")
-        lines.extend("  %3d  %-13s %-4s  %s  %s" % (x["weight"], x["code"], x["level"], x["node"], x["summary"])
-                     for x in t["top"])
+             % (fl["python"], fl["manifests"], fl["other"], fl["skipped"], fl["excluded"]), ""]
+    for dim in score.DIMENSIONS:
+        d = report["dimensions"][dim]
+        lines.append(("  %-8s %3d/100  %-28s %s" % (LABELS[dim], s[dim], QUESTIONS[dim],
+                                                    "-%d" % d["deducted"] if d["deducted"] else "")).rstrip())
+    lines.append("  %-8s %3d/100  grade %s%s" % ("Overall", s["overall"], s["grade"],
+                                                "  (capped: %s)" % s["cap_reason"] if s["capped"] and s["grade"] != s["grade_uncapped"]
+                                                else "  (%s)" % s["cap_reason"] if s["capped"] else ""))
+    if report["top"]:
+        lines += ["", "biggest deductions:"]
+        lines.extend("  -%-3d %-8s %-24s x%-3d first at %s" % (t["deduction"], LABELS[t["dimension"]],
+                                                              t["code"] + " " + t["level"], t["count"], t["first"])
+                     for t in report["top"])
     shown = [f for f in report["findings"] if f["code"] != "net.egress"]
     lines += ["", "findings (%s; egress listed below):" % _counts(report["findings"])]
-    lines.extend("  %-4s  %-13s %s  %s" % (f["level"], f["code"], f["node"], f["summary"]) for f in shown)
+    for dim in score.DIMENSIONS:
+        group = [f for f in shown if score.dimension_of(f["code"]) == dim]
+        if group:
+            lines.append("  %s:" % LABELS[dim])
+            lines.extend("    %-4s  %-13s %s  %s" % (f["level"], f["code"], f["node"], f["summary"]) for f in group)
     if not shown:
         lines.append("  none")
     lines += ["", "egress inventory (%d):" % len(report["egress"])]
@@ -197,7 +236,8 @@ def render(report):
     notes = report["notes"] + report["hygiene"]["notes"]
     if notes:
         lines += ["", "notes:"] + ["  - " + n for n in notes]
-    lines += ["", "static analysis: every finding is LIKELY; scanned in %.2f s" % (report["elapsed_ms"] / 1000.0)]
+    lines += [""] + _weight_lines(report)
+    lines += ["", "static analysis: every finding is LIKELY; the scores come from fixed weights, never from a model"]
     return "\n".join(lines) + "\n"
 
 
@@ -234,16 +274,14 @@ def selftest():
         put("app/broken.py", "def (:\n")
         put("web/x.js", "fetch('/');\n")
         first, second = scan(tmp), scan(tmp)
-        for r in (first, second):
-            r.pop("elapsed_ms")
         text = render(scan(tmp))
         checks = [
             ("deterministic", first == second),
-            ("score", first["threat"]["raw"] == 10 and first["threat"]["grade"] == "B"),
+            ("score", first["scores"]["safe"] == 90 and first["scores"]["overall"] == 95 and first["scores"]["grade"] == "A"),
             ("unparsed", first["files"]["unparsed"] == 1 and any(f["code"] == "parse.skipped" for f in first["findings"])),
             ("hygiene", [f["evidence"][0] for f in first["hygiene"]["findings"]] == ["name: app.run.unused"]),
             ("languages", first["other_languages"] == {".js": 1} and "secret scan only" in first["notes"][0]),
-            ("render", "threat score 10/100 (raw 10)  grade B" in text and "hygiene (inferred" in text),
+            ("render", "Safe      90/100" in text and "Overall   95/100  grade A" in text and "hygiene (inferred" in text),
             ("exit_code", exit_code(first["findings"]) == 0 and exit_code(first["findings"], "WARN") == 1),
             ("orphans", orphans(tmp)["counts"]["orphan.dead"] == 1),
         ]

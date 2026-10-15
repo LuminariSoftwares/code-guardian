@@ -48,5 +48,5 @@ jobs:
           set -e
           echo "scan exit code: $rc"
           test "$rc" = 1
-          python -c "import json;r=json.load(open('/tmp/report.json'));codes=sorted({f['code'] for f in r['findings']});print(len(codes),'codes:',codes);assert len(codes)==11,codes;assert r['threat']['raw']==340,r['threat']"
+          python -c "import json;r=json.load(open('/tmp/report.json'));codes=sorted({f['code'] for f in r['findings']});print(len(codes),'codes:',codes);assert len(codes)==11,codes;assert r['dimensions']['safe']['deducted']==237,r['dimensions']['safe'];assert (r['scores']['safe'],r['scores']['overall'],r['scores']['grade'])==(0,50,'D'),r['scores']"
           printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | /tmp/wv/bin/code-guardian-mcp mcp | python -c "import json,sys;r=json.loads(sys.stdin.readline());assert r['result']['serverInfo']['name']=='code-guardian',r;print('mcp ok',r['result']['serverInfo'])"

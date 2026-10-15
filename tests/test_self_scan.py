@@ -11,7 +11,7 @@ from code_guardian import report
 def test_self_scan_grade_a_and_no_dead_code():
     rep = report.scan(str(ROOT))
     assert rep["goal_file"] == "code-guardian.goal.toml"
-    assert rep["threat"]["grade"] == "A", rep["threat"]
+    assert rep["scores"]["grade"] == "A" and rep["scores"]["safe"] == 100, rep["scores"]
     assert not [f for f in rep["findings"] if f["level"] == "FAIL"]
     assert rep["hygiene"]["source"] == "contract"
     dead = [f for f in rep["hygiene"]["findings"] if f["code"] == "orphan.dead"]
@@ -23,4 +23,4 @@ def test_self_scan_cli_exit_0():
                        capture_output=True, text=True, timeout=120)
     assert r.returncode == 0, r.stderr
     body = json.loads(r.stdout)
-    assert body["threat"]["grade"] == "A" and body["hygiene"]["counts"]["orphan.dead"] == 0
+    assert body["scores"]["grade"] == "A" and body["hygiene"]["counts"]["orphan.dead"] == 0

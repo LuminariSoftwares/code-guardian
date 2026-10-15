@@ -17,7 +17,6 @@ OPENAI_REPLY = {"choices": [{"message": {"role": "assistant", "content": "Grade 
 
 def strip(rep):
     rep = json.loads(json.dumps(rep))
-    rep.pop("elapsed_ms")
     rep.pop("explanation", None)
     rep["notes"] = [n for n in rep["notes"] if not n.startswith("explain")]
     return rep
@@ -40,7 +39,7 @@ def test_ollama_explanation_never_changes_the_report(stub, tmp_path):
     assert explained["explanation"] == {"label": "model explanation (not part of the score)",
                                         "text": OLLAMA_REPLY["message"]["content"]}
     assert strip(explained) == strip(plain)
-    assert explained["threat"] == plain["threat"] and explained["findings"] == plain["findings"]
+    assert explained["scores"] == plain["scores"] and explained["findings"] == plain["findings"]
     assert [n for n in explained["notes"] if n.startswith("explain")][0].startswith("explain: ollama answered in")
 
 
@@ -52,7 +51,8 @@ def test_only_findings_are_sent(stub, tmp_path):
     body = model.requests[0][2]
     assert body["model"] == "m" and body["stream"] is False
     sent = json.loads(body["messages"][1]["content"])
-    assert set(sent) == {"score", "grade", "findings", "hygiene"}
+    assert set(sent) == {"scores", "findings", "hygiene"}
+    assert set(sent["scores"]) == {"safe", "works", "complete", "overall", "grade"}
     assert all(set(f) == {"code", "level", "node", "summary"} for f in sent["findings"])
     raw = json.dumps(body)
     for source_line in (path / "risky" / "runner.py").read_text(encoding="utf-8").splitlines():
@@ -99,7 +99,7 @@ def test_cli_explain_label_and_same_exit_code(stub, tmp_path):
                        capture_output=True, text=True, timeout=120, env=env)
     assert r.returncode == 1
     assert "model explanation (not part of the score):\n  Grade F: a key is in the code." in r.stdout
-    assert "threat score 100/100 (raw 340)  grade F" in r.stdout
+    assert "Overall   50/100  grade D" in r.stdout
 
 
 def test_endpoint_detection():

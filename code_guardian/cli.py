@@ -6,7 +6,7 @@
     code-guardian mcp                      # the MCP server on stdio (same as code-guardian-mcp)
 
 Exit codes: 0 nothing at or above --fail-on (default FAIL); 1 findings at or above it; 2 usage or parse error.
-scan gates on the threat findings; orphans gates on the hygiene findings.
+scan gates on every scored finding (Safe, Works, Complete); orphans gates on the hygiene findings.
 """
 
 import argparse
@@ -26,7 +26,7 @@ def _parser():
     sub = p.add_subparsers(dest="command")
     fail_on = {"default": "FAIL", "type": str.upper, "choices": ["INFO", "WARN", "FAIL"],
                "help": "exit 1 when any finding is at or above this level (default FAIL)"}
-    s = sub.add_parser("scan", help="threat score, findings, egress inventory and orphan hygiene")
+    s = sub.add_parser("scan", help="Safe, Works and Complete scores, findings, egress inventory and orphan hygiene")
     s.add_argument("path")
     s.add_argument("--json", action="store_true", help="print the report as JSON")
     s.add_argument("--goal", metavar="FILE", help="goal contract (default PATH/%s if present)" % goal.FILENAME)
@@ -116,7 +116,7 @@ def selftest():
         again, _ = run("init", tmp)
         forced, _ = run("init", tmp, "--force")
         checks = [
-            ("scan_fail_exit_1", scan_code == 1 and json.loads(scan_json)["threat"]["score"] == 25),
+            ("scan_fail_exit_1", scan_code == 1 and json.loads(scan_json)["scores"]["safe"] == 75),
             ("fail_on_case_insensitive", run("scan", tmp, "--fail-on", "fail")[0] == 1),
             ("orphans_exit_0", run("orphans", tmp)[0] == 0),
             ("usage_exit_2", run("scan")[0] == 2 and run("scan", os.path.join(tmp, "nope"))[0] == 2),
