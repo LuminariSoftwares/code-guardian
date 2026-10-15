@@ -195,9 +195,22 @@ KEY_PATTERNS = [(n, label, re.compile(r"(?<![A-Za-z0-9_\-])" + re.escape(prefix)
     (5, "sk- key", "sk-"), (6, "OpenRouter key", "sk-or-"), (7, "Tavily key", "tvly-"), (8, "GitHub token", "ghp_"),
     (9, "GitHub fine-grained token", "github_pat_"), (10, "NVIDIA key", "nvapi-"), (11, "Groq key", "gsk_"),
     (12, "Google API key", "AIza"))]
+# Provider formats beyond the privacy list: (label, level, pattern with the body in group 1).
+PROVIDER_PATTERNS = [(label, level, re.compile(rx)) for label, level, rx in (
+    ("AWS access key ID", "FAIL", r"(?<![A-Za-z0-9])(?:AKIA|ASIA)([0-9A-Z]{16})(?![A-Za-z0-9])"),
+    ("Stripe live key", "FAIL", r"(?<![A-Za-z0-9_\-])[sr]k_live_([A-Za-z0-9]{16,})"),
+    ("Stripe test key", "INFO", r"(?<![A-Za-z0-9_\-])sk_test_([A-Za-z0-9]{16,})"),
+    ("Slack token", "FAIL", r"(?<![A-Za-z0-9_\-])xox[abprs]-([A-Za-z0-9\-]{10,})"),
+    ("Hugging Face token", "FAIL", r"(?<![A-Za-z0-9_\-])hf_([A-Za-z]{30,})(?![A-Za-z0-9_])"))]
+# A 40-character AWS secret access key assigned to a name that contains both "aws" and "secret".
+AWS_SECRET = re.compile(r"(?i)(?<![A-Za-z0-9_.\-])([A-Za-z0-9_.\-]*(?:aws[A-Za-z0-9_.\-]*secret|secret[A-Za-z0-9_.\-]*aws)"
+                        r"[A-Za-z0-9_.\-]*)[\"']?\s*[:=]\s*[\"']?([A-Za-z0-9/+]{40})(?![A-Za-z0-9/+=])")
+KEY_SHAPE = "kind: provider key shape"  # evidence marker: these stay as they are in test code (see report.py)
 PRIVATE_KEY = re.compile(r"-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?-----")
 SECRET_NAME = re.compile(r"(?i)(?:^|_)(?:password|passwd|pwd|passphrase|secret|api_?key|secret_?key|access_?key|"
                          r"private_?key|client_?secret|auth_?token|access_?token)$")
+# Any *_KEY / *_TOKEN name counts too, but only with a long, high-entropy value (CACHE_KEY = "users" is not a secret).
+SECRET_SUFFIX = re.compile(r"(?i)_(?:key|token)$")
 SECRET_TEXT = re.compile(r"(?i)\b(?:password|passwd|pwd|passphrase|secret|api_?key|client_?secret|auth_?token|"
                          r"access_?token)\b[\"']?\s*[:=]\s*[\"']([^\"'\s]{4,})[\"']")
 _ENV_NAME = re.compile(r"[A-Z][A-Z0-9_]+")
@@ -206,6 +219,7 @@ _ENV_NAME = re.compile(r"[A-Z][A-Z0-9_]+")
 SELF_NAMED = frozenset({"secret", "password", "passwd", "pass", "pwd", "token", "apikey", "api_key", "username", "user"})
 PLACEHOLDER_WORDS = frozenset({"mock", "fake", "dummy", "example", "placeholder", "sample", "redacted", "test",
                                "testing", "notreal", "changeit"})
+PLACEHOLDER_MARKS = ("<", ">", "{", "}", "$", "%s", "***", "xxx", "XXX", "...")
 
 
 def _real_secret(value):
@@ -213,16 +227,31 @@ def _real_secret(value):
     calls itself fake ("sk-ant-mock", "dummy-password") is not reported."""
     if len(value) < 4 or any(c.isspace() for c in value) or _ENV_NAME.fullmatch(value):
         return False
-    if any(m in value for m in ("<", ">", "{", "}", "$", "%s", "***", "xxx", "XXX", "...")):
+    if any(m in value for m in PLACEHOLDER_MARKS):
         return False
     if PLACEHOLDER_WORDS & set(re.split(r"[^a-z]+", value.lower())) or value.lower() in SELF_NAMED:
         return False
     return len(set(value)) > 1
 
 
-def _secret(where, label, length):
-    return finding("secret.key", "FAIL", where, "%s in the source; value redacted" % label,
-                   ["matched: %s" % label, "length: %d characters" % length],
+def _calls_itself_fake(body):
+    """A provider-shaped body that spells out a placeholder word anywhere (AKIAIOSFODNN7EXAMPLE) or is masked."""
+    low = body.lower()
+    return any(m in body for m in PLACEHOLDER_MARKS) or any(w in low for w in PLACEHOLDER_WORDS if len(w) >= 4)
+
+
+def _high_entropy(value):
+    """Long, mixed letters and digits, high entropy, and not an alphabet: reads like a generated token."""
+    return (len(value) >= 20 and entropy(value) >= 4.0 and "://" not in value and not any(c.isspace() for c in value)
+            and any(c.isdigit() for c in value) and any(c.isalpha() for c in value) and len(set(value)) < len(value))
+
+
+def _secret(where, label, length, level="FAIL", shape=False):
+    evidence = ["matched: %s" % label, "length: %d characters" % length] + ([KEY_SHAPE] if shape else [])
+    if level == "INFO":
+        return finding("secret.key", "INFO", where, "%s in the source (a test-mode key; value redacted)" % label,
+                       evidence, ["keep test keys out of the source too; they still identify the account"])
+    return finding("secret.key", level, where, "%s in the source; value redacted" % label, evidence,
                    ["move it to an environment variable or a secret store",
                     "rotate it: it is in this file's history"])
 
@@ -235,20 +264,29 @@ def scan_secret_text(rel, text, python):
         hits = []
         for n, label, rx in KEY_PATTERNS:
             for m in rx.finditer(line):
-                hits.append(("%s shape (privacy pattern %d)" % (label, n), len(m.group(0))))
+                hits.append(("%s shape (privacy pattern %d)" % (label, n), len(m.group(0)), "FAIL", True))
+        for label, level, rx in PROVIDER_PATTERNS:
+            for m in rx.finditer(line):
+                if not _calls_itself_fake(m.group(1)):
+                    hits.append(("%s shape" % label, len(m.group(0)), level, level == "FAIL"))
+        for m in AWS_SECRET.finditer(line):
+            if not _calls_itself_fake(m.group(2)):
+                hits.append(("AWS secret access key assigned to %r" % m.group(1), 40, "FAIL", False))
         if PRIVATE_KEY.search(line):
-            hits.append(("private-key block", len(line.strip())))
+            hits.append(("private-key block", len(line.strip()), "FAIL", False))
         if not python:
             for m in SECRET_TEXT.finditer(line):
                 if _real_secret(m.group(1)):
-                    hits.append(("password-like literal", len(m.group(1))))
+                    hits.append(("password-like literal", len(m.group(1)), "FAIL", False))
         if hits:
-            out.append(_secret(where, hits[0][0], hits[0][1]))
+            hits.sort(key=lambda h: h[2] != "FAIL")  # a FAIL on the line wins over a test-mode INFO
+            out.append(_secret(where, *hits[0]))
     return out
 
 
 def scan_password_literals(pf):
-    """`password = "<literal>"`, password="<literal>" keyword args and {"password": "<literal>"} in Python."""
+    """`password = "<literal>"`, password="<literal>" keyword args and {"password": "<literal>"} in Python; any
+    *_KEY / *_TOKEN name when the literal is long and high-entropy."""
     out = []
     for n in pf.nodes:
         pairs = []
@@ -261,22 +299,41 @@ def scan_password_literals(pf):
         elif isinstance(n, ast.Dict):
             pairs.extend((k.value, v) for k, v in zip(n.keys, n.values) if isinstance(k, ast.Constant) and isinstance(k.value, str))
         for name, value in pairs:
-            if (name and SECRET_NAME.search(name) and isinstance(value, ast.Constant) and isinstance(value.value, str)
-                    and _real_secret(value.value)):
+            if not (name and isinstance(value, ast.Constant) and isinstance(value.value, str) and _real_secret(value.value)):
+                continue
+            if SECRET_NAME.search(name):
                 out.append(_secret(node_of(pf, value), "password-like literal assigned to %r" % name, len(value.value)))
+            elif SECRET_SUFFIX.search(name) and _high_entropy(value.value) and not _calls_itself_fake(value.value):
+                out.append(_secret(node_of(pf, value), "high-entropy literal assigned to %r" % name, len(value.value)))
     return out
 
 
 # --------------------------------------------------------------------------- exec.dynamic
 
+def _code_text(pf, expr):
+    """The expression that holds the code text: exec(compile(src, filename, mode)) runs src, not the filename."""
+    while isinstance(expr, ast.Call) and is_builtin(pf, expr, ("compile",)) and expr.args:
+        expr = expr.args[0]
+    return expr
+
+
 def scan_exec_dynamic(pf):
-    """eval/exec/compile on anything but a literal; __import__ with a computed name."""
+    """eval/exec/compile on anything but a literal (FAIL when eval/exec run input, argv, request data or the
+    environment); __import__ with a computed name."""
     out = []
     for c in pf.calls():
         if is_builtin(pf, c, ("eval", "exec", "compile")) and c.args and not literal(c.args[0]):
-            out.append(finding("exec.dynamic", "WARN", node_of(pf, c), "%s() runs code built at runtime" % c.func.id,
-                               ["call: %s(<non-literal>)" % c.func.id],
-                               ["replace it with a parser or a lookup table (ast.literal_eval for data)"]))
+            name = c.func.id
+            if name != "compile" and flows_from(pf, _code_text(pf, c.args[0]), is_input_source):
+                out.append(finding("exec.dynamic", "FAIL", node_of(pf, c), "%s() runs code typed by the user" % name,
+                                   ["call: %s(<input>)" % name,
+                                    "the code text flows from input(), sys.argv, request data, os.environ or a network read"],
+                                   ["never run input as code: parse it (ast.literal_eval for data) or map it to an "
+                                    "allow-listed action"]))
+            else:
+                out.append(finding("exec.dynamic", "WARN", node_of(pf, c), "%s() runs code built at runtime" % name,
+                                   ["call: %s(<non-literal>)" % name],
+                                   ["replace it with a parser or a lookup table (ast.literal_eval for data)"]))
         elif is_builtin(pf, c, ("__import__",)) and c.args and not literal(c.args[0]):
             out.append(finding("exec.dynamic", "WARN", node_of(pf, c), "__import__() loads a module named at runtime",
                                ["call: __import__(<non-literal>)"], ["import the module by name, or check it against an allow-list"]))
@@ -697,8 +754,19 @@ def selftest():
         ("secret_redacted", key not in repr(scan_secret_text("a.js", key, False))),
         ("secret_placeholder", scan_secret_text("a.yml", 'password: "<your password>"\n', False) == []),
         ("secret_password_py", _codes('password = "%s"\n' % ("hunter" + "22"), scan_password_literals) == [("secret.key", "FAIL", "t.py:1")]),
+        ("secret_provider_shapes", [f["level"] for f in scan_secret_text(
+            "a.env", "A=%s\nB=%s\nC=%s\nD=%s\nE=%s\n" % ("AKIA" + "Q7XZ" * 4, "sk_" + "live_" + "a1B2" * 4,
+                                                       "sk_" + "test_" + "a1B2" * 4, "xox" + "b-" + "1234567890ab",
+                                                       "hf" + "_" + "aBcD" * 8), False)]
+         == ["FAIL", "FAIL", "INFO", "FAIL", "FAIL"]),
+        ("secret_aws_example_is_fake", scan_secret_text("c", "k = %s\n" % ("AKIA" + "IOSFODNN7" + "EXAMPLE"), False) == []),
+        ("secret_key_suffix_entropy", [len(_codes('%s = "%s"\n' % (name, value), scan_password_literals)) for name, value in
+                                      (("AWS_KEY", "aZ3kP9mQ2vR7tY5wX1bN8cL4dF6gH0jSaZ3k"), ("CACHE_KEY", "user_profile_cache_v2"))]
+         == [1, 0]),
         ("exec_dynamic", _codes("eval(x)\neval('1')\n__import__(name)\n", scan_exec_dynamic) ==
          [("exec.dynamic", "WARN", "t.py:1"), ("exec.dynamic", "WARN", "t.py:3")]),
+        ("exec_dynamic_tainted", _codes("import sys\neval(input())\nc = sys.argv[1]\nexec(c)\n", scan_exec_dynamic) ==
+         [("exec.dynamic", "FAIL", "t.py:2"), ("exec.dynamic", "FAIL", "t.py:4")]),
         ("exec_shell_levels", _codes("import os, subprocess as sp\nsp.run('ls', shell=True)\nc = input()\nos.system(c)\n",
                                      scan_exec_shell) == [("exec.shell", "WARN", "t.py:2"), ("exec.shell", "FAIL", "t.py:4")]),
         ("exec_shell_list_ok", _codes("import subprocess\nsubprocess.run(['ls'])\n", scan_exec_shell) == []),

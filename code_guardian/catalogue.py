@@ -19,13 +19,16 @@ CATALOGUE = {
     # Safe
     "secret.key": _e(
         "Secret in the source",
-        "An API-key shape, a private-key block or a password-like literal is written into a file.",
+        "An API-key shape (OpenAI-style sk-, GitHub, Google, AWS, Stripe live, Slack, Hugging Face and others), an AWS "
+        "secret key, a private-key block, a password-like literal or a high-entropy literal in a name ending _KEY or _TOKEN is "
+        "written into a file (a Stripe test key is INFO).",
         "Move it to an environment variable or a secret store, and rotate it: it is in the history.",
         "Test fixtures and documentation samples; values that call themselves fake (mock, dummy, example) are skipped."),
     "exec.dynamic": _e(
         "Code built at runtime",
-        "eval, exec or compile runs a non-literal string, or __import__ loads a module named at runtime.",
-        "Use a parser, a lookup table or ast.literal_eval; import modules by name.",
+        "eval, exec or compile runs a non-literal string, or __import__ loads a module named at runtime; FAIL when "
+        "eval or exec runs text from input(), sys.argv, request data, the environment or the network.",
+        "Use a parser, a lookup table or ast.literal_eval; import modules by name; never run input as code.",
         "Plugin loaders and REPL-style tools use these on purpose."),
     "exec.shell": _e(
         "Shell command",

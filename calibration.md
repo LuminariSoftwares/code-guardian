@@ -42,6 +42,21 @@ was reproduced in a small test (`tests/test_calibration.py`, red before the fix,
 | Public library API reported as dead code | requests, httpx, click, flask | for a library, the public API and its re-exports count as entry points |
 | `from ._client import *`, `try: import / except: def`, a property getter and setter, module `__getattr__`, `@app.post` handlers | httpx, click, flask, context-guardian | star re-exports and both bindings are followed; same-name defs are merged; module dunders and registered handlers are reached with their module |
 
+## Re-run: provider key shapes and tainted eval/exec
+
+Added after the first calibration: AWS, Stripe, Slack and Hugging Face key shapes, the AWS secret-key rule,
+high-entropy `*_KEY` / `*_TOKEN` literals, and `exec.dynamic` FAIL when `eval` or `exec` runs input. The re-run
+scanned the same commits. The score table above did not change, and every finding at every level (1,752 across the
+eight external repos) is identical before and after. Nothing new is reported, not even at INFO. code-guardian's own
+scan stays at 100.
+
+One pattern was caught on the way and fixed before the re-run (`tests/test_safe_gaps.py`, red before the fix, green
+after):
+
+| pattern seen | where | fix |
+|---|---|---|
+| `eval(compile(f.read(), startup, "exec"))` where `startup` is `os.environ.get("PYTHONSTARTUP")` read as "runs code typed by the user" | flask `src/flask/cli.py:1022` (Safe 80 → 50, grade B → D) | only the code text is checked for taint: `compile()`'s filename argument is not code. The line stays WARN |
+
 ## Every FAIL and WARN
 
 ### psf/requests

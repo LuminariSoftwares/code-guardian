@@ -102,7 +102,7 @@ def scan(path, goal_file=None, explain=False, env=None, online=False):
         notes.extend(supply_notes)
     else:
         notes.append("no Python source or manifest found: Works and Complete have nothing to check")
-    findings = score.sort_findings(scanners.dedupe(_test_code_to_info(findings)))
+    findings = score.sort_findings(scanners.dedupe(_test_code_to_info(_one_secret_per_line(findings))))
     langs = _languages(inv["other"])
     if langs:
         notes.append("code-guardian analyses Python only: %d file(s) in other languages (%s) got the secret scan only"
@@ -159,15 +159,29 @@ def not_product(node):
     return None
 
 
+def _one_secret_per_line(findings):
+    """One secret.key per line: the key-shape scan and the name scan can both match `SLACK_TOKEN = "xoxb-..."`, and
+    one leaked value is one finding. The highest level wins; on a tie the first (the shape, scanned first)."""
+    rank = {"FAIL": 0, "WARN": 1, "INFO": 2}
+    best = {}
+    for i, f in enumerate(findings):
+        if f["code"] == "secret.key":
+            key = f["node"]
+            if key not in best or rank[f["level"]] < rank[findings[best[key]]["level"]]:
+                best[key] = i
+    keep = set(best.values())
+    return [f for i, f in enumerate(findings) if f["code"] != "secret.key" or i in keep]
+
+
 def _test_code_to_info(findings):
     """Safe findings in test code or documentation are reported at INFO: users run the product, not its tests or its
-    doc samples, and tests exercise unsafe APIs on purpose. Two exceptions stay as they are: API-key shapes (a real
-    key is leaked wherever it sits) and exec of decoded data (a payload in conftest.py runs on every pytest)."""
+    doc samples, and tests exercise unsafe APIs on purpose. Two exceptions stay as they are: API-key shapes (a
+    real key is leaked wherever it sits) and exec of decoded data (a payload in conftest.py runs on every pytest)."""
     for f in findings:
         where = not_product(f["node"]) if f["level"] in ("WARN", "FAIL") else None
         if (where is None or score.dimension_of(f["code"]) != "safe"
                 or (f["code"] == "obfuscation" and f["level"] == "FAIL")
-                or (f["code"] == "secret.key" and any("privacy pattern" in e for e in f["evidence"]))):
+                or (f["code"] == "secret.key" and scanners.KEY_SHAPE in f["evidence"])):
             continue
         f["evidence"].append("in %s: reported at INFO (was %s)" % (where, f["level"]))
         f["level"] = "INFO"
