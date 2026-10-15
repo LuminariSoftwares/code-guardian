@@ -78,8 +78,9 @@ def test_sarif_is_valid_against_the_schema(risky):
         pytest.skip("set CODE_GUARDIAN_SARIF_SCHEMA to the SARIF 2.1.0 schema file (the CI sarif job does)")
     with open(schema_path, encoding="utf-8") as fh:
         schema = json.load(fh)
-    jsonschema.Draft4Validator(schema).validate(outputs.to_sarif(risky))
-    jsonschema.Draft4Validator(schema).validate(outputs.to_sarif(report.scan(str(FIXTURES / "clean_repo"))))
+    validator = jsonschema.Draft4Validator(schema)
+    for sarif in (outputs.to_sarif(risky), outputs.to_sarif(report.scan(str(FIXTURES / "clean_repo")))):
+        assert [e.message for e in validator.iter_errors(sarif)] == []
 
 
 def test_markdown(risky):
