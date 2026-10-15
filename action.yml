@@ -1,0 +1,80 @@
+name: code-guardian
+description: "Is this repo safe to run, will it work, does it have what it needs? Static scan, SARIF upload, job summary."
+author: LuminariSoftwares
+branding:
+  icon: shield
+  color: green
+
+inputs:
+  path:
+    description: "Directory to scan, relative to the workspace. SARIF file paths are relative to it, so keep '.' when uploading to code scanning."
+    default: "."
+  fail-on:
+    description: "Fail the step when any scored finding is at or above this level: INFO, WARN or FAIL."
+    default: "FAIL"
+  online:
+    description: "Ask PyPI whether unknown dependency names exist (network). 'true' or 'false'."
+    default: "false"
+  sarif-file:
+    description: "Where to write the SARIF report."
+    default: "code-guardian.sarif"
+  upload-sarif:
+    description: "Upload the SARIF to GitHub code scanning (needs permissions: security-events: write)."
+    default: "true"
+  python-version:
+    description: "Python used to run code-guardian (3.11 or newer)."
+    default: "3.11"
+
+outputs:
+  overall:
+    description: "Overall score, 0-100."
+    value: ${{ steps.scan.outputs.overall }}
+  grade:
+    description: "A-F grade."
+    value: ${{ steps.scan.outputs.grade }}
+  exit-code:
+    description: "0 when nothing is at or above fail-on, 1 when something is, 2 on a usage error."
+    value: ${{ steps.scan.outputs.exit-code }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+    - name: Install code-guardian (this action's own checkout)
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        python -m pip install --disable-pip-version-check --quiet "$ACTION_PATH"
+    - name: Scan
+      id: scan
+      shell: bash
+      env:
+        CG_PATH: ${{ inputs.path }}
+        CG_FAIL_ON: ${{ inputs.fail-on }}
+        CG_ONLINE: ${{ inputs.online }}
+        CG_SARIF: ${{ inputs.sarif-file }}
+      run: |
+        online=()
+        if [ "$CG_ONLINE" = "true" ]; then online=(--online); fi
+        set +e
+        code-guardian scan "$CG_PATH" --sarif --fail-on "$CG_FAIL_ON" "${online[@]}" > "$CG_SARIF"
+        rc=$?
+        set -e
+        code-guardian scan "$CG_PATH" --markdown "${online[@]}" >> "$GITHUB_STEP_SUMMARY" || true
+        python -c "import json,sys; s=json.load(open(sys.argv[1]))['runs'][0]['properties']['scores']; print('overall=%d' % s['overall']); print('grade=%s' % s['grade'])" "$CG_SARIF" >> "$GITHUB_OUTPUT"
+        echo "exit-code=$rc" >> "$GITHUB_OUTPUT"
+    - name: Upload SARIF to code scanning
+      if: ${{ inputs.upload-sarif == 'true' }}
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ inputs.sarif-file }}
+        category: code-guardian
+    - name: Gate on fail-on
+      shell: bash
+      env:
+        CG_RC: ${{ steps.scan.outputs.exit-code }}
+      run: |
+        exit "$CG_RC"

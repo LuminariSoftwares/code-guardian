@@ -1,6 +1,6 @@
 """code-guardian command line.
 
-    code-guardian scan PATH [--json] [--goal FILE] [--explain] [--online] [--fail-on LEVEL]
+    code-guardian scan PATH [--json | --sarif | --markdown] [--goal FILE] [--explain] [--online] [--fail-on LEVEL]
     code-guardian orphans PATH [--json] [--goal FILE] [--fail-on LEVEL]
     code-guardian init [PATH] [--force]
     code-guardian mcp                      # the MCP server on stdio (same as code-guardian-mcp)
@@ -16,7 +16,7 @@ import shutil
 import sys
 import tempfile
 
-from . import __version__, goal, report
+from . import __version__, goal, outputs, report
 from .finding import summarize
 
 
@@ -28,7 +28,10 @@ def _parser():
                "help": "exit 1 when any finding is at or above this level (default FAIL)"}
     s = sub.add_parser("scan", help="Safe, Works and Complete scores, findings, egress inventory and orphan hygiene")
     s.add_argument("path")
-    s.add_argument("--json", action="store_true", help="print the report as JSON")
+    fmt = s.add_mutually_exclusive_group()
+    fmt.add_argument("--json", action="store_true", help="print the report as JSON")
+    fmt.add_argument("--sarif", action="store_true", help="print SARIF 2.1.0 (for GitHub code scanning)")
+    fmt.add_argument("--markdown", action="store_true", help="print a Markdown report (for a PR comment or job summary)")
     s.add_argument("--goal", metavar="FILE", help="goal contract (default PATH/%s if present)" % goal.FILENAME)
     s.add_argument("--explain", action="store_true", help="add a plain-English explanation from a local model")
     s.add_argument("--online", action="store_true",
@@ -78,7 +81,14 @@ def main(argv=None):
     try:
         if args.command == "scan":
             rep = report.scan(args.path, args.goal, explain=args.explain, online=args.online)
-            sys.stdout.write(json.dumps(rep, indent=1) + "\n" if args.json else report.render(rep))
+            if args.json:
+                sys.stdout.write(json.dumps(rep, indent=1) + "\n")
+            elif args.sarif:
+                sys.stdout.write(json.dumps(outputs.to_sarif(rep), indent=1) + "\n")
+            elif args.markdown:
+                sys.stdout.write(outputs.to_markdown(rep))
+            else:
+                sys.stdout.write(report.render(rep))
             return report.exit_code(rep["findings"], args.fail_on)
         if args.command == "orphans":
             hyg = report.orphans(args.path, args.goal)

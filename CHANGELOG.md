@@ -21,6 +21,10 @@
   hand-built list of ~960 known PyPI projects; with `--online`, FAIL when PyPI has no such project and WARN for new or
   single-release projects) and `supply.lookalike` (one or two edits from a known package). `--online` is the only
   network use besides `--explain`.
+- **Outputs:** `--sarif` (SARIF 2.1.0, one rule per check code, validated in CI against the official schema) and
+  `--markdown`. A composite **GitHub Action** (`action.yml`: scan, job summary, SARIF upload, gate) and a
+  **pre-commit hook** (`.pre-commit-hooks.yaml`). A check catalogue (`catalogue.py`) holds each code's meaning, fix
+  and false-positive notes.
 
 ## code-guardian 0.1.0 — unreleased
 
