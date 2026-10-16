@@ -3,6 +3,8 @@
     code-guardian scan PATH [--json | --sarif | --markdown] [--goal FILE] [--explain] [--online] [--fail-on LEVEL]
                            [--baseline FILE]
     code-guardian baseline PATH [--out FILE] [--goal FILE]     # default FILE: PATH/code-guardian.baseline.json
+    code-guardian diff BEFORE.json AFTER.json [--json]         # exit 1 when anything regressed
+    code-guardian plan PATH [--top 10] [--json] [--goal FILE]  # Markdown by default
     code-guardian orphans PATH [--json] [--goal FILE] [--fail-on LEVEL]
     code-guardian init [PATH] [--force]
     code-guardian mcp                      # the MCP server on stdio (same as code-guardian-mcp)
@@ -19,7 +21,7 @@ import shutil
 import sys
 import tempfile
 
-from . import __version__, baseline, goal, outputs, report
+from . import __version__, baseline, goal, outputs, report, verify
 from .finding import summarize
 from .scanners import redact_report
 
@@ -48,6 +50,15 @@ def _parser():
     b.add_argument("path")
     b.add_argument("--out", metavar="FILE", help="where to write it (default PATH/%s)" % baseline.FILENAME)
     b.add_argument("--goal", metavar="FILE")
+    d = sub.add_parser("diff", help="what a change fixed and broke: compare two scan --json reports by fingerprint")
+    d.add_argument("before")
+    d.add_argument("after")
+    d.add_argument("--json", action="store_true")
+    pl = sub.add_parser("plan", help="what to fix next: each check row's estimated gain if fixed, best first")
+    pl.add_argument("path")
+    pl.add_argument("--top", type=int, default=10, help="how many rows (default 10)")
+    pl.add_argument("--json", action="store_true", help="JSON instead of Markdown")
+    pl.add_argument("--goal", metavar="FILE")
     o = sub.add_parser("orphans", help="code nothing reachable from the entry points uses")
     o.add_argument("path")
     o.add_argument("--json", action="store_true")
@@ -112,6 +123,18 @@ def main(argv=None):
             else:
                 sys.stdout.write(report.render(rep))
             return report.exit_code(rep["findings"], args.fail_on, rep["status"], rep.get("baseline"))
+        if args.command == "diff":
+            try:
+                result = verify.diff(verify.load_report(args.before), verify.load_report(args.after))
+            except (OSError, ValueError) as exc:
+                raise report.UsageError("cannot diff: %s" % exc) from None
+            sys.stdout.write(json.dumps(redact_report(result), indent=1) + "\n" if args.json
+                             else verify.render_diff(redact_report(result)))
+            return verify.diff_exit(result)
+        if args.command == "plan":
+            result = redact_report(verify.plan(report.scan(args.path, args.goal), args.top))
+            sys.stdout.write(json.dumps(result, indent=1) + "\n" if args.json else verify.plan_markdown(result))
+            return 0
         if args.command == "baseline":
             return write_baseline(args.path, args.out, args.goal)
         if args.command == "orphans":
@@ -150,6 +173,8 @@ def selftest():
         empty = os.path.join(tmp, "empty")
         os.makedirs(empty)
         scan_code, scan_json = run("scan", tmp, "--json")
+        with open(os.path.join(tmp, "s.json"), "w", encoding="utf-8") as fh:
+            fh.write(scan_json)
         init_code, _ = run("init", tmp)
         again, _ = run("init", tmp)
         forced, _ = run("init", tmp, "--force")
@@ -164,6 +189,9 @@ def selftest():
             ("empty_exit_3", run("scan", empty)[0] == 3),
             ("baseline_gate", run("baseline", tmp, "--out", os.path.join(tmp, "b.json"))[0] == 0
              and run("scan", tmp, "--baseline", os.path.join(tmp, "b.json"), "--fail-on", "INFO")[0] == 0),
+            ("plan", run("plan", tmp, "--top", "1")[0] == 0 and "estimated gain if fixed" in run("plan", tmp)[1].lower()),
+            ("diff_self", run("diff", os.path.join(tmp, "s.json"), os.path.join(tmp, "s.json"))[0] == 0
+             and run("diff", os.path.join(tmp, "s.json"), os.path.join(tmp, "s.json"))[1].startswith("verdict: unchanged")),
             ("bad_goal_exit_2", run("scan", tmp, "--goal", os.path.join(tmp, "missing.toml"))[0] == 2),
         ]
     finally:

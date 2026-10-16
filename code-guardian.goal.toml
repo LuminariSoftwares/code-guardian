@@ -25,6 +25,7 @@ entry_points = [
   "code_guardian.cli:__main__",
   "code_guardian.mcp_server:__main__",
   "code_guardian.baseline:__main__",
+  "code_guardian.verify:__main__",
 ]
 
 keep = []

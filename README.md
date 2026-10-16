@@ -363,6 +363,29 @@ code-guardian scan . --baseline code-guardian.baseline.json --fail-on WARN
 - Same line twice counts twice: a third copy of a known line is new.
 - SARIF results carry the fingerprint as `partialFingerprints["codeGuardian/v1"]` and `new` in their properties.
 
+## Diff and repair plan
+
+```
+code-guardian scan . --json > before.json
+code-guardian plan .                         # what to fix next: Markdown (--json for JSON), --top N rows (default 10)
+# ...edit...
+code-guardian scan . --json > after.json
+code-guardian diff before.json after.json    # what the change fixed and broke; exit 1 when anything regressed
+```
+
+**`diff BEFORE.json AFTER.json`** compares two `scan --json` reports (0.3 or newer) by fingerprint: `fixed`, `new`
+and `unchanged` findings, per-dimension score deltas, and a one-line verdict: **improved**, **regressed**, **mixed**
+or **unchanged**. A new WARN/FAIL finding, or a status that got worse (COMPLETE → PARTIAL → INVALID), is a
+regression; INFO findings are listed but never decide the verdict. Exit 1 when anything regressed (regressed or
+mixed), 2 when a report cannot be read.
+
+**`plan PATH`** is the repair plan. For each check row it re-runs the scoring on the finding list without that row:
+the exact Overall points the row is worth, labelled **estimated gain if fixed** (the plan never touches the code, so
+fixing more or less than the whole row changes the real gain). Rows are ranked by that gain, ties by the fewest
+locations, and each comes with the catalogue's "how to fix it" and every location. When a dimension is floored at
+0 (more than 100 points deducted), no single fix in it moves Overall yet: its rows show +0 and the plan says how
+many points must go first.
+
 ## Outputs, GitHub Action and pre-commit
 
 | flag | prints |
@@ -522,12 +545,14 @@ Guarantees, each covered by a test against a stub model on loopback:
 
 ## MCP server
 
-`code-guardian-mcp` (or `code-guardian mcp`) speaks MCP over stdio with three read-only tools, each with a `title`
+`code-guardian-mcp` (or `code-guardian mcp`) speaks MCP over stdio with five read-only tools, each with a `title`
 and `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true`:
 
 | tool | does | `openWorldHint` |
 |---|---|---|
 | `scan` | the full report for `path` (+ optional `goal`, `fail_on`, `baseline`; the reply carries `exit_code`) | false |
+| `diff` | `before` and `after` (each a scan report as JSON text, or a path to a `scan --json` file): fixed, new, unchanged, score deltas, verdict and `exit_code` | false |
+| `plan` | the repair plan for `path` (+ optional `top`, default 10, and `goal`) | false |
 | `orphans` | the hygiene section for `path` | false |
 | `explain` | `scan` plus the model explanation | true |
 
@@ -577,7 +602,7 @@ scanners selftest: 18 checks, 18 passed, 0 failed
 ```
 
 Each of `finding`, `walk`, `scanners`, `manifests`, `score`, `goal`, `orphans`, `works`, `complete`, `supply`,
-`explain`, `report`, `cli`, `mcp_server` and `baseline` has one; `tests/test_selftests.py` runs them all.
+`explain`, `report`, `cli`, `mcp_server`, `baseline` and `verify` has one; `tests/test_selftests.py` runs them all.
 
 ## License
 

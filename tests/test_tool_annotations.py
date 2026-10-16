@@ -30,11 +30,12 @@ def test_every_tool_declares_all_hints_and_a_title():
 
 def test_hint_values_are_truthful():
     by_name = {t["name"]: t["annotations"] for t in _tools_over_stdio()}
-    assert sorted(by_name) == ["explain", "orphans", "scan"]
+    assert sorted(by_name) == ["diff", "explain", "orphans", "plan", "scan"]
     # nothing this server exposes writes or deletes, and asking twice gives the same answer
     for name, ann in by_name.items():
         assert ann["readOnlyHint"] is True and ann["destructiveHint"] is False and ann["idempotentHint"] is True, name
     # scan and orphans only read local files; explain calls the configured model URL
     assert by_name["scan"]["openWorldHint"] is False
     assert by_name["orphans"]["openWorldHint"] is False
+    assert by_name["diff"]["openWorldHint"] is False and by_name["plan"]["openWorldHint"] is False
     assert by_name["explain"]["openWorldHint"] is True

@@ -35,7 +35,7 @@ def test_stdio_end_to_end():
     ])
     assert sorted(out) == [1, 2, 3, 4, 5, 6], r.stdout + r.stderr
     assert out[1]["result"]["serverInfo"] == {"name": "code-guardian", "version": code_guardian.__version__}
-    assert [t["name"] for t in out[2]["result"]["tools"]] == ["scan", "orphans", "explain"]
+    assert [t["name"] for t in out[2]["result"]["tools"]] == ["scan", "diff", "plan", "orphans", "explain"]
     scan = json.loads(out[3]["result"]["content"][0]["text"])
     assert scan["scores"]["grade"] == "A" and scan["exit_code"] == 0
     orphans = json.loads(out[4]["result"]["content"][0]["text"])
