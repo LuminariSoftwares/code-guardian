@@ -8,6 +8,7 @@ Public contract:
     render(report) -> text            render_orphans(hygiene) -> text       status_line(report) -> text
     exit_code(findings, fail_on, status=None, baseline=None) -> 0, 1 or 3 (an incomplete scan: PARTIAL or INVALID);
                                        # with a baseline block only findings marked new count
+    scored_findings(report) -> the findings the scores count (findings + hygiene orphan.dead)
     redact_report(report) -> a redacted copy (scanners.redact_report: every output path uses it)
     STATUSES, SCHEMA_VERSION, Outcomes, status_of(outcomes, inv, unparsed, unreadable, invalid) -> (status, reasons)
 """
@@ -345,11 +346,16 @@ def _anchor(inv):
     return every[0] if every else "."
 
 
+def scored_findings(report):
+    """The findings the scores count: the report's findings plus the hygiene section's orphan.dead (Works)."""
+    return list(report["findings"]) + [f for f in (report.get("hygiene") or {}).get("findings") or []
+                                       if f["code"] == "orphan.dead"]
+
+
 def _score(report):
     """scores, per-dimension deductions, the top five and the weight table, from report["findings"] plus the
     hygiene section's orphan.dead (folded into Works at a low weight)."""
-    scored = report["findings"] + [f for f in report["hygiene"]["findings"] if f["code"] == "orphan.dead"]
-    dims = {name: score.dimension(scored, name) for name in score.DIMENSIONS}
+    dims = {name: score.dimension(scored_findings(report), name) for name in score.DIMENSIONS}
     report["scores"] = score.scores(report["findings"], dims, report.get("status"))
     report["dimensions"] = dims
     report["top"] = score.top(dims)

@@ -1,7 +1,7 @@
 """Read-only MCP stdio server for code-guardian (mirrors stack-guardian's mcp_server.py).
 
-Speaks JSON-RPC 2.0, one JSON object per line on stdin/stdout, and exposes three read-only tools: scan, orphans and
-explain. Everything above default_tools() is pure and package-free; default_tools() is the only place that imports the
+Speaks JSON-RPC 2.0, one JSON object per line on stdin/stdout, and exposes five read-only tools: scan, diff, plan,
+orphans and explain. Everything above default_tools() is pure and package-free; default_tools() is the only place that imports the
 rest of code_guardian. A path argument is resolved and must exist.
 """
 
@@ -35,6 +35,23 @@ TOOL_SPECS = [
                                                        "is marked new or known and exit_code counts new ones only"}},
                      "required": ["path"]},
      "annotations": _annotations("Scan a codebase", False)},
+    {"name": "diff", "title": "Compare two scans",
+     "description": "What did a change fix and what did it break? Compares two scan reports (each a JSON string from "
+                    "scan, or a path to a scan --json file) by finding fingerprint: fixed, new and unchanged findings, "
+                    "per-dimension score deltas and a verdict (improved, regressed, mixed, unchanged). Read-only.",
+     "inputSchema": {"type": "object", "properties": {
+         "before": {"type": "string", "description": "the report before the change: JSON text or a file path"},
+         "after": {"type": "string", "description": "the report after the change: JSON text or a file path"}},
+                     "required": ["before", "after"]},
+     "annotations": _annotations("Compare two scans", False)},
+    {"name": "plan", "title": "Plan the next fixes",
+     "description": "What should be fixed next? Scans path, then re-scores it without each check row in turn: the "
+                    "Overall points each row would gain if fixed (an estimate, the code is never touched), best "
+                    "first, each with how to fix it and every location. Loop: scan, plan, edit, scan, diff.",
+     "inputSchema": {"type": "object", "properties": {
+         "path": _PATH, "goal": _GOAL, "top": {"type": "integer", "minimum": 1, "description": "rows (default 10)"}},
+                     "required": ["path"]},
+     "annotations": _annotations("Plan the next fixes", False)},
     {"name": "orphans", "title": "Find orphan code",
      "description": "Functions, classes and modules nothing reachable from the project's entry points uses: dead, "
                     "test-only or uncertain (dynamic dispatch). Judged against the goal contract when there is one.",
@@ -119,7 +136,14 @@ def serve(lines, write, tools):
     return count
 
 
-def make_tools(scan_fn, orphans_fn, exit_fn):
+def _report_arg(value, field):
+    """A report argument: JSON text is passed through, anything else must be an existing file."""
+    if isinstance(value, str) and value.lstrip().startswith("{"):
+        return value
+    return resolve_path(value, field)
+
+
+def make_tools(scan_fn, orphans_fn, exit_fn, diff_fn=None, plan_fn=None):
     """Bind the protocol to scan_fn(path, goal, explain, baseline) -> report, orphans_fn(path, goal) -> hygiene and
     exit_fn(findings, fail_on, status, baseline) -> 0, 1 or 3 (3: the scan is PARTIAL or INVALID)."""
     def goal_of(a):
@@ -141,15 +165,35 @@ def make_tools(scan_fn, orphans_fn, exit_fn):
         rep = scan_fn(resolve_path(a.get("path")), goal_of(a), True, None)
         return {"scores": rep["scores"], "explanation": rep.get("explanation"), "notes": rep["notes"]}
 
-    return {"scan": scan, "orphans": orphans, "explain": explain}
+    def diff(a):
+        return diff_fn(_report_arg(a.get("before"), "before"), _report_arg(a.get("after"), "after"))
+
+    def plan(a):
+        top = a.get("top", 10)
+        if not isinstance(top, int) or isinstance(top, bool) or top < 1:
+            raise ValueError("top must be a whole number of at least 1")
+        return plan_fn(resolve_path(a.get("path")), goal_of(a), top)
+
+    tools = {"scan": scan, "orphans": orphans, "explain": explain}
+    if diff_fn:
+        tools["diff"] = diff
+    if plan_fn:
+        tools["plan"] = plan
+    return tools
 
 
 def default_tools():
     """The real tools; every reply goes through scanners.redact_report, the redaction every output path uses."""
-    from . import report
+    from . import report, verify
     from .scanners import redact_report
 
-    tools = make_tools(lambda p, g, e, b: report.scan(p, g, explain=e, baseline=b), report.orphans, report.exit_code)
+    def diff(before, after):
+        d = verify.diff(verify.load_report(before), verify.load_report(after))
+        d["exit_code"] = verify.diff_exit(d)
+        return d
+
+    tools = make_tools(lambda p, g, e, b: report.scan(p, g, explain=e, baseline=b), report.orphans, report.exit_code,
+                       diff, lambda p, g, top: verify.plan(report.scan(p, g), top))
     return {name: (lambda a, fn=fn: redact_report(fn(a))) for name, fn in tools.items()}
 
 
@@ -179,7 +223,8 @@ def _selftest():
         calls.append((path, goal, explain, baseline))
         return {"scores": {"overall": 100, "grade": "A"}, "findings": [{"level": "WARN"}], "notes": ["n"]}
 
-    tools = make_tools(fake_scan, lambda p, g: {"path": p}, lambda f, lv, st, b: 3 if st else 1 if lv != "FAIL" else 0)
+    tools = make_tools(fake_scan, lambda p, g: {"path": p}, lambda f, lv, st, b: 3 if st else 1 if lv != "FAIL" else 0,
+                       lambda b, a: {"before": b, "after": a}, lambda p, g, top: {"top": top})
 
     def req(i, method, params=None):
         m = {"jsonrpc": "2.0", "id": i, "method": method}
@@ -196,7 +241,11 @@ def _selftest():
 
     checks = [
         ("initialize", handle(req(1, "initialize", {}), tools)["result"]["serverInfo"] == {"name": SERVER_NAME, "version": VERSION}),
-        ("tools_list", [t["name"] for t in handle(req(2, "tools/list"), tools)["result"]["tools"]] == ["scan", "orphans", "explain"]),
+        ("tools_list", [t["name"] for t in handle(req(2, "tools/list"), tools)["result"]["tools"]]
+         == ["scan", "diff", "plan", "orphans", "explain"]),
+        ("diff_args", body("diff", {"before": "{}", "after": __file__})["after"] == os.path.realpath(__file__)
+         and call("diff", {"before": "{}", "after": "nope.json"})[0] is True),
+        ("plan_top", body("plan", {"path": here})["top"] == 10 and call("plan", {"path": here, "top": 0})[0] is True),
         ("notification_silent", handle({"jsonrpc": "2.0", "method": "notifications/initialized"}, tools) is None),
         ("unknown_method", handle(req(3, "resources/list"), tools)["error"]["code"] == -32601),
         ("scan_exit_code", body("scan", {"path": here})["exit_code"] == 0 and body("scan", {"path": here, "fail_on": "warn"})["exit_code"] == 1),
@@ -209,7 +258,7 @@ def _selftest():
         ("unknown_tool", call("delete_everything", {}) == (True, "unknown tool: delete_everything")),
         ("serve_lines", serve(['{"jsonrpc":"2.0","id":1,"method":"ping"}', "", "nope"], [].append, tools) == 2),
         ("annotations", all(t["annotations"]["readOnlyHint"] and not t["annotations"]["destructiveHint"] for t in TOOL_SPECS)
-         and [t["annotations"]["openWorldHint"] for t in TOOL_SPECS] == [False, False, True]),
+         and [t["annotations"]["openWorldHint"] for t in TOOL_SPECS] == [False, False, False, False, True]),
     ]
     passed = sum(1 for _, ok in checks if ok)
     for name, ok in checks:
