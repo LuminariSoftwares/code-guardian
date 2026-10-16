@@ -154,3 +154,17 @@ def test_mcp_diff_and_plan(risky, tmp_path):
     for name in ("diff", "plan"):
         ann = names[name]["annotations"]
         assert ann["readOnlyHint"] and not ann["destructiveHint"] and ann["idempotentHint"] and not ann["openWorldHint"]
+
+
+def test_plan_and_diff_print_on_a_cp1252_console(risky, tmp_path):
+    """Windows consoles default to cp1252: every character the plan and the diff print must encode there."""
+    import os
+    env = dict(os.environ, PYTHONIOENCODING="cp1252")
+    r = subprocess.run([sys.executable, "-m", "code_guardian", "plan", str(risky)], capture_output=True, text=True,
+                       timeout=120, env=env)
+    assert r.returncode == 0, r.stderr[-500:]
+    rep = tmp_path / "r.json"
+    rep.write_text(cli("scan", risky, "--json").stdout, encoding="utf-8")
+    r = subprocess.run([sys.executable, "-m", "code_guardian", "diff", str(rep), str(rep)], capture_output=True,
+                       text=True, timeout=120, env=env)
+    assert r.returncode == 0, r.stderr[-500:]

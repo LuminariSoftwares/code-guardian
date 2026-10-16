@@ -170,7 +170,7 @@ def plan_markdown(p):
     out += ["> %s" % n for n in p["notes"]] + ([""] if p["notes"] else [])
     for i in p["items"]:
         where = ", ".join("`%s`" % loc for loc in i["locations"]) + (" and %d more" % i["more"] if i["more"] else "")
-        out += ["### %d. `%s` %s (%s): %+d → %s/100 (grade %s)" % (i["rank"], i["code"], i["level"],
+        out += ["### %d. `%s` %s (%s): %+d -> %s/100 (grade %s)" % (i["rank"], i["code"], i["level"],
                                                                 LABELS[i["dimension"]], i["gain"], i["overall_after"],
                                                                 i["grade_after"]),
                 "", "**%s.** %s" % (i["title"], i["fix"]), "",
