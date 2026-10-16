@@ -142,9 +142,12 @@ def make_tools(scan_fn, orphans_fn, exit_fn):
 
 
 def default_tools():
+    """The real tools; every reply goes through scanners.redact_report, the redaction every output path uses."""
     from . import report
+    from .scanners import redact_report
 
-    return make_tools(lambda p, g, e: report.scan(p, g, explain=e), report.orphans, report.exit_code)
+    tools = make_tools(lambda p, g, e: report.scan(p, g, explain=e), report.orphans, report.exit_code)
+    return {name: (lambda a, fn=fn: redact_report(fn(a))) for name, fn in tools.items()}
 
 
 def main(argv=None):

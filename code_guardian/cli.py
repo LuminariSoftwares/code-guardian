@@ -19,6 +19,7 @@ import tempfile
 
 from . import __version__, goal, outputs, report
 from .finding import summarize
+from .scanners import redact_report
 
 
 def _parser():
@@ -83,7 +84,7 @@ def main(argv=None):
         if args.command == "scan":
             rep = report.scan(args.path, args.goal, explain=args.explain, online=args.online)
             if args.json:
-                sys.stdout.write(json.dumps(rep, indent=1) + "\n")
+                sys.stdout.write(json.dumps(redact_report(rep), indent=1) + "\n")
             elif args.sarif:
                 sys.stdout.write(json.dumps(outputs.to_sarif(rep), indent=1) + "\n")
             elif args.markdown:
@@ -93,7 +94,7 @@ def main(argv=None):
             return report.exit_code(rep["findings"], args.fail_on, rep["status"])
         if args.command == "orphans":
             hyg = report.orphans(args.path, args.goal)
-            sys.stdout.write(json.dumps(hyg, indent=1) + "\n" if args.json else report.render_orphans(hyg))
+            sys.stdout.write(json.dumps(redact_report(hyg), indent=1) + "\n" if args.json else report.render_orphans(hyg))
             return report.exit_code(hyg["findings"], args.fail_on)
         if args.command == "init":
             return init(args.path, args.force)

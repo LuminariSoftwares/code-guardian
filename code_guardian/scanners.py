@@ -8,6 +8,8 @@ Public contract:
     scan_secret_text(rel, text, python) -> [finding]   # every text file
     PY_SCANNERS = [(code, fn(PyFile) -> [finding])]    # Python files only
     scan_python(pf, crashed=None) -> [finding]         # every PY_SCANNERS entry; a crashing scanner is one WARN
+    redact(text, strict=False) -> text                 # key shapes and email addresses masked (every output path)
+    redact_report(obj) -> a redacted deep copy         # what every output path (JSON, text, Markdown, SARIF, MCP) uses
 """
 
 import ast
@@ -214,6 +216,48 @@ SECRET_SUFFIX = re.compile(r"(?i)_(?:key|token)$")
 SECRET_TEXT = re.compile(r"(?i)\b(?:password|passwd|pwd|passphrase|secret|api_?key|client_?secret|auth_?token|"
                          r"access_?token)\b[\"']?\s*[:=]\s*[\"']([^\"'\s]{4,})[\"']")
 _ENV_NAME = re.compile(r"[A-Z][A-Z0-9_]+")
+
+
+EMAIL = re.compile(r"(?<![A-Za-z0-9._%+\-])[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)*\.[A-Za-z]{2,}")
+_STRICT_TOKEN = re.compile(r"[A-Za-z0-9_\-+/=]{20,}")
+
+
+def _token_like(value):
+    """Letters and digits mixed, high entropy: reads like a generated credential (strict redaction only)."""
+    return entropy(value) >= 3.5 and any(c.isdigit() for c in value) and any(c.isalpha() for c in value)
+
+
+def redact(text, strict=False):
+    """text with every API-key shape, AWS secret, private-key header and email address masked. strict=True (the
+    evidence of secret and privacy findings) also masks any long high-entropy token. Idempotent; every output path
+    goes through it (report.redact_report)."""
+    text = str(text)
+    for _n, _label, rx in KEY_PATTERNS:
+        text = rx.sub("<redacted key>", text)
+    for _label, _level, rx in PROVIDER_PATTERNS:
+        text = rx.sub("<redacted key>", text)
+    text = AWS_SECRET.sub(lambda m: m.group(0).replace(m.group(2), "<redacted key>"), text)
+    text = PRIVATE_KEY.sub("<redacted key>", text)
+    text = EMAIL.sub("<redacted email>", text)
+    if strict:
+        text = _STRICT_TOKEN.sub(lambda m: "<redacted value>" if _token_like(m.group(0)) else m.group(0), text)
+    return text
+
+
+SENSITIVE_PREFIXES = ("secret.", "privacy.")  # their evidence is redacted strictly, in every format
+
+
+def redact_report(obj):
+    """A redacted deep copy of a report (or any JSON value): every string through redact(); the evidence of secret
+    and privacy findings through redact(strict=True). Dict keys are left alone. The input is not modified."""
+    if isinstance(obj, dict):
+        out = {k: redact_report(v) for k, v in obj.items()}
+        if str(obj.get("code", "")).startswith(SENSITIVE_PREFIXES) and isinstance(obj.get("evidence"), list):
+            out["evidence"] = [redact(e, strict=True) for e in obj["evidence"]]
+        return out
+    if isinstance(obj, (list, tuple)):
+        return [redact_report(v) for v in obj]
+    return redact(obj) if isinstance(obj, str) else obj
 
 
 SELF_NAMED = frozenset({"secret", "password", "passwd", "pass", "pwd", "token", "apikey", "api_key", "username", "user"})
@@ -794,6 +838,9 @@ def selftest():
         ("crash_is_one_warn", [(f["code"], f["level"], f["node"]) for f in
                                scan_python(PyFile("t.py", b"x = 1\n", "x = 1\n"), [("boom", lambda pf: 1 / 0)], crashed)]
          == [("check.crashed", "WARN", "t.py")] and [c for c, _ in crashed] == ["boom"]),
+        ("redact", redact("k=%s mail a.b@%s" % (key, "x.org")) == "k=<redacted key> mail <redacted email>"
+         and redact("plain text") == "plain text"
+         and redact("v: aZ3kP9mQ2vR7tY5wX1bN8c", strict=True) == "v: <redacted value>"),
         ("aliases", dotted(ast.parse("sp.run").body[0].value, {"sp": "subprocess"}) == "subprocess.run"),
     ]
     return summarize("scanners", checks)

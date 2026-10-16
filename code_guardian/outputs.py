@@ -9,11 +9,13 @@ Public contract:
     to_sarif(report) -> dict          to_markdown(report) -> str
 """
 
+import json
 import sys
 
 from . import catalogue, score
 from .finding import summarize
 from .orphans import LEVELS as ORPHAN_LEVELS
+from .scanners import redact_report
 
 SCHEMA = "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json"
 HOME = "https://github.com/LuminariSoftwares/code-guardian"
@@ -58,6 +60,7 @@ def _location(node, anchor):
 
 
 def to_sarif(report):
+    report = redact_report(report)
     codes = sorted(catalogue.CATALOGUE)
     index = {c: i for i, c in enumerate(codes)}
     results = []
@@ -85,6 +88,7 @@ def _row(f):
 
 def to_markdown(report):
     import os
+    report = redact_report(report)
     s = report["scores"]
     name = os.path.basename(os.path.abspath(report["path"])) or report["path"]
     status = report.get("status", "COMPLETE")
@@ -156,6 +160,9 @@ def selftest():
         ("anchor", res[1]["locations"][0]["physicalLocation"] == {"artifactLocation": {"uri": "pyproject.toml"}}),
         ("region", res[0]["locations"][0]["physicalLocation"]["region"] == {"startLine": 3}),
         ("markdown", "| FAIL | `tls.off` | `a.py:3` | x \\| y |" in md and md.startswith("# code-guardian: demo")),
+        ("redacted", all(leak not in json.dumps(to_sarif(dict(rep, findings=[dict(f, summary="to " + leak)])))
+                         and leak not in to_markdown(dict(rep, findings=[dict(f, summary="to " + leak)]))
+                         for leak in ("sk-" + "B" * 20, "bob" + "@" + "mail.org"))),
         ("status", sarif["runs"][0]["properties"]["status"] == "COMPLETE" and "**Status: COMPLETE**" in md
          and "**Status: INVALID**" in to_markdown(dict(rep, status="INVALID", status_reasons=["r"]))),
     ]
