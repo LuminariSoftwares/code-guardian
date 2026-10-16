@@ -6,7 +6,7 @@ import sys
 import pytest
 
 MODULES = ["finding", "walk", "scanners", "manifests", "score", "goal", "orphans", "works", "complete", "supply", "catalogue", "outputs", "explain", "report", "cli",
-           "mcp_server", "baseline", "verify"]
+           "mcp_server", "baseline", "verify", "history"]
 
 
 @pytest.mark.parametrize("mod", MODULES)

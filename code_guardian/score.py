@@ -34,6 +34,7 @@ from .finding import make_finding, summarize
 SAFE_WEIGHTS = {  # the v0.1 threat weights, unchanged
     ("secret.key", "FAIL"): 40,
     ("secret.key", "INFO"): 0,
+    ("secret.history", "FAIL"): 30,  # opt-in (scan --history)
     ("exec.dynamic", "FAIL"): 30,
     ("exec.dynamic", "WARN"): 10,
     ("exec.shell", "WARN"): 10,

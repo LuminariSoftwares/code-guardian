@@ -9,6 +9,7 @@ Public contract:
     PY_SCANNERS = [(code, fn(PyFile) -> [finding])]    # Python files only
     scan_python(pf, crashed=None) -> [finding]         # every PY_SCANNERS entry; a crashing scanner is one WARN
     redact(text, strict=False) -> text                 # key shapes and email addresses masked (every output path)
+    key_values(line) -> [str]                          # the FAIL-level key-shaped values on a line (history scan)
     redact_report(obj) -> a redacted deep copy         # what every output path (JSON, text, Markdown, SARIF, MCP) uses
 """
 
@@ -325,6 +326,17 @@ def scan_secret_text(rel, text, python):
         if hits:
             hits.sort(key=lambda h: h[2] != "FAIL")  # a FAIL on the line wins over a test-mode INFO
             out.append(_secret(where, *hits[0]))
+    return out
+
+
+def key_values(line):
+    """The key-shaped values on one line that secret.key reports at FAIL (for the history scan, which compares them
+    with the working tree and never prints them)."""
+    out = [m.group(0) for _n, _label, rx in KEY_PATTERNS for m in rx.finditer(line)]
+    out += [m.group(0) for _label, level, rx in PROVIDER_PATTERNS for m in rx.finditer(line)
+            if level == "FAIL" and not _calls_itself_fake(m.group(1))]
+    out += [m.group(2) for m in AWS_SECRET.finditer(line) if not _calls_itself_fake(m.group(2))]
+    out += [m.group(0) for m in PRIVATE_KEY.finditer(line)]
     return out
 
 
@@ -841,6 +853,7 @@ def selftest():
         ("redact", redact("k=%s mail a.b@%s" % (key, "x.org")) == "k=<redacted key> mail <redacted email>"
          and redact("plain text") == "plain text"
          and redact("v: aZ3kP9mQ2vR7tY5wX1bN8c", strict=True) == "v: <redacted value>"),
+        ("key_values", key_values("a = '%s' b = 'plain'" % key) == [key] and key_values("nothing here") == []),
         ("aliases", dotted(ast.parse("sp.run").body[0].value, {"sp": "subprocess"}) == "subprocess.run"),
     ]
     return summarize("scanners", checks)
