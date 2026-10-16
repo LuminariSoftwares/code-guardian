@@ -29,6 +29,9 @@ def make_repo(root):
     git(root, "config", "user.name", "t")
     git(root, "config", "user.email", "t@example.com")
     git(root, "config", "commit.gpgsign", "false")
+    # git's own background housekeeping after a commit (maintenance.lock, gc) would race the .git snapshot below
+    git(root, "config", "maintenance.auto", "false")
+    git(root, "config", "gc.auto", "0")
     (root / "app").mkdir()
     (root / "app" / "__init__.py").write_text("", encoding="utf-8")
     (root / "app" / "settings.py").write_text("API = '%s'\nDEBUG = False\n" % key(), encoding="utf-8")
