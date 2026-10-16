@@ -168,3 +168,34 @@ def test_plan_and_diff_print_on_a_cp1252_console(risky, tmp_path):
     r = subprocess.run([sys.executable, "-m", "code_guardian", "diff", str(rep), str(rep)], capture_output=True,
                        text=True, timeout=120, env=env)
     assert r.returncode == 0, r.stderr[-500:]
+
+
+def _synthetic(rows):
+    """A report from (code, level, count) Safe rows; Works and Complete stay at 100."""
+    from code_guardian.finding import make_finding
+    findings = [make_finding(code, "partial", level, "s.py:%d" % (10 * i + j + 1), "s")
+                for i, (code, level, n) in enumerate(rows) for j in range(n)]
+    dims = {n: score.dimension(findings, n) for n in score.DIMENSIONS}
+    return {"path": "demo", "status": "COMPLETE", "findings": findings, "hygiene": {"findings": []},
+            "dimensions": dims, "scores": score.scores(findings, dims, "COMPLETE")}
+
+
+def test_floor_note_only_when_no_single_fix_moves_overall():
+    # (a) the reproducer: Safe 0/100 with 130 deducted (30 over); secret.key x2 deducts 50 > 30, so fixing it moves
+    # Safe to 20 and Overall by +10. The note would contradict that row, so it must not appear.
+    a = _synthetic([("secret.key", "FAIL", 2), ("exec.shell", "FAIL", 1), ("tls.off", "FAIL", 1),
+                    ("deser.unsafe", "WARN", 1), ("exec.dynamic", "WARN", 1), ("net.bind_all", "WARN", 1)])
+    assert a["dimensions"]["safe"]["deducted"] == 130 and a["scores"]["safe"] == 0
+    plan_a = verify.plan(a, top=50)
+    assert not any("Safe is at 0/100" in n for n in plan_a["notes"]), plan_a["notes"]
+    top = plan_a["items"][0]
+    assert (top["code"], top["level"], top["gain"]) == ("secret.key", "FAIL", 10)
+    # (b) every Safe row (largest 40) is smaller than the excess (205 - 100 = 105): the note appears, names 105,
+    # and every Safe row shows +0
+    b = _synthetic([("secret.key", "FAIL", 1), ("exec.dynamic", "FAIL", 1), ("exec.shell", "FAIL", 1),
+                    ("obfuscation", "FAIL", 1), ("tls.off", "FAIL", 1), ("supply.unknown_package", "FAIL", 1)])
+    assert b["dimensions"]["safe"]["deducted"] == 205
+    plan_b = verify.plan(b, top=50)
+    notes = [n for n in plan_b["notes"] if "Safe is at 0/100" in n]
+    assert len(notes) == 1 and "105 points of Safe deductions must go first" in notes[0], plan_b["notes"]
+    assert [i["gain"] for i in plan_b["items"] if i["dimension"] == "safe"] == [0] * 6

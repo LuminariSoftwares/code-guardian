@@ -1,5 +1,14 @@
 # Changelog
 
+## code-guardian 0.3.1 — unreleased
+
+- **`plan`: the floored-dimension note no longer contradicts the plan.** When Safe (or any dimension) is at 0 with
+  more than 100 points deducted, 0.3.0 always printed "no single Safe fix moves Overall yet (each shows +0)", even
+  when one row deducted more than the excess and its fix did move Overall (for example Safe 130 deducted, a
+  `secret.key` row of 50 shown at +10). The note now prints only when it is true: when no single row's deduction is
+  larger than the excess (deducted − 100), and it names that excess.
+- 0.3.0 was never tagged; 0.3.1 is the first release of the verify loop described below.
+
 ## code-guardian 0.3.0 — unreleased
 
 The verify loop: code-guardian becomes the tool an AI-assisted developer runs before and after every change. It
