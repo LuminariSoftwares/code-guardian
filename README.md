@@ -68,11 +68,11 @@ status: COMPLETE
   Overall   33/100  grade F  (a Safe check is FAIL (exec.shell, obfuscation, secret.key, tls.off): the grade is at most D)
 
 biggest deductions:
-  -60  Safe     secret.key FAIL          x3   first at deploy/id_rsa:1
-  -40  Safe     obfuscation FAIL         x1   first at risky/loader.py:7
-  -30  Safe     exec.shell FAIL          x1   first at risky/runner.py:7
-  -25  Safe     tls.off FAIL             x1   first at risky/network.py:11
-  -23  Safe     install.hook WARN        x3   first at package.json:5
+  -60  Safe     secret.key FAIL          x3   at deploy/id_rsa:1, risky/settings.py:1, risky/settings.py:2
+  -40  Safe     obfuscation FAIL         x1   at risky/loader.py:7
+  -30  Safe     exec.shell FAIL          x1   at risky/runner.py:7
+  -25  Safe     tls.off FAIL             x1   at risky/network.py:11
+  -23  Safe     install.hook WARN        x3   at package.json:5, setup.py:5, setup.py:14
 
 findings (6 FAIL, 19 WARN, 7 INFO; egress listed below):
   Safe:
@@ -166,6 +166,11 @@ Complete.
 - **FAIL cap**: any Safe finding at FAIL caps the grade at **D**, whatever the average. One leaked key never hides
   behind a good README.
 - INFO findings are never scored. Every report prints the weight table it used.
+- **Every deduction cites its evidence.** Each check row lists every distinct `file:line` it was counted at
+  (sorted, at most 20, plus `more`: how many were left out); the text report shows up to three per row.
+- **Nothing secret is printed.** Every output (JSON, text, Markdown, SARIF, MCP) goes through one `redact()`: API-key
+  shapes and email addresses are masked as `<redacted key>` / `<redacted email>` wherever they appear (a URL literal,
+  a path), and the evidence of `secret.*` and `privacy.*` findings is also stripped of any long token-like value.
 
 The weight tables live in `code_guardian/score.py` (`TABLES`); `tests/test_readme_sync.py` fails if the tables in
 this README drift from them.
@@ -196,7 +201,8 @@ is listed in the notes but does not make a scan PARTIAL.
   "anchor": "pyproject.toml",                (the file repo-level findings are attached to in SARIF)
   "scores": {"safe", "works", "complete", "overall", "grade", "grade_uncapped", "capped", "cap_reason"},
   "dimensions": {"safe" | "works" | "complete": {"score", "deducted",
-                 "checks": [{"code", "level", "count", "weight", "deduction", "first"}]}},
+                 "checks": [{"code", "level", "count", "weight", "deduction", "first",
+                             "locations": [every distinct file:line, sorted, at most 20], "more": N}]}},
   "top": [the five biggest deductions, each a check row plus "dimension"],
   "weights": {"safe" | "works" | "complete": {"code LEVEL": weight}},
   "weights_rule": "...",

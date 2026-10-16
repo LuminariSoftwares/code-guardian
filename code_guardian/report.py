@@ -6,6 +6,7 @@ Public contract:
     orphans(path, goal_file=None, infer=False) -> hygiene dict (+ "files")
     render(report) -> text            render_orphans(hygiene) -> text       status_line(report) -> text
     exit_code(findings, fail_on, status=None) -> 0, 1 or 3 (an incomplete scan: PARTIAL or INVALID)
+    redact_report(report) -> a redacted copy (scanners.redact_report: every output path uses it)
     STATUSES, SCHEMA_VERSION, Outcomes, status_of(outcomes, inv, unparsed, unreadable, invalid) -> (status, reasons)
 """
 
@@ -19,6 +20,7 @@ import warnings
 from . import (__version__, complete, explain as explain_mod, goal, manifests, orphans as orphans_mod, scanners, score,
                supply, walk, works)
 from .finding import LEVELS, crash_finding, make_finding, summarize
+from .scanners import redact_report
 
 SOURCE_EXT = frozenset({".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx", ".go", ".rs", ".java", ".kt", ".rb", ".php",
                         ".sh", ".bash", ".ps1", ".bat", ".c", ".h", ".cc", ".cpp", ".hpp", ".cs", ".swift", ".lua",
@@ -245,6 +247,7 @@ def scan(path, goal_file=None, explain=False, env=None, online=False):
         "notes": notes,
     }
     _score(report)
+    report = redact_report(report)  # before explain: the model sees what every output shows, nothing more
     if explain:
         text, note = explain_mod.explain(report, env)
         if text:
@@ -409,7 +412,14 @@ def status_line(report):
     return "status: %s%s" % (report.get("status", "COMPLETE"), " (%s)" % "; ".join(reasons) if reasons else "")
 
 
+def _where(row, n=3):
+    shown = row.get("locations") or [row["first"]]
+    rest = len(shown) - n + row.get("more", 0)
+    return "at " + ", ".join(shown[:n]) + (" (+%d more)" % rest if rest > 0 else "")
+
+
 def render(report):
+    report = redact_report(report)
     s = report["scores"]
     fl = report["files"]
     name = os.path.basename(os.path.abspath(report["path"])) or report["path"]
@@ -429,8 +439,8 @@ def render(report):
                                                     else "  (%s)" % s["cap_reason"] if s["capped"] else ""))
     if report["top"]:
         lines += ["", "biggest deductions:"]
-        lines.extend("  -%-3d %-8s %-24s x%-3d first at %s" % (t["deduction"], LABELS[t["dimension"]],
-                                                              t["code"] + " " + t["level"], t["count"], t["first"])
+        lines.extend("  -%-3d %-8s %-24s x%-3d %s" % (t["deduction"], LABELS[t["dimension"]],
+                                                     t["code"] + " " + t["level"], t["count"], _where(t))
                      for t in report["top"])
     shown = [f for f in report["findings"] if f["code"] != "net.egress"]
     lines += ["", "findings (%s; egress listed below):" % _counts(report["findings"])]
@@ -455,6 +465,7 @@ def render(report):
 
 
 def render_orphans(h):
+    h = redact_report(h)
     lines = _hygiene_lines(h)
     if h["entry_points"]:
         lines += ["entry points:"] + ["  " + e for e in h["entry_points"]]

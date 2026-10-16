@@ -148,7 +148,8 @@ def test_text_report(tmp_path):
     out = cli("scan", risky(tmp_path)).stdout
     assert "  Safe       0/100  is it safe to run?" in out
     assert "  Overall   33/100  grade F" in out
-    assert "biggest deductions:" in out and "  -60  Safe     secret.key FAIL          x3   first at deploy/id_rsa:1" in out
+    assert "biggest deductions:" in out and ("  -60  Safe     secret.key FAIL          x3   at deploy/id_rsa:1, risky/settings.py:1, "
+                                                "risky/settings.py:2") in out
     assert "egress inventory (4):" in out
     assert "hygiene (inferred (library public API) entry points: 1): 0 dead, 0 test-only, 0 uncertain" in out
 

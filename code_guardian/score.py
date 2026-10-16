@@ -16,7 +16,8 @@ Public contract:
     DIMENSIONS, WEIGHTS_RULE
     dimension_of(code) -> "safe" | "works" | "complete"
     weight(finding) -> int          deduction(weight, n) -> int
-    dimension(findings, name) -> {"score", "deducted", "checks": [{"code","level","count","weight","deduction","first"}]}
+    dimension(findings, name) -> {"score", "deducted",
+                                  "checks": [{"code","level","count","weight","deduction","first","locations","more"}]}
     overall(safe, works, complete) -> int        grade(overall) -> "A".."F"
     scores(findings, dimensions=None, status=None)
         -> {"safe","works","complete","overall","grade","grade_uncapped","capped","cap_reason"}
@@ -83,6 +84,7 @@ GRADE_BANDS = ((90, "A"), (75, "B"), (60, "C"), (40, "D"), (0, "F"))
 FAIL_CAP = "D"
 PARTIAL_CAP = "B"  # a scan that skipped or crashed somewhere cannot vouch for an A
 GRADE_ORDER = "ABCDF"
+LOCATIONS_MAX = 20  # a check row cites every distinct file:line, sorted, up to this many, plus "more": the rest
 WEIGHTS_RULE = ("each check (code + level) deducts its weight once, plus a quarter of the weight per extra "
                 "occurrence (rounded up), at most 2x the weight; INFO is never scored")
 
@@ -126,8 +128,10 @@ def dimension(findings, name):
     checks = []
     for (code, level), nodes in groups.items():
         w = TABLES[name][(code, level)]
+        where = sorted(set(nodes), key=node_key)
         checks.append({"code": code, "level": level, "count": len(nodes), "weight": w,
-                       "deduction": deduction(w, len(nodes)), "first": min(nodes, key=node_key)})
+                       "deduction": deduction(w, len(nodes)), "first": where[0],
+                       "locations": where[:LOCATIONS_MAX], "more": max(0, len(where) - LOCATIONS_MAX)})
     checks.sort(key=lambda r: (-r["deduction"], r["code"], r["level"]))
     deducted = sum(r["deduction"] for r in checks)
     return {"score": max(0, 100 - deducted), "deducted": deducted, "checks": checks}
@@ -205,7 +209,9 @@ def selftest():
         ("fail_cap", key["overall"] == 80 and key["grade_uncapped"] == "B" and key["grade"] == "D"),
         ("cap_never_raises", scores([f("secret.key", "FAIL")] * 9 + [f("tls.off", "FAIL")])["grade"] in ("D", "F")),
         ("dimension_rows", mixed["deducted"] == 29 and [r["code"] for r in mixed["checks"]] == ["tls.off", "fs.outside"]
-         and mixed["checks"][1]["first"] == "b.py:9"),
+         and mixed["checks"][1]["first"] == "b.py:9" and mixed["checks"][1]["locations"] == ["b.py:9", "b.py:10"]),
+        ("locations_cap", dimension(many, "safe")["checks"][0]["locations"][-1] == "a.py:20"
+         and dimension(many, "safe")["checks"][0]["more"] == 30),
         ("routing", dimension_of("works.syntax") == "works" and dimension_of("complete.readme") == "complete"
          and dimension_of("secret.key") == "safe" and dimension_of("orphan.dead") == "works"),
         ("node_key", node_key("x/y.py:10") == ("x/y.py", 10) and node_key("odd") == ("odd", 0)),
