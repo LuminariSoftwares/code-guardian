@@ -9,6 +9,7 @@ No model, no randomness, no clock: the same findings always give the same scores
     Overall              = 0.5*Safe + 0.3*Works + 0.2*Complete, rounded half up
     grade                = A >= 90, B >= 75, C >= 60, D >= 40, F below 40
     FAIL cap             = any Safe finding at FAIL caps the grade at D, whatever the average
+    PARTIAL cap          = a PARTIAL scan caps the grade at B; an INVALID scan has no grade (None)
 
 Public contract:
     TABLES = {"safe": {...}, "works": {...}, "complete": {...}}   # {(code, level): weight}; unlisted weighs 0
@@ -17,7 +18,8 @@ Public contract:
     weight(finding) -> int          deduction(weight, n) -> int
     dimension(findings, name) -> {"score", "deducted", "checks": [{"code","level","count","weight","deduction","first"}]}
     overall(safe, works, complete) -> int        grade(overall) -> "A".."F"
-    scores(findings) -> {"safe","works","complete","overall","grade","grade_uncapped","capped","cap_reason"}
+    scores(findings, dimensions=None, status=None)
+        -> {"safe","works","complete","overall","grade","grade_uncapped","capped","cap_reason"}
     top(dimensions, n=5) -> the biggest deductions across dimensions
     weight_table() -> {dimension: {"code LEVEL": weight}}
     node_key(node), sort_findings(findings)
@@ -79,6 +81,7 @@ PREFIXES = {"works": ("works.", "orphan."), "complete": ("complete.",)}
 OVERALL_TENTHS = {"safe": 5, "works": 3, "complete": 2}
 GRADE_BANDS = ((90, "A"), (75, "B"), (60, "C"), (40, "D"), (0, "F"))
 FAIL_CAP = "D"
+PARTIAL_CAP = "B"  # a scan that skipped or crashed somewhere cannot vouch for an A
 GRADE_ORDER = "ABCDF"
 WEIGHTS_RULE = ("each check (code + level) deducts its weight once, plus a quarter of the weight per extra "
                 "occurrence (rounded up), at most 2x the weight; INFO is never scored")
@@ -143,17 +146,25 @@ def grade(value):
     return "F"
 
 
-def scores(findings, dimensions=None):
+def scores(findings, dimensions=None, status=None):
+    """status (COMPLETE / PARTIAL / INVALID, see report.py): PARTIAL caps the grade at B; INVALID gives no grade."""
     dims = dimensions or {name: dimension(findings, name) for name in DIMENSIONS}
     s, w, c = (dims[n]["score"] for n in DIMENSIONS)
     total = overall(s, w, c)
+    if status == "INVALID":
+        return {"safe": s, "works": w, "complete": c, "overall": total, "grade": None, "grade_uncapped": None,
+                "capped": False, "cap_reason": None}
     uncapped = grade(total)
     fails = sorted({f["code"] for f in findings if f["level"] == "FAIL" and dimension_of(f["code"]) == "safe"})
-    capped = bool(fails) and GRADE_ORDER.index(uncapped) < GRADE_ORDER.index(FAIL_CAP)
+    caps = [(FAIL_CAP, "a Safe check is FAIL (%s): the grade is at most %s" % (", ".join(fails), FAIL_CAP))] if fails else []
+    if status == "PARTIAL":
+        caps.append((PARTIAL_CAP, "the scan is PARTIAL: the grade is at most %s" % PARTIAL_CAP))
+    final = uncapped
+    for letter, _ in caps:
+        final = max(final, letter, key=GRADE_ORDER.index)
     return {"safe": s, "works": w, "complete": c, "overall": total,
-            "grade": FAIL_CAP if capped else uncapped, "grade_uncapped": uncapped, "capped": bool(fails),
-            "cap_reason": ("a Safe check is FAIL (%s): the grade is at most %s" % (", ".join(fails), FAIL_CAP))
-            if fails else None}
+            "grade": final, "grade_uncapped": uncapped, "capped": bool(caps),
+            "cap_reason": "; ".join(reason for _, reason in caps) or None}
 
 
 def top(dimensions, n=5):
@@ -198,6 +209,10 @@ def selftest():
         ("routing", dimension_of("works.syntax") == "works" and dimension_of("complete.readme") == "complete"
          and dimension_of("secret.key") == "safe" and dimension_of("orphan.dead") == "works"),
         ("node_key", node_key("x/y.py:10") == ("x/y.py", 10) and node_key("odd") == ("odd", 0)),
+        ("partial_cap", scores([], status="PARTIAL")["grade"] == "B" and scores([], status="PARTIAL")["grade_uncapped"] == "A"
+         and scores([f("secret.key", "FAIL")], status="PARTIAL")["grade"] == "D"
+         and scores([f("secret.key", "FAIL")], status="PARTIAL")["cap_reason"].count(": the grade is at most") == 2),
+        ("invalid_no_grade", scores([], status="INVALID")["grade"] is None and scores([], status="COMPLETE")["grade"] == "A"),
         ("tainted_exec_fail", scores([f("exec.dynamic", "FAIL")])["safe"] == 70
          and scores([f("secret.key", "INFO")])["safe"] == 100),
     ]

@@ -70,7 +70,9 @@ def to_sarif(report):
             "runs": [{"tool": {"driver": {"name": "code-guardian", "version": report["version"], "informationUri": HOME,
                                           "rules": [_rule(c) for c in codes]}},
                       "results": results,
-                      "properties": {"scores": report["scores"], "weights_rule": report["weights_rule"]}}]}
+                      "properties": {"scores": report["scores"], "weights_rule": report["weights_rule"],
+                                     "status": report.get("status", "COMPLETE"),
+                                     "status_reasons": report.get("status_reasons", [])}}]}
 
 
 def _cell(text):
@@ -85,10 +87,16 @@ def to_markdown(report):
     import os
     s = report["scores"]
     name = os.path.basename(os.path.abspath(report["path"])) or report["path"]
-    out = ["# code-guardian: %s" % name, "",
-           "| | score | |", "|---|---:|---|"]
-    out += ["| **%s** | %d/100 | %s |" % (LABELS[d], s[d], QUESTIONS[d]) for d in score.DIMENSIONS]
-    out += ["| **Overall** | %d/100 | grade **%s** |" % (s["overall"], s["grade"]), ""]
+    status = report.get("status", "COMPLETE")
+    reasons = report.get("status_reasons") or []
+    out = ["# code-guardian: %s" % name, ""]
+    if status == "INVALID":
+        out += ["**Status: INVALID**: no scores and no grade (%s)." % _cell("; ".join(reasons)), ""]
+    else:
+        out += ["| | score | |", "|---|---:|---|"]
+        out += ["| **%s** | %d/100 | %s |" % (LABELS[d], s[d], QUESTIONS[d]) for d in score.DIMENSIONS]
+        out += ["| **Overall** | %d/100 | grade **%s** |" % (s["overall"], s["grade"]), ""]
+        out += ["**Status: %s**%s" % (status, " (%s)" % _cell("; ".join(reasons)) if reasons else ""), ""]
     if s["capped"]:
         out += ["> %s" % _cell(s["cap_reason"]), ""]
     if report["top"]:
@@ -148,6 +156,8 @@ def selftest():
         ("anchor", res[1]["locations"][0]["physicalLocation"] == {"artifactLocation": {"uri": "pyproject.toml"}}),
         ("region", res[0]["locations"][0]["physicalLocation"]["region"] == {"startLine": 3}),
         ("markdown", "| FAIL | `tls.off` | `a.py:3` | x \\| y |" in md and md.startswith("# code-guardian: demo")),
+        ("status", sarif["runs"][0]["properties"]["status"] == "COMPLETE" and "**Status: COMPLETE**" in md
+         and "**Status: INVALID**" in to_markdown(dict(rep, status="INVALID", status_reasons=["r"]))),
     ]
     return summarize("outputs", checks)
 

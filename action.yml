@@ -33,7 +33,7 @@ outputs:
     description: "A-F grade."
     value: ${{ steps.scan.outputs.grade }}
   exit-code:
-    description: "0 when nothing is at or above fail-on, 1 when something is, 2 on a usage error."
+    description: "0 when nothing is at or above fail-on, 1 when something is, 2 on a usage error, 3 when the scan is incomplete (PARTIAL or INVALID)."
     value: ${{ steps.scan.outputs.exit-code }}
 
 runs:
@@ -64,7 +64,7 @@ runs:
         rc=$?
         set -e
         code-guardian scan "$CG_PATH" --markdown "${online[@]}" >> "$GITHUB_STEP_SUMMARY" || true
-        python -c "import json,sys; s=json.load(open(sys.argv[1]))['runs'][0]['properties']['scores']; print('overall=%d' % s['overall']); print('grade=%s' % s['grade'])" "$CG_SARIF" >> "$GITHUB_OUTPUT"
+        python -c "import json,sys; s=json.load(open(sys.argv[1]))['runs'][0]['properties']['scores']; print('overall=%d' % s['overall']); print('grade=%s' % (s['grade'] or 'none'))" "$CG_SARIF" >> "$GITHUB_OUTPUT"
         echo "exit-code=$rc" >> "$GITHUB_OUTPUT"
     - name: Upload SARIF to code scanning
       if: ${{ inputs.upload-sarif == 'true' }}

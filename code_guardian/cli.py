@@ -5,7 +5,8 @@
     code-guardian init [PATH] [--force]
     code-guardian mcp                      # the MCP server on stdio (same as code-guardian-mcp)
 
-Exit codes: 0 nothing at or above --fail-on (default FAIL); 1 findings at or above it; 2 usage or parse error.
+Exit codes: 0 nothing at or above --fail-on (default FAIL); 1 findings at or above it; 2 usage or parse error;
+3 (scan only) the scan is incomplete (PARTIAL or INVALID) and nothing is at or above --fail-on.
 scan gates on every scored finding (Safe, Works, Complete); orphans gates on the hygiene findings.
 """
 
@@ -89,7 +90,7 @@ def main(argv=None):
                 sys.stdout.write(outputs.to_markdown(rep))
             else:
                 sys.stdout.write(report.render(rep))
-            return report.exit_code(rep["findings"], args.fail_on)
+            return report.exit_code(rep["findings"], args.fail_on, rep["status"])
         if args.command == "orphans":
             hyg = report.orphans(args.path, args.goal)
             sys.stdout.write(json.dumps(hyg, indent=1) + "\n" if args.json else report.render_orphans(hyg))
@@ -123,6 +124,8 @@ def selftest():
                     code = exc.code
             return code, out.getvalue()
 
+        empty = os.path.join(tmp, "empty")
+        os.makedirs(empty)
         scan_code, scan_json = run("scan", tmp, "--json")
         init_code, _ = run("init", tmp)
         again, _ = run("init", tmp)
@@ -135,6 +138,7 @@ def selftest():
             ("bad_level_exit_2", run("scan", tmp, "--fail-on", "LOUD")[0] == 2),
             ("init", init_code == 0 and goal.load(os.path.join(tmp, goal.FILENAME))["entry_points"] == ["app.run:__main__"]),
             ("init_no_overwrite", again == 2 and forced == 0),
+            ("empty_exit_3", run("scan", empty)[0] == 3),
             ("bad_goal_exit_2", run("scan", tmp, "--goal", os.path.join(tmp, "missing.toml"))[0] == 2),
         ]
     finally:

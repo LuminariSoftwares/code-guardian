@@ -162,6 +162,8 @@ def test_declared_unused_ignores_tools_and_counts_tests(tmp_path):
 def test_empty_repo_is_perfect_and_says_why(tmp_path):
     rep = report.scan(str(tmp_path))
     s = rep["scores"]
-    assert (s["safe"], s["works"], s["complete"], s["overall"], s["grade"]) == (100, 100, 100, 100, "A")
+    # v0.3: nothing to judge is an INVALID scan, which has no grade (v0.2 graded it A)
+    assert (s["safe"], s["works"], s["complete"], s["overall"], s["grade"]) == (100, 100, 100, 100, None)
+    assert rep["status"] == "INVALID"
     assert rep["findings"] == []
     assert any("no Python source or manifest" in n for n in rep["notes"])

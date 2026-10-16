@@ -4,8 +4,9 @@ explain=True, and then only the URL in CODE_GUARDIAN_LLM_URL.
 Public contract:
     scan(path, goal_file=None, explain=False, env=None) -> report dict   # raises UsageError / goal.GoalError
     orphans(path, goal_file=None, infer=False) -> hygiene dict (+ "files")
-    render(report) -> text            render_orphans(hygiene) -> text
-    exit_code(findings, fail_on) -> 0 or 1
+    render(report) -> text            render_orphans(hygiene) -> text       status_line(report) -> text
+    exit_code(findings, fail_on, status=None) -> 0, 1 or 3 (an incomplete scan: PARTIAL or INVALID)
+    STATUSES, SCHEMA_VERSION, Outcomes, status_of(outcomes, inv, unparsed, unreadable, invalid) -> (status, reasons)
 """
 
 import ast
@@ -17,7 +18,7 @@ import warnings
 
 from . import (__version__, complete, explain as explain_mod, goal, manifests, orphans as orphans_mod, scanners, score,
                supply, walk, works)
-from .finding import LEVELS, make_finding, summarize
+from .finding import LEVELS, crash_finding, make_finding, summarize
 
 SOURCE_EXT = frozenset({".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx", ".go", ".rs", ".java", ".kt", ".rb", ".php",
                         ".sh", ".bash", ".ps1", ".bat", ".c", ".h", ".cc", ".cpp", ".hpp", ".cs", ".swift", ".lua",
@@ -60,47 +61,153 @@ def _languages(files):
     return dict(sorted(counts.items()))
 
 
+STATUSES = ("COMPLETE", "PARTIAL", "INVALID")
+SCHEMA_VERSION = 2  # 1 was v0.2's shape; 2 adds keys (status, outcomes...) and never changes an existing one
+
+
+class Outcomes:
+    """What each scanner, check and the file walk did: ran, skipped (with a reason) or crashed (with the error)."""
+
+    def __init__(self):
+        self.rows = {}
+
+    def ran(self, check):
+        self.rows.setdefault(check, ("ran", None))
+
+    def skipped(self, check, reason):
+        if self.rows.get(check, ("ran",))[0] == "ran":
+            self.rows[check] = ("skipped", reason)
+
+    def crashed(self, check, reason):
+        if self.rows.get(check, ("ran",))[0] != "crashed":
+            self.rows[check] = ("crashed", reason)
+
+    def run(self, check, fn, default, findings, node="."):
+        """fn() guarded: a raise becomes a check.crashed finding and a crashed outcome, and default is returned."""
+        try:
+            got = fn()
+        except Exception as exc:  # noqa: BLE001 - a broken check must not abort the scan
+            crash = crash_finding(check, exc, node)
+            findings.append(crash)
+            self.crashed(check, crash["evidence"][0])
+            return default
+        self.ran(check)
+        return got
+
+    def as_list(self):
+        return [{"check": c, "outcome": o, "reason": r} for c, (o, r) in self.rows.items()]
+
+
+def _listing(rels, limit=5):
+    shown = ", ".join(rels[:limit])
+    return shown + (" and %d more" % (len(rels) - limit) if len(rels) > limit else "")
+
+
+def status_of(outcomes, inv, unparsed, unreadable, invalid):
+    """(status, reasons). INVALID: nothing could be judged. PARTIAL: a check crashed or was skipped, or a file that
+    would have been analysed was not (did not parse, too large, unreadable). Binary files, symlinks and large
+    non-source assets (only ever secret-scanned) do not make a scan PARTIAL; the notes still list them."""
+    if invalid:
+        return "INVALID", invalid
+    reasons = []
+    for row in outcomes:
+        if row["outcome"] != "ran":
+            what = row["reason"].split(":", 1)[0].split(" on ", 1)[0] if row["outcome"] == "crashed" else row["reason"]
+            reasons.append("check %s %s (%s)" % (row["check"], row["outcome"], what))
+    if unparsed:
+        reasons.append("%d Python file(s) did not parse: %s" % (len(unparsed), _listing(unparsed)))
+    large = [r for r, why in inv["skipped"] if why.startswith("larger than") and (r.endswith(".py") or walk.is_manifest(r))]
+    if large:
+        reasons.append("%d file(s) too large to analyse: %s" % (len(large), _listing(large)))
+    unreadable = sorted(set(unreadable) | {r for r, why in inv["skipped"] if why == "unreadable"})
+    if unreadable:
+        reasons.append("%d file(s) could not be read: %s" % (len(unreadable), _listing(unreadable)))
+    return ("PARTIAL" if reasons else "COMPLETE"), reasons
+
+
+def _empty_inventory():
+    return {"python": [], "manifests": [], "other": [], "skipped": [], "excluded": 0, "ignored": 0}
+
+
 def scan(path, goal_file=None, explain=False, env=None, online=False):
     root = _root(path)
     contract, notes = _contract(root, goal_file)
-    inv = walk.walk(root, exclude=contract["exclude"] if contract else ())
-    findings, trees, entries, broken, texts = [], {}, [], {}, {}
+    out = Outcomes()
+    findings, trees, entries, broken, texts, unreadable, invalid = [], {}, [], {}, {}, [], []
+    try:
+        os.listdir(root)
+    except OSError as exc:
+        invalid.append("PATH is unreadable (%s)" % type(exc).__name__)
+    inv = _empty_inventory() if invalid else out.run(
+        "walk", lambda: walk.walk(root, exclude=contract["exclude"] if contract else ()), None, findings)
+    if inv is None:
+        inv = _empty_inventory()
+        invalid.append("the file walk crashed")
+    if not invalid and not inv["python"] and not inv["manifests"]:
+        invalid.append("no Python files and no manifests to judge")
+
+    def read(rel):
+        try:
+            return walk.read(root, rel)
+        except OSError:
+            unreadable.append(rel)
+            return None
+
+    crashed = []
     for rel in inv["python"]:
-        raw, text = walk.read(root, rel)
-        findings.extend(scanners.scan_secret_text(rel, text, python=True))
+        got = read(rel)
+        if got is None:
+            continue
+        raw, text = got
+        findings.extend(out.run("secrets", lambda: scanners.scan_secret_text(rel, text, python=True), [], findings, rel))
         try:
             pf = scanners.PyFile(rel, raw, text)
         except PARSE_ERRORS as exc:
             broken[rel] = exc
             continue
         trees[rel] = pf.tree
-        findings.extend(scanners.scan_python(pf))
+        findings.extend(scanners.scan_python(pf, crashed=crashed))
         if rel.rsplit("/", 1)[-1] == "setup.py":
-            findings.extend(manifests.scan_manifest(rel, text, pf))
+            findings.extend(out.run("manifests", lambda: manifests.scan_manifest(rel, text, pf), [], findings, rel))
+    for code, fn in scanners.PY_SCANNERS:
+        out.ran(code)
+    for code, crash in crashed:
+        out.crashed(code, "%s on %s" % (crash["evidence"][0].split(":", 1)[0], crash["node"]))
     for rel in inv["manifests"]:
         if rel.endswith(".py"):
             continue
-        _, text = walk.read(root, rel)
-        texts[rel] = text
-        findings.extend(scanners.scan_secret_text(rel, text, python=False))
-        findings.extend(manifests.scan_manifest(rel, text))
-        entries.extend(manifests.entry_points(rel, text))
+        got = read(rel)
+        if got is None:
+            continue
+        text = texts[rel] = got[1]
+        findings.extend(out.run("secrets", lambda: scanners.scan_secret_text(rel, text, python=False), [], findings, rel))
+        findings.extend(out.run("manifests", lambda: manifests.scan_manifest(rel, text), [], findings, rel))
+        entries.extend(out.run("manifests", lambda: manifests.entry_points(rel, text), [], findings, rel))
     for rel in inv["other"]:
-        _, text = walk.read(root, rel)
-        findings.extend(scanners.scan_secret_text(rel, text, python=False))
+        got = read(rel)
+        if got is not None:
+            findings.extend(out.run("secrets", lambda: scanners.scan_secret_text(rel, got[1], python=False), [],
+                                    findings, rel))
     for rel in inv["manifests"]:
         if rel.endswith(".py"):
-            texts[rel] = walk.read(root, rel)[1]
+            got = read(rel)
+            if got is not None:
+                texts[rel] = got[1]
+    for check in ("secrets", "manifests"):
+        out.ran(check)
     project = {"root": root, "python": inv["python"], "trees": trees, "broken": broken, "texts": texts,
                "files": sorted(inv["python"] + inv["manifests"] + inv["other"] + [r for r, _ in inv["skipped"]]),
                "read": lambda rel: walk.read(root, rel)[1]}
     if inv["python"] or inv["manifests"]:
-        findings.extend(works.check(project))
-        findings.extend(complete.check(project))
-        found, supply_notes = supply.check(project, online=online, env=env)
+        findings.extend(out.run("works", lambda: works.check(project), [], findings))
+        findings.extend(out.run("complete", lambda: complete.check(project), [], findings))
+        found, supply_notes = out.run("supply", lambda: supply.check(project, online=online, env=env), ([], []),
+                                      findings)
         findings.extend(found)
         notes.extend(supply_notes)
     else:
+        for check in ("works", "complete", "supply"):
+            out.skipped(check, "no Python files and no manifests")
         notes.append("no Python source or manifest found: Works and Complete have nothing to check")
     findings = score.sort_findings(scanners.dedupe(_test_code_to_info(_one_secret_per_line(findings))))
     langs = _languages(inv["other"])
@@ -109,12 +216,23 @@ def scan(path, goal_file=None, explain=False, env=None, online=False):
                      % (sum(langs.values()), ", ".join("%s %d" % kv for kv in langs.items())))
     for rel, why in inv["skipped"]:
         notes.append("skipped %s (%s)" % (rel, why))
+    for rel in unreadable:
+        notes.append("skipped %s (unreadable)" % rel)
     if inv["excluded"]:
         notes.append("%d path(s) excluded by the goal file" % inv["excluded"])
-    hygiene = orphans_mod.analyse(trees, contract, entries, library=_is_library(project))
+    hygiene = out.run("orphans", lambda: orphans_mod.analyse(trees, contract, entries, library=_is_library(project)),
+                      None, findings)
+    if hygiene is None:
+        hygiene = {"source": "none (the orphan check crashed)", "goal": "", "entry_points": [], "keep": [],
+                   "findings": [], "notes": [], "counts": {"orphan.dead": 0, "orphan.test_only": 0,
+                                                           "orphan.uncertain": 0}}
+        findings = score.sort_findings(findings)
+    outcomes = out.as_list()
+    status, reasons = status_of(outcomes, inv, sorted(broken), unreadable, invalid)
     report = {
-        "tool": "code-guardian", "version": __version__, "path": path,
+        "tool": "code-guardian", "version": __version__, "schema_version": SCHEMA_VERSION, "path": path,
         "goal_file": os.path.relpath(contract["path"], root).replace(os.sep, "/") if contract else None,
+        "status": status, "status_reasons": reasons, "outcomes": outcomes,
         "files": {"python": len(inv["python"]), "manifests": len(inv["manifests"]), "other": len(inv["other"]),
                   "skipped": len(inv["skipped"]), "ignored": inv["ignored"], "excluded": inv["excluded"],
                   "unparsed": len(inv["python"]) - len(trees)},
@@ -207,7 +325,7 @@ def _score(report):
     hygiene section's orphan.dead (folded into Works at a low weight)."""
     scored = report["findings"] + [f for f in report["hygiene"]["findings"] if f["code"] == "orphan.dead"]
     dims = {name: score.dimension(scored, name) for name in score.DIMENSIONS}
-    report["scores"] = score.scores(report["findings"], dims)
+    report["scores"] = score.scores(report["findings"], dims, report.get("status"))
     report["dimensions"] = dims
     report["top"] = score.top(dims)
     report["weights"] = score.weight_table()
@@ -236,9 +354,12 @@ def orphans(path, goal_file=None, infer=False):
     return hygiene
 
 
-def exit_code(findings, fail_on="FAIL"):
+def exit_code(findings, fail_on="FAIL", status=None):
+    """1 when a finding is at or above fail_on; else 3 when the scan is PARTIAL or INVALID (incomplete); else 0."""
     rank = LEVELS.index(fail_on.upper())
-    return 1 if any(LEVELS.index(f["level"]) >= rank for f in findings if f.get("level") in LEVELS) else 0
+    if any(LEVELS.index(f["level"]) >= rank for f in findings if f.get("level") in LEVELS):
+        return 1
+    return 3 if status in ("PARTIAL", "INVALID") else 0
 
 
 def _counts(findings):
@@ -282,20 +403,30 @@ def _weight_lines(report):
     return lines
 
 
+def status_line(report):
+    """'status: COMPLETE', or 'status: PARTIAL (reason; reason)'. Can I trust this scan?"""
+    reasons = report.get("status_reasons") or []
+    return "status: %s%s" % (report.get("status", "COMPLETE"), " (%s)" % "; ".join(reasons) if reasons else "")
+
+
 def render(report):
     s = report["scores"]
     fl = report["files"]
     name = os.path.basename(os.path.abspath(report["path"])) or report["path"]
     lines = ["code-guardian %s  scan of %s" % (report["version"], name),
              "files: %d Python, %d manifests, %d other (%d skipped, %d excluded by the goal file)"
-             % (fl["python"], fl["manifests"], fl["other"], fl["skipped"], fl["excluded"]), ""]
-    for dim in score.DIMENSIONS:
+             % (fl["python"], fl["manifests"], fl["other"], fl["skipped"], fl["excluded"]),
+             status_line(report), ""]
+    if report.get("status") == "INVALID":
+        lines.append("  no scores and no grade: the scan is INVALID")
+    for dim in score.DIMENSIONS if report.get("status") != "INVALID" else ():
         d = report["dimensions"][dim]
         lines.append(("  %-8s %3d/100  %-28s %s" % (LABELS[dim], s[dim], QUESTIONS[dim],
                                                     "-%d" % d["deducted"] if d["deducted"] else "")).rstrip())
-    lines.append("  %-8s %3d/100  grade %s%s" % ("Overall", s["overall"], s["grade"],
-                                                "  (capped: %s)" % s["cap_reason"] if s["capped"] and s["grade"] != s["grade_uncapped"]
-                                                else "  (%s)" % s["cap_reason"] if s["capped"] else ""))
+    if s["grade"] is not None:
+        lines.append("  %-8s %3d/100  grade %s%s" % ("Overall", s["overall"], s["grade"],
+                                                    "  (capped: %s)" % s["cap_reason"] if s["capped"] and s["grade"] != s["grade_uncapped"]
+                                                    else "  (%s)" % s["cap_reason"] if s["capped"] else ""))
     if report["top"]:
         lines += ["", "biggest deductions:"]
         lines.extend("  -%-3d %-8s %-24s x%-3d first at %s" % (t["deduction"], LABELS[t["dimension"]],
@@ -368,6 +499,11 @@ def selftest():
             ("exit_code", exit_code(first["findings"]) == 1 and exit_code([f for f in first["findings"]
                                                                            if f["level"] != "FAIL"]) == 0),
             ("orphans", orphans(tmp)["counts"]["orphan.dead"] == 1),
+            ("status_partial", first["status"] == "PARTIAL" and first["status_reasons"] == [
+                "1 Python file(s) did not parse: app/broken.py"] and "status: PARTIAL (1 Python file(s)" in text),
+            ("exit_3", exit_code([], "FAIL", "PARTIAL") == 3 and exit_code([], "FAIL", "INVALID") == 3
+             and exit_code([], "FAIL", "COMPLETE") == 0),
+            ("invalid", scan(os.path.join(tmp, "web"))["status"] == "INVALID"),
         ]
         try:
             scan(os.path.join(tmp, "missing"))

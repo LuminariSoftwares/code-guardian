@@ -10,6 +10,7 @@ Public contract:
     walk(root, exclude=()) -> {"python": [rel], "manifests": [rel], "other": [rel],
                                "skipped": [(rel, reason)], "excluded": int, "ignored": int}
     read(root, rel) -> (bytes, text)
+    is_manifest(rel) -> bool      # requirements*.txt, pyproject.toml, setup.py/cfg, package.json, Pipfile
 """
 
 import fnmatch
@@ -69,7 +70,7 @@ def _excluded(relpath, globs):
     return any(fnmatch.fnmatchcase(relpath, g) or fnmatch.fnmatchcase(relpath + "/", g) for g in globs)
 
 
-def _is_manifest(rel):
+def is_manifest(rel):
     parts = rel.split("/")
     name = parts[-1]
     return (name in MANIFEST_NAMES or (name.startswith("requirements") and name.endswith(".txt"))
@@ -123,7 +124,7 @@ def walk(root, exclude=()):
                 continue
             if name.endswith(".py"):
                 out["python"].append(rel)
-            if _is_manifest(rel):
+            if is_manifest(rel):
                 out["manifests"].append(rel)
             elif not name.endswith(".py"):
                 out["other"].append(rel)

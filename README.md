@@ -60,6 +60,7 @@ Real output:
 ```
 code-guardian 0.2.0  scan of risky
 files: 7 Python, 3 manifests, 2 other (0 skipped, 0 excluded by the goal file)
+status: COMPLETE
 
   Safe       0/100  is it safe to run?           -237
   Works     85/100  will it work?                -15
@@ -140,9 +141,10 @@ Exit code 1: there are FAIL findings. `--json` prints the same report as JSON (s
 
 | exit | meaning |
 |---|---|
-| 0 | nothing at or above `--fail-on` (default `FAIL`) |
+| 0 | nothing at or above `--fail-on` (default `FAIL`), and the scan is COMPLETE |
 | 1 | findings at or above it |
 | 2 | usage error, a missing PATH, or a bad goal file |
+| 3 | incomplete scan: the status is PARTIAL or INVALID (see [Scan status](#scan-status)) and nothing is at or above `--fail-on` |
 
 `scan` gates on every scored finding (Safe, Works and Complete); `code-guardian orphans PATH` gates on the hygiene
 findings.
@@ -168,11 +170,27 @@ Complete.
 The weight tables live in `code_guardian/score.py` (`TABLES`); `tests/test_readme_sync.py` fails if the tables in
 this README drift from them.
 
+### Scan status
+
+Can I trust this scan? Every report carries a `status`, the reasons for it, and the outcome of every scanner,
+check and the file walk (`ran`, `skipped` with a reason, or `crashed` with the error):
+
+| status | when | effect |
+|---|---|---|
+| `COMPLETE` | everything ran | none |
+| `PARTIAL` | a check crashed or was skipped, a Python file did not parse, or a Python file or manifest was too large (over 2 MB) or unreadable | the grade is capped at **B** and the report says why; exit 3 unless a finding already gives exit 1 |
+| `INVALID` | PATH is unreadable, or there are no Python files and no manifests to judge | no grade (`scores.grade` is `null`); exit 3 |
+
+Binary files, symlinks and large non-source files (images, design files) are only ever secret-scanned; skipping them
+is listed in the notes but does not make a scan PARTIAL.
+
 ### JSON shape (`--json`, and the MCP `scan` tool)
 
 ```
 {
-  "tool", "version", "path", "goal_file",
+  "tool", "version", "schema_version": 2, "path", "goal_file",
+  "status": "COMPLETE" | "PARTIAL" | "INVALID", "status_reasons": [...],
+  "outcomes": [{"check", "outcome": "ran" | "skipped" | "crashed", "reason"}],
   "files": {"python", "manifests", "other", "skipped", "ignored", "excluded", "unparsed"},
   "other_languages": {".js": 1, ...},
   "anchor": "pyproject.toml",                (the file repo-level findings are attached to in SARIF)
@@ -190,7 +208,10 @@ this README drift from them.
 }
 ```
 
-The MCP `scan` reply adds `exit_code`. Nothing in the report depends on the clock.
+The MCP `scan` reply adds `exit_code`. Nothing in the report depends on the clock. `schema_version` 2 only adds
+keys to the v0.2 shape (which had no `schema_version`); every v0.2 key keeps its meaning. `scores.grade` (and
+`grade_uncapped`) is `null` for an INVALID scan; `capped` and `cap_reason` also cover the PARTIAL cap. SARIF carries
+`status` and `status_reasons` in the run properties; the text and Markdown reports print them under the scores.
 
 ## Safe checks
 
