@@ -15,6 +15,9 @@ inputs:
   online:
     description: "Ask PyPI whether unknown dependency names exist (network). 'true' or 'false'."
     default: "false"
+  baseline:
+    description: "Optional baseline file (from `code-guardian baseline`, committed to the repo). When set, fail-on counts only findings that are new since the baseline; the scores still count every finding."
+    default: ""
   sarif-file:
     description: "Where to write the SARIF report."
     default: "code-guardian.sarif"
@@ -56,14 +59,16 @@ runs:
         CG_FAIL_ON: ${{ inputs.fail-on }}
         CG_ONLINE: ${{ inputs.online }}
         CG_SARIF: ${{ inputs.sarif-file }}
+        CG_BASELINE: ${{ inputs.baseline }}
       run: |
-        online=()
-        if [ "$CG_ONLINE" = "true" ]; then online=(--online); fi
+        extra=()
+        if [ "$CG_ONLINE" = "true" ]; then extra+=(--online); fi
+        if [ -n "$CG_BASELINE" ]; then extra+=(--baseline "$CG_BASELINE"); fi
         set +e
-        code-guardian scan "$CG_PATH" --sarif --fail-on "$CG_FAIL_ON" "${online[@]}" > "$CG_SARIF"
+        code-guardian scan "$CG_PATH" --sarif --fail-on "$CG_FAIL_ON" "${extra[@]}" > "$CG_SARIF"
         rc=$?
         set -e
-        code-guardian scan "$CG_PATH" --markdown "${online[@]}" >> "$GITHUB_STEP_SUMMARY" || true
+        code-guardian scan "$CG_PATH" --markdown "${extra[@]}" >> "$GITHUB_STEP_SUMMARY" || true
         python -c "import json,sys; s=json.load(open(sys.argv[1]))['runs'][0]['properties']['scores']; print('overall=%d' % s['overall']); print('grade=%s' % (s['grade'] or 'none'))" "$CG_SARIF" >> "$GITHUB_OUTPUT"
         echo "exit-code=$rc" >> "$GITHUB_OUTPUT"
     - name: Upload SARIF to code scanning

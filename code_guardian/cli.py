@@ -1,6 +1,8 @@
 """code-guardian command line.
 
     code-guardian scan PATH [--json | --sarif | --markdown] [--goal FILE] [--explain] [--online] [--fail-on LEVEL]
+                           [--baseline FILE]
+    code-guardian baseline PATH [--out FILE] [--goal FILE]     # default FILE: PATH/code-guardian.baseline.json
     code-guardian orphans PATH [--json] [--goal FILE] [--fail-on LEVEL]
     code-guardian init [PATH] [--force]
     code-guardian mcp                      # the MCP server on stdio (same as code-guardian-mcp)
@@ -17,7 +19,7 @@ import shutil
 import sys
 import tempfile
 
-from . import __version__, goal, outputs, report
+from . import __version__, baseline, goal, outputs, report
 from .finding import summarize
 from .scanners import redact_report
 
@@ -38,7 +40,14 @@ def _parser():
     s.add_argument("--explain", action="store_true", help="add a plain-English explanation from a local model")
     s.add_argument("--online", action="store_true",
                    help="ask PyPI whether unknown dependency names exist (network; off by default)")
+    s.add_argument("--baseline", metavar="FILE",
+                   help="mark findings new or known against FILE (from `code-guardian baseline`); --fail-on then "
+                        "counts new findings only, the scores still count all of them")
     s.add_argument("--fail-on", **fail_on)
+    b = sub.add_parser("baseline", help="write the fingerprints of every current finding (commit the file)")
+    b.add_argument("path")
+    b.add_argument("--out", metavar="FILE", help="where to write it (default PATH/%s)" % baseline.FILENAME)
+    b.add_argument("--goal", metavar="FILE")
     o = sub.add_parser("orphans", help="code nothing reachable from the entry points uses")
     o.add_argument("path")
     o.add_argument("--json", action="store_true")
@@ -72,6 +81,17 @@ def init(path, force=False, out=print):
     return 0
 
 
+def write_baseline(path, out=None, goal_file=None, echo=print):
+    """Scan PATH and write the sorted fingerprints of every finding (scored and hygiene) to out."""
+    rep = report.scan(path, goal_file)
+    target = out or os.path.join(report._root(path), baseline.FILENAME)
+    doc = baseline.document(rep["findings"] + rep["hygiene"]["findings"], __version__)
+    with open(target, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(json.dumps(doc, indent=1) + "\n")
+    echo("wrote %s with %d fingerprint(s) (scan status %s)" % (target, len(doc["fingerprints"]), rep["status"]))
+    return 0
+
+
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
     if argv[:1] == ["mcp"]:  # `code-guardian mcp` starts the same server as `code-guardian-mcp`
@@ -82,7 +102,7 @@ def main(argv=None):
     args = _parser().parse_args(argv)
     try:
         if args.command == "scan":
-            rep = report.scan(args.path, args.goal, explain=args.explain, online=args.online)
+            rep = report.scan(args.path, args.goal, explain=args.explain, online=args.online, baseline=args.baseline)
             if args.json:
                 sys.stdout.write(json.dumps(redact_report(rep), indent=1) + "\n")
             elif args.sarif:
@@ -91,7 +111,9 @@ def main(argv=None):
                 sys.stdout.write(outputs.to_markdown(rep))
             else:
                 sys.stdout.write(report.render(rep))
-            return report.exit_code(rep["findings"], args.fail_on, rep["status"])
+            return report.exit_code(rep["findings"], args.fail_on, rep["status"], rep.get("baseline"))
+        if args.command == "baseline":
+            return write_baseline(args.path, args.out, args.goal)
         if args.command == "orphans":
             hyg = report.orphans(args.path, args.goal)
             sys.stdout.write(json.dumps(redact_report(hyg), indent=1) + "\n" if args.json else report.render_orphans(hyg))
@@ -140,6 +162,8 @@ def selftest():
             ("init", init_code == 0 and goal.load(os.path.join(tmp, goal.FILENAME))["entry_points"] == ["app.run:__main__"]),
             ("init_no_overwrite", again == 2 and forced == 0),
             ("empty_exit_3", run("scan", empty)[0] == 3),
+            ("baseline_gate", run("baseline", tmp, "--out", os.path.join(tmp, "b.json"))[0] == 0
+             and run("scan", tmp, "--baseline", os.path.join(tmp, "b.json"), "--fail-on", "INFO")[0] == 0),
             ("bad_goal_exit_2", run("scan", tmp, "--goal", os.path.join(tmp, "missing.toml"))[0] == 2),
         ]
     finally:

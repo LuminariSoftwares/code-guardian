@@ -66,9 +66,14 @@ def to_sarif(report):
     results = []
     for f in report["findings"] + report["hygiene"]["findings"]:
         code = f["code"] if f["code"] in index else "check.crashed"
-        results.append({"ruleId": code, "ruleIndex": index[code], "level": SARIF_LEVEL.get(f["level"], "warning"),
-                        "message": {"text": f["summary"]}, "locations": [_location(f["node"], report["anchor"])],
-                        "properties": {"dimension": score.dimension_of(code), "confidence": f.get("confidence", "LIKELY")}})
+        res = {"ruleId": code, "ruleIndex": index[code], "level": SARIF_LEVEL.get(f["level"], "warning"),
+               "message": {"text": f["summary"]}, "locations": [_location(f["node"], report["anchor"])],
+               "properties": {"dimension": score.dimension_of(code), "confidence": f.get("confidence", "LIKELY")}}
+        if f.get("fingerprint"):
+            res["partialFingerprints"] = {"codeGuardian/v1": f["fingerprint"]}
+        if "new" in f:
+            res["properties"]["new"] = f["new"]
+        results.append(res)
     return {"$schema": SCHEMA, "version": "2.1.0",
             "runs": [{"tool": {"driver": {"name": "code-guardian", "version": report["version"], "informationUri": HOME,
                                           "rules": [_rule(c) for c in codes]}},
@@ -83,7 +88,8 @@ def _cell(text):
 
 
 def _row(f):
-    return "| %s | `%s` | `%s` | %s |" % (f["level"], f["code"], _cell(f["node"]), _cell(f["summary"]))
+    return "| %s | `%s` | `%s` | %s%s |" % (f["level"], f["code"], _cell(f["node"]), _cell(f["summary"]),
+                                          " **(new)**" if f.get("new") else "")
 
 
 def to_markdown(report):
@@ -109,6 +115,9 @@ def to_markdown(report):
                                                        t["count"], _cell(t["first"])) for t in report["top"]]
         out.append("")
     out += ["## Findings", ""]
+    if report.get("baseline"):
+        b = report["baseline"]
+        out += ["Baseline: %d new, %d known (the gate counts new findings only; the scores count all)." % (b["new"], b["known"]), ""]
     for dim in score.DIMENSIONS:
         group = [f for f in report["findings"] if score.dimension_of(f["code"]) == dim]
         out += ["### %s (%d)" % (LABELS[dim], len(group)), ""]

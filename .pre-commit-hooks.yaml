@@ -8,3 +8,13 @@
   pass_filenames: false
   always_run: true
   require_serial: true
+# Same scan, gated on new findings only: fails when a finding is not in code-guardian.baseline.json (write it with
+# `code-guardian baseline .` and commit it). The scores still count every finding.
+- id: code-guardian-new
+  name: code-guardian (new findings only, against code-guardian.baseline.json)
+  description: Static scan that never runs your code; fails only on findings that are not in the committed baseline.
+  entry: code-guardian scan . --baseline code-guardian.baseline.json
+  language: python
+  pass_filenames: false
+  always_run: true
+  require_serial: true

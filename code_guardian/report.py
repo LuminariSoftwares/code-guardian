@@ -2,10 +2,12 @@
 explain=True, and then only the URL in CODE_GUARDIAN_LLM_URL.
 
 Public contract:
-    scan(path, goal_file=None, explain=False, env=None) -> report dict   # raises UsageError / goal.GoalError
+    scan(path, goal_file=None, explain=False, env=None, online=False, baseline=None) -> report dict
+                                       # raises UsageError (bad PATH or baseline) / goal.GoalError
     orphans(path, goal_file=None, infer=False) -> hygiene dict (+ "files")
     render(report) -> text            render_orphans(hygiene) -> text       status_line(report) -> text
-    exit_code(findings, fail_on, status=None) -> 0, 1 or 3 (an incomplete scan: PARTIAL or INVALID)
+    exit_code(findings, fail_on, status=None, baseline=None) -> 0, 1 or 3 (an incomplete scan: PARTIAL or INVALID);
+                                       # with a baseline block only findings marked new count
     redact_report(report) -> a redacted copy (scanners.redact_report: every output path uses it)
     STATUSES, SCHEMA_VERSION, Outcomes, status_of(outcomes, inv, unparsed, unreadable, invalid) -> (status, reasons)
 """
@@ -17,7 +19,7 @@ import sys
 import tempfile
 import warnings
 
-from . import (__version__, complete, explain as explain_mod, goal, manifests, orphans as orphans_mod, scanners, score,
+from . import (__version__, baseline as baseline_mod, complete, explain as explain_mod, goal, manifests, orphans as orphans_mod, scanners, score,
                supply, walk, works)
 from .finding import LEVELS, crash_finding, make_finding, summarize
 from .scanners import redact_report
@@ -131,11 +133,20 @@ def _empty_inventory():
     return {"python": [], "manifests": [], "other": [], "skipped": [], "excluded": 0, "ignored": 0}
 
 
-def scan(path, goal_file=None, explain=False, env=None, online=False):
+def _baseline(path):
+    try:
+        return baseline_mod.load(path)
+    except (OSError, ValueError) as exc:
+        raise UsageError("cannot read baseline %s: %s" % (path, exc)) from None
+
+
+def scan(path, goal_file=None, explain=False, env=None, online=False, baseline=None):
+    """baseline: a file written by `code-guardian baseline`; each finding is then marked new or known."""
     root = _root(path)
+    base = _baseline(baseline) if baseline else None
     contract, notes = _contract(root, goal_file)
     out = Outcomes()
-    findings, trees, entries, broken, texts, unreadable, invalid = [], {}, [], {}, {}, [], []
+    findings, trees, entries, broken, texts, unreadable, invalid, sources = [], {}, [], {}, {}, [], [], {}
     try:
         os.listdir(root)
     except OSError as exc:
@@ -150,10 +161,12 @@ def scan(path, goal_file=None, explain=False, env=None, online=False):
 
     def read(rel):
         try:
-            return walk.read(root, rel)
+            got = walk.read(root, rel)
         except OSError:
             unreadable.append(rel)
             return None
+        sources[rel] = got[1]
+        return got
 
     crashed = []
     for rel in inv["python"]:
@@ -231,6 +244,13 @@ def scan(path, goal_file=None, explain=False, env=None, online=False):
         findings = score.sort_findings(findings)
     outcomes = out.as_list()
     status, reasons = status_of(outcomes, inv, sorted(broken), unreadable, invalid)
+    split = {rel: text.splitlines() for rel, text in sources.items()}
+    every = findings + hygiene["findings"]
+    baseline_mod.stamp(every, lambda rel, n: split[rel][n - 1] if rel in split and 0 < n <= len(split[rel]) else "")
+    if base is not None:
+        new, known = baseline_mod.mark(every, base["fingerprints"])
+        if base["version"] != __version__:
+            notes.append("baseline written by code-guardian %s, this is %s" % (base["version"] or "?", __version__))
     report = {
         "tool": "code-guardian", "version": __version__, "schema_version": SCHEMA_VERSION, "path": path,
         "goal_file": os.path.relpath(contract["path"], root).replace(os.sep, "/") if contract else None,
@@ -246,6 +266,8 @@ def scan(path, goal_file=None, explain=False, env=None, online=False):
         "hygiene": hygiene,
         "notes": notes,
     }
+    if base is not None:
+        report["baseline"] = {"file": baseline, "version": base["version"], "new": new, "known": known}
     _score(report)
     report = redact_report(report)  # before explain: the model sees what every output shows, nothing more
     if explain:
@@ -357,9 +379,12 @@ def orphans(path, goal_file=None, infer=False):
     return hygiene
 
 
-def exit_code(findings, fail_on="FAIL", status=None):
-    """1 when a finding is at or above fail_on; else 3 when the scan is PARTIAL or INVALID (incomplete); else 0."""
+def exit_code(findings, fail_on="FAIL", status=None, baseline=None):
+    """1 when a finding is at or above fail_on; else 3 when the scan is PARTIAL or INVALID (incomplete); else 0.
+    With a baseline (the report's "baseline" block), only new findings count."""
     rank = LEVELS.index(fail_on.upper())
+    if baseline:
+        findings = [f for f in findings if f.get("new", True)]
     if any(LEVELS.index(f["level"]) >= rank for f in findings if f.get("level") in LEVELS):
         return 1
     return 3 if status in ("PARTIAL", "INVALID") else 0
@@ -406,6 +431,12 @@ def _weight_lines(report):
     return lines
 
 
+def baseline_counts(report):
+    """'; baseline: N new, M known' when the scan ran against a baseline, else ''."""
+    b = report.get("baseline")
+    return "; baseline: %d new, %d known" % (b["new"], b["known"]) if b else ""
+
+
 def status_line(report):
     """'status: COMPLETE', or 'status: PARTIAL (reason; reason)'. Can I trust this scan?"""
     reasons = report.get("status_reasons") or []
@@ -443,12 +474,13 @@ def render(report):
                                                      t["code"] + " " + t["level"], t["count"], _where(t))
                      for t in report["top"])
     shown = [f for f in report["findings"] if f["code"] != "net.egress"]
-    lines += ["", "findings (%s; egress listed below):" % _counts(report["findings"])]
+    lines += ["", "findings (%s%s; egress listed below):" % (_counts(report["findings"]), baseline_counts(report))]
     for dim in score.DIMENSIONS:
         group = [f for f in shown if score.dimension_of(f["code"]) == dim]
         if group:
             lines.append("  %s:" % LABELS[dim])
-            lines.extend("    %-4s  %-13s %s  %s" % (f["level"], f["code"], f["node"], f["summary"]) for f in group)
+            lines.extend("    %-4s  %-13s %s  %s%s" % (f["level"], f["code"], f["node"], f["summary"],
+                                                     "  [new]" if f.get("new") else "") for f in group)
     if not shown:
         lines.append("  none")
     lines += ["", "egress inventory (%d):" % len(report["egress"])]
@@ -515,6 +547,8 @@ def selftest():
             ("exit_3", exit_code([], "FAIL", "PARTIAL") == 3 and exit_code([], "FAIL", "INVALID") == 3
              and exit_code([], "FAIL", "COMPLETE") == 0),
             ("invalid", scan(os.path.join(tmp, "web"))["status"] == "INVALID"),
+            ("fingerprints", all(len(f["fingerprint"]) == 64 for f in first["findings"] + first["hygiene"]["findings"])),
+            ("baseline_gate", exit_code([dict(f, new=False) for f in first["findings"]], "INFO", None, {"new": 0}) == 0),
         ]
         try:
             scan(os.path.join(tmp, "missing"))

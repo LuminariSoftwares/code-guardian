@@ -206,7 +206,9 @@ is listed in the notes but does not make a scan PARTIAL.
   "top": [the five biggest deductions, each a check row plus "dimension"],
   "weights": {"safe" | "works" | "complete": {"code LEVEL": weight}},
   "weights_rule": "...",
-  "findings": [{"code", "severity", "level", "node", "summary", "evidence", "try", "confidence", "fix"}],
+  "findings": [{"code", "severity", "level", "node", "summary", "evidence", "try", "confidence", "fix",
+                "fingerprint", "new" (only with --baseline)}],
+  "baseline": {"file", "version", "new", "known"}   (only with --baseline)
   "egress": [{"node", "level", "kind", "target"}],
   "hygiene": {"source", "goal", "entry_points", "keep", "findings", "counts", "notes"},
   "notes": [...],
@@ -339,6 +341,28 @@ that merely holds `os.environ` is not followed.
 declared but unused. A repo with no Python source and no manifest has nothing for Works or Complete to check: it
 scores 100 there, and the report says so.
 
+## Baseline: gate on new findings only
+
+An existing project rarely starts clean. Write a baseline once, commit it, and the gate then fails only on findings
+that are new since:
+
+```
+code-guardian baseline .                                   # writes ./code-guardian.baseline.json; commit it
+code-guardian scan . --baseline code-guardian.baseline.json --fail-on WARN
+```
+
+- Each finding gets a `fingerprint`: sha256 of `code | level | path | evidence line`, where the evidence line is the
+  source line the finding points at, stripped, whitespace collapsed and redacted. **Line numbers are left out**, so
+  moving code up or down does not make a finding new; editing the line does. The baseline file holds the sorted
+  fingerprints and the version that wrote them, nothing else.
+- With `--baseline`, every finding carries `new: true|false`, the report says `N new, M known`, and `--fail-on`
+  counts **new findings only**. A finding fixed since the baseline simply disappears; `scan` never rewrites the
+  baseline file (run `code-guardian baseline` again to accept the current state).
+- **A baseline never hides the real grade.** The scores, the grade and every finding are computed and shown exactly
+  as without one; only the exit code changes.
+- Same line twice counts twice: a third copy of a known line is new.
+- SARIF results carry the fingerprint as `partialFingerprints["codeGuardian/v1"]` and `new` in their properties.
+
 ## Outputs, GitHub Action and pre-commit
 
 | flag | prints |
@@ -373,8 +397,8 @@ jobs:
           online: "false"      # "true" asks PyPI about unknown dependency names
 ```
 
-Inputs: `path`, `fail-on`, `online`, `sarif-file` (default `code-guardian.sarif`), `upload-sarif` (default `true`),
-`python-version` (default `3.11`). Outputs: `overall`, `grade`, `exit-code`. Inputs reach the shell only through
+Inputs: `path`, `fail-on`, `online`, `baseline` (a committed baseline file: gate on new findings only),
+`sarif-file` (default `code-guardian.sarif`), `upload-sarif` (default `true`), `python-version` (default `3.11`). Outputs: `overall`, `grade`, `exit-code`. Inputs reach the shell only through
 environment variables, never by text substitution.
 
 **pre-commit** (`.pre-commit-hooks.yaml`). It scans the whole repository, not just the staged files:
@@ -386,6 +410,8 @@ repos:
     hooks:
       - id: code-guardian
         # args: [--fail-on, WARN]
+      # or, with a committed baseline, fail only on new findings:
+      # - id: code-guardian-new
 ```
 
 ## Check catalogue
@@ -501,7 +527,7 @@ and `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true`:
 
 | tool | does | `openWorldHint` |
 |---|---|---|
-| `scan` | the full report for `path` (+ optional `goal`, `fail_on`; the reply carries `exit_code`) | false |
+| `scan` | the full report for `path` (+ optional `goal`, `fail_on`, `baseline`; the reply carries `exit_code`) | false |
 | `orphans` | the hygiene section for `path` | false |
 | `explain` | `scan` plus the model explanation | true |
 
@@ -551,7 +577,7 @@ scanners selftest: 18 checks, 18 passed, 0 failed
 ```
 
 Each of `finding`, `walk`, `scanners`, `manifests`, `score`, `goal`, `orphans`, `works`, `complete`, `supply`,
-`explain`, `report`, `cli` and `mcp_server` has one; `tests/test_selftests.py` runs them all.
+`explain`, `report`, `cli`, `mcp_server` and `baseline` has one; `tests/test_selftests.py` runs them all.
 
 ## License
 
