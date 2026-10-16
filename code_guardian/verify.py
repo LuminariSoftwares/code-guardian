@@ -134,11 +134,13 @@ def plan(rep, top=10):
     items = []
     for name in score.DIMENSIONS:
         dim = rep["dimensions"][name]
-        if dim["deducted"] > 100:
+        excess = dim["deducted"] - 100
+        # True only when no single row covers the excess: a row deducting more than it lifts the score off 0
+        if excess > 0 and max(r["deduction"] for r in dim["checks"]) <= excess:
             notes.append("%s is at 0/100 with %d points deducted, so no single %s fix moves Overall yet (each shows "
                          "+0): %d points of %s deductions must go first. Fix them anyway: a Safe FAIL caps the grade "
-                         "at %s." % (LABELS[name], dim["deducted"], LABELS[name], dim["deducted"] - 100,
-                                     LABELS[name], score.FAIL_CAP))
+                         "at %s." % (LABELS[name], dim["deducted"], LABELS[name], excess, LABELS[name],
+                                     score.FAIL_CAP))
         for row in dim["checks"]:
             key = (row["code"], row["level"])
             rest = [f for f in every if (f["code"], f["level"]) != key]
@@ -219,6 +221,12 @@ def selftest():
         ("plan_rank", [i["code"] for i in p["items"]] == ["tls.off", "exec.shell", "complete.readme_missing"]),
         ("plan_exact", p["items"][0]["gain"] == rep(after["findings"] + [before["findings"][2]])["scores"]["overall"]
          - before["scores"]["overall"]),
+        ("floor_note_only_when_true",
+         not any("0/100" in n for n in plan(rep([f("secret.key", "FAIL", "a.py:%d" % i, "%064x" % i) for i in (1, 2)]
+                                                + [f("exec.shell", "FAIL", "b.py:1", c), f("tls.off", "FAIL", "b.py:2", c),
+                                                   f("deser.unsafe", "WARN", "b.py:3", c),
+                                                   f("exec.dynamic", "WARN", "b.py:4", c),
+                                                   f("net.bind_all", "WARN", "b.py:5", c)]))["notes"])),
         ("plan_top", len(plan(before, top=1)["items"]) == 1 and plan(rep([], "INVALID"))["items"] == []),
         ("markdown", "### 1. `tls.off` FAIL (Safe)" in plan_markdown(p) and LABEL in plan_markdown(p)),
         ("render_diff", render_diff(d).startswith("verdict: improved (2 fixed, 0 new, 1 unchanged)")),

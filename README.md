@@ -22,7 +22,7 @@ from deterministic checks with fixed weights: same repo, same version, same outp
 
 It parses the code (`ast` for Python; `json`, `tomllib` and `configparser` for manifests; regular expressions for
 secrets) and never executes, imports or installs it. A scan makes
-no network calls. Python 3.11+, standard library only. Status: **0.3.0 is the current release.** The fourth guardian,
+no network calls. Python 3.11+, standard library only. Status: **0.3.1 is the current release.** The fourth guardian,
 next to [stack-guardian](https://github.com/LuminariSoftwares/stack-guardian),
 [context-guardian](https://github.com/LuminariSoftwares/context-guardian) and
 [tool-guardian](https://github.com/LuminariSoftwares/tool-guardian).
@@ -60,7 +60,7 @@ code-guardian scan risky_repo
 Real output:
 
 ```
-code-guardian 0.3.0  scan of risky
+code-guardian 0.3.1  scan of risky
 files: 7 Python, 3 manifests, 2 other (0 skipped, 0 excluded by the goal file)
 status: COMPLETE
 
@@ -484,7 +484,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: LuminariSoftwares/code-guardian@v0.3.0
+      - uses: LuminariSoftwares/code-guardian@v0.3.1
         with:
           path: .
           fail-on: FAIL        # or WARN
@@ -500,7 +500,7 @@ environment variables, never by text substitution.
 ```yaml
 repos:
   - repo: https://github.com/LuminariSoftwares/code-guardian
-    rev: v0.3.0
+    rev: v0.3.1
     hooks:
       - id: code-guardian
         # args: [--fail-on, WARN]
