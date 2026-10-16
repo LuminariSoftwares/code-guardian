@@ -761,6 +761,111 @@ def scan_fs_outside(pf):
     return out
 
 
+# --------------------------------------------------------------------------- privacy.pii_log / privacy.pii_prompt
+
+PII_WORDS = frozenset({"email", "phone", "ssn", "dob", "birth", "birthday", "birthdate", "address", "passport",
+                       "iban", "creditcard", "cardnumber", "ipaddress"})
+PII_PAIRS = frozenset({("credit", "card"), ("card", "number"), ("ip", "address")})
+# "address" next to these words is a network or memory address, not where a person lives
+NOT_A_PERSON = frozenset({"server", "bind", "host", "mac", "listen", "remote", "local", "socket", "peer", "proxy",
+                          "broadcast", "gateway", "bluetooth", "memory", "base", "start", "end", "return", "web",
+                          "url", "contract", "wallet", "node", "multicast", "src", "dst", "dest", "source", "target"})
+LOG_METHODS = frozenset({"debug", "info", "warning", "warn", "error", "exception", "critical", "log", "fatal"})
+PROMPT_KEYWORDS = frozenset({"messages", "prompt"})
+PROMPT_METHODS = frozenset({"chat", "complete", "generate"})
+
+
+def _words(name):
+    return [w for w in re.split(r"_+|(?<=[a-z0-9])(?=[A-Z])", str(name)) if w]
+
+
+def pii_name(name):
+    """An identifier that names personal data: email, phone, ssn, dob/birth, a person's address, passport,
+    credit_card/card_number, iban or ip_address (as whole words: emails_sent and server_address do not count)."""
+    words = [w.lower() for w in _words(name)]
+    for i, w in enumerate(words):
+        if w in PII_WORDS and not (w == "address" and i > 0 and words[i - 1] in NOT_A_PERSON):
+            return True
+        if i and (words[i - 1], w) in PII_PAIRS:
+            return True
+    return False
+
+
+def is_pii_source(pf, n):
+    """A Name or attribute that names personal data (an imported module such as `email` does not count)."""
+    if isinstance(n, ast.Name):
+        return n.id not in pf.aliases and pii_name(n.id)
+    return isinstance(n, ast.Attribute) and pii_name(n.attr)
+
+
+def _pii_in(pf, exprs):
+    """The first personal-data name that flows into any of exprs (directly or through names assigned from one in
+    the same function), or None."""
+    for e in exprs:
+        if e is None or not flows_from(pf, e, is_pii_source):
+            continue
+        names = tainted_names(pf, pf.scope(e), is_pii_source)
+        for n in ast.walk(e):
+            if is_pii_source(pf, n):
+                return n.id if isinstance(n, ast.Name) else n.attr
+            if isinstance(n, ast.Name) and n.id in names:
+                return n.id
+    return None
+
+
+def _log_sink(pf, c):
+    name = pf.name(c.func) or ""
+    if is_builtin(pf, c, ("print",)):
+        return "print"
+    if name.startswith("logging.") and name.rsplit(".", 1)[1] in LOG_METHODS:
+        return name
+    f = c.func
+    if isinstance(f, ast.Attribute) and f.attr in LOG_METHODS:
+        recv = (pf.name(f.value) or "").lower()
+        if "log" in recv.rsplit(".", 1)[-1]:
+            return "%s.%s" % (pf.name(f.value), f.attr)
+    return None
+
+
+def scan_pii_log(pf):
+    """Personal data (email, phone, ssn, dob, address, passport, card number, iban, ip address) written to a log or
+    printed. One function deep, like the exec.shell taint rule."""
+    out = []
+    for c in pf.calls():
+        sink = _log_sink(pf, c)
+        if not sink:
+            continue
+        name = _pii_in(pf, list(c.args) + [k.value for k in c.keywords])
+        if name:
+            out.append(finding("privacy.pii_log", "WARN", node_of(pf, c),
+                               "personal data (%s) is written to a log or printed (%s)" % (name, sink),
+                               ["name: %s" % name, "sink: %s" % sink],
+                               ["log an id or a masked value instead (user 42, a***@example.com)",
+                                "logs are copied, shipped and kept far longer than the data itself"]))
+    return out
+
+
+def scan_pii_prompt(pf):
+    """Personal data sent into an LLM prompt: a messages= or prompt= argument, or .chat( / .complete( / .generate(."""
+    out = []
+    for c in pf.calls():
+        f = c.func
+        method = f.attr if isinstance(f, ast.Attribute) and f.attr in PROMPT_METHODS else None
+        keyword = [k for k in c.keywords if k.arg in PROMPT_KEYWORDS]
+        if not (method or keyword):
+            continue
+        exprs = (list(c.args) + [k.value for k in c.keywords]) if method else [k.value for k in keyword]
+        name = _pii_in(pf, exprs)
+        if name:
+            via = ".%s(" % method if method else "%s=" % keyword[0].arg
+            out.append(finding("privacy.pii_prompt", "WARN", node_of(pf, c),
+                               "personal data (%s) is sent into an LLM prompt (%s)" % (name, via),
+                               ["name: %s" % name, "sink: %s" % via],
+                               ["send an id or a redacted value; the model provider stores prompts",
+                                "check the provider's data terms before sending personal data at all"]))
+    return out
+
+
 # --------------------------------------------------------------------------- registry
 
 PY_SCANNERS = [
@@ -773,6 +878,8 @@ PY_SCANNERS = [
     ("tls.off", scan_tls_off),
     ("obfuscation", scan_obfuscation),
     ("fs.outside", scan_fs_outside),
+    ("privacy.pii_log", scan_pii_log),
+    ("privacy.pii_prompt", scan_pii_prompt),
 ]
 
 
@@ -854,6 +961,12 @@ def selftest():
          and redact("plain text") == "plain text"
          and redact("v: aZ3kP9mQ2vR7tY5wX1bN8c", strict=True) == "v: <redacted value>"),
         ("key_values", key_values("a = '%s' b = 'plain'" % key) == [key] and key_values("nothing here") == []),
+        ("pii_log", _codes("import logging\ndef f(email):\n    logging.info(email)\n    print(len('x'))\n", scan_pii_log)
+         == [("privacy.pii_log", "WARN", "t.py:3")]),
+        ("pii_prompt", _codes("def f(c, phone):\n    c.generate('call ' + phone)\n", scan_pii_prompt)
+         == [("privacy.pii_prompt", "WARN", "t.py:2")]),
+        ("pii_name", pii_name("user_email") and pii_name("clientIpAddress") and not pii_name("server_address")
+         and not pii_name("emails_sent")),
         ("aliases", dotted(ast.parse("sp.run").body[0].value, {"sp": "subprocess"}) == "subprocess.run"),
     ]
     return summarize("scanners", checks)

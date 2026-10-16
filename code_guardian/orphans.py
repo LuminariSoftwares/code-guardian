@@ -16,8 +16,8 @@ Public contract:
     module_name(rel) -> "pkg.mod"          is_test(rel) -> bool
     Graph(trees)                           # trees: {rel: ast.Module}
     infer_entry_points(graph, manifest_entries=()) -> ["mod:func" | "mod:__main__" | "mod"]
-    analyse(trees, goal=None, manifest_entries=()) -> {"source", "goal", "entry_points", "keep", "findings",
-                                                       "counts", "notes"}
+    analyse(trees, goal=None, manifest_entries=(), library=False, reached_out=None)
+        -> {"source", "goal", "entry_points", "keep", "findings", "counts", "notes"}
 """
 
 import ast
@@ -513,9 +513,10 @@ def public_api(graph):
     return sorted(out)
 
 
-def analyse(trees, goal=None, manifest_entries=(), library=False):
+def analyse(trees, goal=None, manifest_entries=(), library=False, reached_out=None):
     """library=True (packaging metadata, no application marker) adds the public API to inferred entry points: a
-    library's public functions are used by its consumers, which the repo cannot show."""
+    library's public functions are used by its consumers, which the repo cannot show. reached_out, a set, receives
+    the qualified names the entry points reach (empty when there are none)."""
     graph = Graph(trees)
     notes = ["%s maps to a module name already taken; not analysed for orphans" % d for d in graph.dupes]
     keep = list((goal or {}).get("keep") or [])
@@ -539,6 +540,8 @@ def analyse(trees, goal=None, manifest_entries=(), library=False):
         notes.append("no entry points found, so nothing is reported: run `code-guardian init` and edit the goal file")
         return result
     reached, _ = graph.reach(roots + kept + tool_run)
+    if reached_out is not None:
+        reached_out.update(reached)
     tests_reached, _ = graph.reach(sorted(q for q, n in graph.nodes.items() if n.test))
     strings = set()
     for q in reached:

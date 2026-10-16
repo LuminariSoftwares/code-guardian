@@ -242,6 +242,8 @@ keys to the v0.2 shape (which had no `schema_version`); every v0.2 key keeps its
 | `obfuscation` | `exec`/`eval` of `base64`/`zlib`/`marshal`/hex-decoded data | FAIL | 40 |
 | `obfuscation` | base64 or hex blobs of 200+ characters, high-entropy string literals | WARN | 10 |
 | `fs.outside` | writes, deletes and moves aimed at absolute paths, `~`, or `..` escapes | WARN | 3 |
+| `privacy.pii_log` | a personal-data name (`email`, `phone`, `ssn`, `dob`/`birth`, a person's `address`, `passport`, `credit_card`/`card_number`, `iban`, `ip_address`; whole words, so `emails_sent` and `server_address` do not count) flows into `logging.*`, a logger method or `print` (the `exec.shell` taint rule, one function deep) | WARN | 5 |
+| `privacy.pii_prompt` | the same names flow into an LLM prompt: a `messages=` or `prompt=` argument, or a `.chat(`, `.complete(` or `.generate(` call | WARN | 5 |
 | `deps.unpinned` | dependencies with no pin or upper bound (`pyproject.toml`, `setup.py`, `setup.cfg`, `requirements*.txt`, `package.json`) | INFO | 0 |
 
 `net.egress` targets that stay in the inventory at INFO: https to a named host, loopback, the local network
@@ -305,6 +307,9 @@ Will it work? Read from the parse and the manifests, never by importing or runni
 | `works.test_no_assert` | test functions with no `assert`, no `pytest.raises`/`warns`, no `self.assert*` and no call to a local helper that asserts; once per file, with the count | WARN | 5 |
 | `works.entry_missing` | a `[project.scripts]` (or `setup.cfg` console script) target `module:function` whose module or function is not in the tree | FAIL | 30 |
 | `orphan.dead` | dead code from the hygiene section (below), folded in at a low weight, only when entry points exist | WARN | 3 |
+| `works.todo_stub` | a function whose body is only `pass`, `...` or `raise NotImplementedError` (a docstring allowed) **and** an entry point reaches it; not abstract methods, `Protocol` classes, `@overload` or a method a subclass in the repo overrides | WARN | 3 |
+| `works.commented_code` | 5+ consecutive comment lines that parse as Python (found with `tokenize` + `ast.parse`); once per file, with the count of blocks | INFO | 0 |
+| `works.dead_flag` | a module-level ALL_CAPS boolean (`DEBUG = False`) that no file reads, imports or names | INFO | 0 |
 
 How `works.import_unresolved` decides:
 
@@ -480,6 +485,8 @@ above. Two rules apply across Safe:
 | `obfuscation` | Safe | exec/eval of base64, zlib, marshal or hex-decoded data (FAIL); long encoded blobs or high-entropy literals (WARN). | Decode the payload offline and read what it does before running anything. | Embedded icons, test vectors and hashes can look like blobs. |
 | `secret.history` | Safe | With scan --history: a key shape (the secret.key API-key shapes, AWS secret keys, private-key blocks) was added by a commit and is no longer in that file. Anyone with a clone can still read it, and it may still be valid. The finding names the short sha and the path, never the value. | Rotate the key now; deleting it does not remove it from history. Then consider git filter-repo. | Keys that were revoked long ago, and test keys committed on purpose; a key still in the file is secret.key. |
 | `secret.key` | Safe | An API-key shape (OpenAI-style sk-, GitHub, Google, AWS, Stripe live, Slack, Hugging Face and others), an AWS secret key, a private-key block, a password-like literal or a high-entropy literal in a name ending _KEY or _TOKEN is written into a file (a Stripe test key is INFO). | Move it to an environment variable or a secret store, and rotate it: it is in the history. | Test fixtures and documentation samples; values that call themselves fake (mock, dummy, example) are skipped. |
+| `privacy.pii_log` | Safe | A name for personal data (email, phone, ssn, dob/birth, a person's address, passport, credit card or card number, iban, ip address) flows into logging.*, a logger method or print, directly or through a variable in the same function. | Log an id or a masked value instead; logs are copied and kept far longer than the data. | Names that only look personal (a count of emails is named emails_n, not email); taint is one function deep. |
+| `privacy.pii_prompt` | Safe | The same personal-data names flow into an LLM prompt: a messages= or prompt= argument, or a .chat(, .complete( or .generate( call. | Send an id or a redacted value; check the provider's data terms before sending personal data. | A .complete( or .generate( method that is not a model call; a prompt built in another function is missed. |
 | `supply.lookalike` | Safe | The name is one or two edits away from a known package without being it: the typosquatting pattern. | Check you meant the well-known package. | Real packages with names close to a popular one. |
 | `supply.unknown_package` | Safe | Offline: the name is not in the bundled list of known packages (INFO). Online: PyPI has no such project (FAIL), or it is new or has a single release (WARN). | Check the name is the one you meant; remove names an assistant invented; run with --online. | Offline misses are common for less-known real packages, which is why they are INFO. Existing is not safe. |
 | `tls.off` | Safe | verify=False, ssl._create_unverified_context, CERT_NONE or check_hostname = False. | Remove it; point at a CA bundle if the certificate is private. | Rare: code that deliberately probes broken servers. |
@@ -489,6 +496,9 @@ above. Two rules apply across Safe:
 | `works.entry_missing` | Works | A [project.scripts] (or setup.cfg console script) target module:function is not in the tree. | Point the script at an existing module:function. | Modules generated at build time. |
 | `works.import_unresolved` | Works | An absolute import that is not in the standard library, not in the repo and not a declared dependency. | Declare the distribution that provides it, or guard an optional import with try/except ImportError. | Packages pulled in only by another dependency (they work by accident); import names the mapping table misses. |
 | `works.relative_missing` | Works | from .x import y points at a module (or a package name) the repo does not have. | Fix the module path or add the missing module. | Modules generated at build time. |
+| `works.todo_stub` | Works | A function whose body is only pass, ..., or raise NotImplementedError (a docstring allowed), and the entry points reach it: it will be called and do nothing. Abstract methods, Protocol classes, @overload and methods a subclass overrides do not count. | Implement it, or delete it and its callers; mark it @abc.abstractmethod if subclasses must implement it. | Hook methods meant to be overridden by users of a library; no-op callbacks kept on purpose. |
+| `works.commented_code` | Works | A run of 5 or more consecutive comment lines that parse as Python (once per file, with the count of blocks). | Delete it: version control keeps the old code. | Code samples in comments that explain an API; INFO, never scored. |
+| `works.dead_flag` | Works | A module-level ALL_CAPS boolean constant (DEBUG = False) that no file reads, imports or names. | Delete it, or wire it to the code it was meant to switch. | Flags read only by another tool or by string name; INFO, never scored. |
 | `works.syntax` | Works | ast.parse rejects the file, so it cannot be imported or run (INFO when the project needs a newer Python than the one scanning). | Fix the syntax error; port Python 2 code to Python 3. | Files kept on purpose for another interpreter, or templates with a .py name. |
 | `works.test_no_assert` | Works | Test functions with no assert, no pytest.raises/warns, no self.assert* and no call to an asserting helper. | Assert on the result; use pytest.raises for expected errors. | Smoke tests that only check nothing raises; helpers defined in another file. |
 | `works.tests_missing` | Works | There are no test files at all. | Add a tests/ folder with at least one test per entry point. | Tests kept in another repository. |
@@ -619,7 +629,7 @@ scanners selftest: 18 checks, 18 passed, 0 failed
 ```
 
 Each of `finding`, `walk`, `scanners`, `manifests`, `score`, `goal`, `orphans`, `works`, `complete`, `supply`,
-`explain`, `report`, `cli`, `mcp_server`, `baseline`, `verify` and `history` has one; `tests/test_selftests.py` runs them all.
+`explain`, `report`, `cli`, `mcp_server`, `baseline`, `verify`, `history` and `leftovers` has one; `tests/test_selftests.py` runs them all.
 
 ## License
 
