@@ -1,7 +1,7 @@
 """code-guardian command line.
 
     code-guardian scan PATH [--json | --sarif | --markdown] [--goal FILE] [--explain] [--online] [--fail-on LEVEL]
-                           [--baseline FILE]
+                           [--baseline FILE] [--history [--history-depth N]]
     code-guardian baseline PATH [--out FILE] [--goal FILE]     # default FILE: PATH/code-guardian.baseline.json
     code-guardian diff BEFORE.json AFTER.json [--json]         # exit 1 when anything regressed
     code-guardian plan PATH [--top 10] [--json] [--goal FILE]  # Markdown by default
@@ -45,6 +45,10 @@ def _parser():
     s.add_argument("--baseline", metavar="FILE",
                    help="mark findings new or known against FILE (from `code-guardian baseline`); --fail-on then "
                         "counts new findings only, the scores still count all of them")
+    s.add_argument("--history", action="store_true",
+                   help="also check the lines git history added for key shapes (runs git log, read-only)")
+    s.add_argument("--history-depth", type=int, default=500, metavar="N",
+                   help="with --history: how many recent commits to read (default 500)")
     s.add_argument("--fail-on", **fail_on)
     b = sub.add_parser("baseline", help="write the fingerprints of every current finding (commit the file)")
     b.add_argument("path")
@@ -113,7 +117,10 @@ def main(argv=None):
     args = _parser().parse_args(argv)
     try:
         if args.command == "scan":
-            rep = report.scan(args.path, args.goal, explain=args.explain, online=args.online, baseline=args.baseline)
+            if args.history_depth < 1:
+                raise report.UsageError("--history-depth must be at least 1")
+            rep = report.scan(args.path, args.goal, explain=args.explain, online=args.online, baseline=args.baseline,
+                              history=args.history, history_depth=args.history_depth)
             if args.json:
                 sys.stdout.write(json.dumps(redact_report(rep), indent=1) + "\n")
             elif args.sarif:

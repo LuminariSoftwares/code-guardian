@@ -227,6 +227,7 @@ keys to the v0.2 shape (which had no `schema_version`); every v0.2 key keeps its
 |---|---|---|---|
 | `secret.key` | API-key shapes (the privacy workflow's built-in list: `sk-` (which covers Anthropic's `sk-ant-`), `sk-or-`, `tvly-`, `ghp_`, `github_pat_`, `nvapi-`, `gsk_`, `AIza`; plus AWS access key IDs `AKIA`/`ASIA` + 16, Stripe `sk_live_`/`rk_live_`, Slack `xox[abprs]-`, Hugging Face `hf_` + 30 letters), a 40-character AWS secret key assigned to a name containing `aws` and `secret`, private-key blocks, `password = "<literal>"` (also `api_key`, `secret`, `access_token`…), and any `*_KEY` / `*_TOKEN` name holding a long, high-entropy literal. One finding per line. Values are never printed; values that call themselves fake (`mock`, `dummy`, `example`…) are skipped | FAIL | 40 |
 | `secret.key` | a Stripe test-mode key (`sk_test_`) | INFO | 0 |
+| `secret.history` | **opt-in, `scan --history`**: a key shape (the `secret.key` API-key shapes, AWS secret keys, private-key blocks) that a commit added and the file no longer has; it may still be valid. Names the short sha and the path, never the value | FAIL | 30 |
 | `exec.dynamic` | `eval`, `exec`, `compile` on non-literal input; `__import__` with a variable | WARN | 10 |
 | `exec.dynamic` | …when `eval` or `exec` runs text from `input()`, `sys.argv`, request data, `os.environ` or a network read (the `exec.shell` taint rule, one function deep; `exec(compile(...))` counts at the `exec`): "runs code typed by the user" | FAIL | 30 |
 | `exec.shell` | `os.system`, `os.popen`, `subprocess.*(..., shell=True)` | WARN | 10 |
@@ -249,6 +250,21 @@ keys to the v0.2 shape (which had no `schema_version`); every v0.2 key keeps its
 
 The walk skips `.git`, `venv`/`.venv`, `node_modules`, `__pycache__`, `dist`, `build` and the tool caches, anything
 the root `.gitignore` matches (simple globs; `!` negation is ignored), binary files, files over 2 MB and symlinks.
+
+### Secrets in the git history (opt-in)
+
+```
+code-guardian scan . --history [--history-depth 500]
+```
+
+A key deleted from a file is still in every clone's history. `--history` runs one read-only git command (an argument
+list, never a shell): `git log -p --no-color --no-ext-diff --no-textconv --relative --format=%H --max-count=N -- .`
+with the scanned repo's fsmonitor and signature-checking config switched off, so the repo cannot make the scan run a
+program. It checks only the lines commits **added**, with the `secret.key` key-shape rules, reads at most the last N
+commits (default 500) and at most 64 MB of log, and never modifies the repository. A key still present in the current
+file is left to `secret.key`; the oldest commit that added a value is the one reported. Without git, or when PATH is
+not a repository, the history check is skipped with a note (and the scan is PARTIAL, since what was asked did not
+run). The scan itself stays offline.
 
 ### Invented and lookalike packages (Safe)
 
@@ -462,6 +478,7 @@ above. Two rules apply across Safe:
 | `net.bind_all` | Safe | A server binds 0.0.0.0 or ::, so other machines can reach it. | Bind to 127.0.0.1 unless other machines must connect. | Containers usually must bind 0.0.0.0; a test that asserts the bind is refused still matches. |
 | `net.egress` | Safe | The egress inventory: every URL and IP literal and every network call site. WARN for a public IP, or plain http/ws/ftp to a public name or to a host set at runtime. | Use https, and confirm each destination is expected. | Local-network and documentation hosts stay INFO; a URL in a help string is still inventoried. |
 | `obfuscation` | Safe | exec/eval of base64, zlib, marshal or hex-decoded data (FAIL); long encoded blobs or high-entropy literals (WARN). | Decode the payload offline and read what it does before running anything. | Embedded icons, test vectors and hashes can look like blobs. |
+| `secret.history` | Safe | With scan --history: a key shape (the secret.key API-key shapes, AWS secret keys, private-key blocks) was added by a commit and is no longer in that file. Anyone with a clone can still read it, and it may still be valid. The finding names the short sha and the path, never the value. | Rotate the key now; deleting it does not remove it from history. Then consider git filter-repo. | Keys that were revoked long ago, and test keys committed on purpose; a key still in the file is secret.key. |
 | `secret.key` | Safe | An API-key shape (OpenAI-style sk-, GitHub, Google, AWS, Stripe live, Slack, Hugging Face and others), an AWS secret key, a private-key block, a password-like literal or a high-entropy literal in a name ending _KEY or _TOKEN is written into a file (a Stripe test key is INFO). | Move it to an environment variable or a secret store, and rotate it: it is in the history. | Test fixtures and documentation samples; values that call themselves fake (mock, dummy, example) are skipped. |
 | `supply.lookalike` | Safe | The name is one or two edits away from a known package without being it: the typosquatting pattern. | Check you meant the well-known package. | Real packages with names close to a popular one. |
 | `supply.unknown_package` | Safe | Offline: the name is not in the bundled list of known packages (INFO). Online: PyPI has no such project (FAIL), or it is new or has a single release (WARN). | Check the name is the one you meant; remove names an assistant invented; run with --online. | Offline misses are common for less-known real packages, which is why they are INFO. Existing is not safe. |
@@ -602,7 +619,7 @@ scanners selftest: 18 checks, 18 passed, 0 failed
 ```
 
 Each of `finding`, `walk`, `scanners`, `manifests`, `score`, `goal`, `orphans`, `works`, `complete`, `supply`,
-`explain`, `report`, `cli`, `mcp_server`, `baseline` and `verify` has one; `tests/test_selftests.py` runs them all.
+`explain`, `report`, `cli`, `mcp_server`, `baseline`, `verify` and `history` has one; `tests/test_selftests.py` runs them all.
 
 ## License
 

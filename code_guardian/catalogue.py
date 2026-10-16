@@ -24,6 +24,13 @@ CATALOGUE = {
         "written into a file (a Stripe test key is INFO).",
         "Move it to an environment variable or a secret store, and rotate it: it is in the history.",
         "Test fixtures and documentation samples; values that call themselves fake (mock, dummy, example) are skipped."),
+    "secret.history": _e(
+        "Secret in the git history",
+        "With scan --history: a key shape (the secret.key API-key shapes, AWS secret keys, private-key blocks) was "
+        "added by a commit and is no longer in that file. Anyone with a clone can still read it, and it may still "
+        "be valid. The finding names the short sha and the path, never the value.",
+        "Rotate the key now; deleting it does not remove it from history. Then consider git filter-repo.",
+        "Keys that were revoked long ago, and test keys committed on purpose; a key still in the file is secret.key."),
     "exec.dynamic": _e(
         "Code built at runtime",
         "eval, exec or compile runs a non-literal string, or __import__ loads a module named at runtime; FAIL when "

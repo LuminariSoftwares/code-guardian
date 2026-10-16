@@ -2,7 +2,8 @@
 explain=True, and then only the URL in CODE_GUARDIAN_LLM_URL.
 
 Public contract:
-    scan(path, goal_file=None, explain=False, env=None, online=False, baseline=None) -> report dict
+    scan(path, goal_file=None, explain=False, env=None, online=False, baseline=None, history=False,
+         history_depth=500) -> report dict
                                        # raises UsageError (bad PATH or baseline) / goal.GoalError
     orphans(path, goal_file=None, infer=False) -> hygiene dict (+ "files")
     render(report) -> text            render_orphans(hygiene) -> text       status_line(report) -> text
@@ -20,7 +21,7 @@ import sys
 import tempfile
 import warnings
 
-from . import (__version__, baseline as baseline_mod, complete, explain as explain_mod, goal, manifests, orphans as orphans_mod, scanners, score,
+from . import (__version__, baseline as baseline_mod, complete, explain as explain_mod, history as history_mod, goal, manifests, orphans as orphans_mod, scanners, score,
                supply, walk, works)
 from .finding import LEVELS, crash_finding, make_finding, summarize
 from .scanners import redact_report
@@ -141,8 +142,10 @@ def _baseline(path):
         raise UsageError("cannot read baseline %s: %s" % (path, exc)) from None
 
 
-def scan(path, goal_file=None, explain=False, env=None, online=False, baseline=None):
-    """baseline: a file written by `code-guardian baseline`; each finding is then marked new or known."""
+def scan(path, goal_file=None, explain=False, env=None, online=False, baseline=None, history=False,
+         history_depth=history_mod.DEPTH):
+    """baseline: a file written by `code-guardian baseline`; each finding is then marked new or known.
+    history: also run the key-shape rules over the lines the last history_depth commits added (git, read-only)."""
     root = _root(path)
     base = _baseline(baseline) if baseline else None
     contract, notes = _contract(root, goal_file)
@@ -225,6 +228,13 @@ def scan(path, goal_file=None, explain=False, env=None, online=False, baseline=N
         for check in ("works", "complete", "supply"):
             out.skipped(check, "no Python files and no manifests")
         notes.append("no Python source or manifest found: Works and Complete have nothing to check")
+    if history and not invalid:
+        found, history_notes, skipped = out.run(
+            "history", lambda: history_mod.scan(root, history_depth, current=sources), ([], [], None), findings)
+        findings.extend(found)
+        notes.extend(history_notes)
+        if skipped:
+            out.skipped("history", skipped)
     findings = score.sort_findings(scanners.dedupe(_test_code_to_info(_one_secret_per_line(findings))))
     langs = _languages(inv["other"])
     if langs:
