@@ -10,7 +10,7 @@ Scores are offline (no `--online`), so they are reproducible.
 
 | repo | commit | Safe | Works | Complete | Overall | grade | FAIL | WARN |
 |---|---|---:|---:|---:|---:|---|---:|---:|
-| [psf/requests](https://github.com/psf/requests) | `611c6162cbc4` | 90 | 92 | 95 | 92 | A | 0 | 5 |
+| [psf/requests](https://github.com/psf/requests) | `611c6162cbc4` | 90 | 89 | 95 | 91 | A | 0 | 6 |
 | [pallets/click](https://github.com/pallets/click) | `2247b35ea1c4` | 90 | 92 | 95 | 92 | A | 0 | 5 |
 | [Textualize/rich](https://github.com/Textualize/rich) | `9d8f9a372cc5` | 77 | 71 | 90 | 78 | B | 0 | 21 |
 | [encode/httpx](https://github.com/encode/httpx) | `b5addb64f016` | 85 | 95 | 100 | 91 | A | 0 | 4 |
@@ -57,6 +57,29 @@ after):
 |---|---|---|
 | `eval(compile(f.read(), startup, "exec"))` where `startup` is `os.environ.get("PYTHONSTARTUP")` read as "runs code typed by the user" | flask `src/flask/cli.py:1022` (Safe 80 → 50, grade B → D) | only the code text is checked for taint: `compile()`'s filename argument is not code. The line stays WARN |
 
+## Re-run for 0.3: AI leftovers and privacy
+
+0.3.0 adds `works.todo_stub` (WARN 3), `works.commented_code` (INFO), `works.dead_flag` (INFO), `privacy.pii_log`
+(Safe WARN 5) and `privacy.pii_prompt` (Safe WARN 5). The scan status, locations, redaction, fingerprints and the
+opt-in `--history` change no score: before these checks the table was byte-identical to 0.2.0, and all nine repos
+scan COMPLETE.
+
+**No new FAIL anywhere.** The first run added 14 `works.todo_stub` WARNs across requests, click, rich and flask.
+Thirteen were deliberate no-ops and were fixed in the check (`tests/test_leftovers.py::
+test_calibration_patterns_are_not_stubs`, red before the fix, green after); one is justified below. The privacy checks
+and the two INFO checks report nothing on the nine repos, at any level: no personal-data name reaches a log, a print
+or a prompt, no module-level boolean flag is unread, and none of the 163 comment runs of 5+ lines parses as code.
+
+| pattern seen | where | fix |
+|---|---|---|
+| `class SupportsRead(Protocol[T]): def read(self) -> T: ...` | requests `_types.py` (2), flask `globals.py` | a `Protocol[T]` base is a Protocol |
+| `def __exit__(self, *a): pass`, `def __enter__(self): pass` | click `utils.py`, flask `helpers.py` | dunder methods are protocol no-ops |
+| `class NullFile: def flush(self): pass`, `class MockRequest: def add_header(...): raise NotImplementedError(...)` | rich `_null_file.py` (4), requests `cookies.py` | methods of null objects (`Null*`, `Noop*`, `Dummy*`, `Mock*`, `Fake*`) |
+| `@click.group() def cli(): pass` | click `examples/` (3) | a `@group` callback does its work in its subcommands |
+
+The score table above changed in one row: requests Works 92 → 89, Overall 92 → 91 (still A), from the one
+justified WARN.
+
 ## Every FAIL and WARN
 
 ### psf/requests
@@ -65,6 +88,7 @@ after):
 |---|---|---|---|---|
 | WARN | `complete.readme_sections` | `README.md:1` | true (rule) | the README has no heading of that kind; the information may sit in text or external docs |
 | WARN | `exec.dynamic` | `src/requests/packages.py:9` | true | the vendored-alias shim imports modules by computed name on purpose |
+| WARN | `works.todo_stub` | `src/requests/adapters.py:599` | true (rule) | `HTTPAdapter.add_headers` is a documented hook ("does nothing by default, but is left for overriding by users that subclass"); the subclasses live in users' code, which the scan cannot see |
 | WARN | `works.test_no_assert` | `tests/test_packages.py:4` | true | smoke tests that rely on no exception being raised |
 | WARN | `works.test_no_assert` | `tests/test_requests.py:87` | true | smoke tests that rely on no exception being raised |
 | WARN | `works.test_no_assert` | `tests/test_testserver.py:63` | true | smoke tests that rely on no exception being raised |

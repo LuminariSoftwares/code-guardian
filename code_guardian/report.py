@@ -21,7 +21,8 @@ import sys
 import tempfile
 import warnings
 
-from . import (__version__, baseline as baseline_mod, complete, explain as explain_mod, history as history_mod, goal, manifests, orphans as orphans_mod, scanners, score,
+from . import (__version__, baseline as baseline_mod, complete, explain as explain_mod, history as history_mod,
+               leftovers, goal, manifests, orphans as orphans_mod, scanners, score,
                supply, walk, works)
 from .finding import LEVELS, crash_finding, make_finding, summarize
 from .scanners import redact_report
@@ -235,6 +236,13 @@ def scan(path, goal_file=None, explain=False, env=None, online=False, baseline=N
         notes.extend(history_notes)
         if skipped:
             out.skipped("history", skipped)
+    reached = set()
+    hygiene = out.run("orphans", lambda: orphans_mod.analyse(trees, contract, entries, library=_is_library(project),
+                                                             reached_out=reached), None, findings)
+    if inv["python"] or inv["manifests"]:
+        findings.extend(out.run("leftovers", lambda: leftovers.check(project, reached), [], findings))
+    else:
+        out.skipped("leftovers", "no Python files and no manifests")
     findings = score.sort_findings(scanners.dedupe(_test_code_to_info(_one_secret_per_line(findings))))
     langs = _languages(inv["other"])
     if langs:
@@ -246,8 +254,6 @@ def scan(path, goal_file=None, explain=False, env=None, online=False, baseline=N
         notes.append("skipped %s (unreadable)" % rel)
     if inv["excluded"]:
         notes.append("%d path(s) excluded by the goal file" % inv["excluded"])
-    hygiene = out.run("orphans", lambda: orphans_mod.analyse(trees, contract, entries, library=_is_library(project)),
-                      None, findings)
     if hygiene is None:
         hygiene = {"source": "none (the orphan check crashed)", "goal": "", "entry_points": [], "keep": [],
                    "findings": [], "notes": [], "counts": {"orphan.dead": 0, "orphan.test_only": 0,

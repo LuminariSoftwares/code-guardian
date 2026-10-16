@@ -97,6 +97,19 @@ CATALOGUE = {
         "The name is one or two edits away from a known package without being it: the typosquatting pattern.",
         "Check you meant the well-known package.",
         "Real packages with names close to a popular one."),
+    "privacy.pii_log": _e(
+        "Personal data in a log",
+        "A name for personal data (email, phone, ssn, dob/birth, a person's address, passport, credit card or card "
+        "number, iban, ip address) flows into logging.*, a logger method or print, directly or through a variable "
+        "in the same function.",
+        "Log an id or a masked value instead; logs are copied and kept far longer than the data.",
+        "Names that only look personal (a count of emails is named emails_n, not email); taint is one function deep."),
+    "privacy.pii_prompt": _e(
+        "Personal data sent to an LLM",
+        "The same personal-data names flow into an LLM prompt: a messages= or prompt= argument, or a .chat(, "
+        ".complete( or .generate( call.",
+        "Send an id or a redacted value; check the provider's data terms before sending personal data.",
+        "A .complete( or .generate( method that is not a model call; a prompt built in another function is missed."),
     # Works
     "works.syntax": _e(
         "File does not parse",
@@ -129,6 +142,24 @@ CATALOGUE = {
         "A [project.scripts] (or setup.cfg console script) target module:function is not in the tree.",
         "Point the script at an existing module:function.",
         "Modules generated at build time."),
+    "works.todo_stub": _e(
+        "Stub an entry point reaches",
+        "A function whose body is only pass, ..., or raise NotImplementedError (a docstring allowed), and the entry "
+        "points reach it: it will be called and do nothing. Abstract methods, Protocol classes, @overload and "
+        "methods a subclass overrides do not count.",
+        "Implement it, or delete it and its callers; mark it @abc.abstractmethod if subclasses must implement it.",
+        "Hook methods meant to be overridden by users of a library; no-op callbacks kept on purpose."),
+    "works.commented_code": _e(
+        "Commented-out code",
+        "A run of 5 or more consecutive comment lines that parse as Python (once per file, with the count of "
+        "blocks).",
+        "Delete it: version control keeps the old code.",
+        "Code samples in comments that explain an API; INFO, never scored."),
+    "works.dead_flag": _e(
+        "Flag nothing reads",
+        "A module-level ALL_CAPS boolean constant (DEBUG = False) that no file reads, imports or names.",
+        "Delete it, or wire it to the code it was meant to switch.",
+        "Flags read only by another tool or by string name; INFO, never scored."),
     "orphan.dead": _e(
         "Dead code",
         "A function, class or module nothing reachable from the entry points uses.",

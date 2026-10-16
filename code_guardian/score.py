@@ -54,6 +54,8 @@ SAFE_WEIGHTS = {  # the v0.1 threat weights, unchanged
     ("supply.unknown_package", "WARN"): 10,
     ("supply.unknown_package", "INFO"): 0,
     ("supply.lookalike", "WARN"): 15,
+    ("privacy.pii_log", "WARN"): 5,
+    ("privacy.pii_prompt", "WARN"): 5,
 }
 WORKS_WEIGHTS = {
     ("works.syntax", "FAIL"): 30,
@@ -64,6 +66,9 @@ WORKS_WEIGHTS = {
     ("works.test_no_assert", "WARN"): 5,
     ("works.entry_missing", "FAIL"): 30,
     ("orphan.dead", "WARN"): 3,  # from the hygiene section; only when entry points exist (contract or inferred)
+    ("works.todo_stub", "WARN"): 3,  # AI leftovers (leftovers.py)
+    ("works.commented_code", "INFO"): 0,
+    ("works.dead_flag", "INFO"): 0,
 }
 COMPLETE_WEIGHTS = {
     ("complete.license_missing", "WARN"): 20,
