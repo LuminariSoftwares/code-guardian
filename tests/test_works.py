@@ -37,7 +37,8 @@ def test_broken_repo_hand_computed_works_score():
     s = rep["scores"]
     # Complete: no licence 20, no README 20, no CI 10, licence undeclared 5 -> 45; Overall (500 + 0 + 90) / 10 = 59
     assert (s["safe"], s["works"], s["complete"], s["overall"], s["grade"]) == (100, 0, 45, 59, "D")
-    assert s["capped"] is False  # Works FAILs never cap: only Safe does
+    # Works FAILs never cap: only Safe does. The unparsed file makes the scan PARTIAL (cap B, below D here).
+    assert rep["status"] == "PARTIAL" and s["cap_reason"] == "the scan is PARTIAL: the grade is at most B"
 
 
 def test_unresolved_import_names_the_module_and_skips_guarded_ones():

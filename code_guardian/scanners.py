@@ -7,7 +7,7 @@ Public contract:
     PyFile(rel, raw, text)                     # parses once; raises SyntaxError/ValueError on unparseable source
     scan_secret_text(rel, text, python) -> [finding]   # every text file
     PY_SCANNERS = [(code, fn(PyFile) -> [finding])]    # Python files only
-    scan_python(pf) -> [finding]                       # every PY_SCANNERS entry; a crashing scanner is one WARN
+    scan_python(pf, crashed=None) -> [finding]         # every PY_SCANNERS entry; a crashing scanner is one WARN
 """
 
 import ast
@@ -720,12 +720,14 @@ PY_SCANNERS = [
 ]
 
 
-def scan_python(pf, table=None):
+def scan_python(pf, table=None, crashed=None):
     """Every Python scanner (or the given table) over one parsed file. A scanner that raises yields one
-    check.crashed WARN (weight 0), not a crash."""
+    check.crashed WARN (weight 0), not a crash; when crashed is a list, (code, finding) is appended to it."""
     out = []
     for code, fn in table or PY_SCANNERS:
         got = run_check(code, lambda _s, _c, fn=fn: fn(pf), None, None, node=pf.rel)
+        if isinstance(got, dict) and crashed is not None:
+            crashed.append((code, got))
         out.extend(got if isinstance(got, list) else [got])
     return out
 
@@ -749,6 +751,7 @@ def selftest():
     h = "http" + "://"
     key = "sk-" + "A" * 24
     blob = "QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo" * 7
+    crashed = []
     checks = [
         ("secret_key_text", [f["level"] for f in scan_secret_text("a.js", "const k = '%s';\n" % key, False)] == ["FAIL"]),
         ("secret_redacted", key not in repr(scan_secret_text("a.js", key, False))),
@@ -789,8 +792,8 @@ def selftest():
          [("fs.outside", "WARN", "t.py:1"), ("fs.outside", "WARN", "t.py:3"), ("fs.outside", "WARN", "t.py:6")]),
         ("clean_file_no_findings", scan_python(PyFile("t.py", b"x = 1\n", "x = 1\n")) == []),
         ("crash_is_one_warn", [(f["code"], f["level"], f["node"]) for f in
-                               scan_python(PyFile("t.py", b"x = 1\n", "x = 1\n"), [("boom", lambda pf: 1 / 0)])]
-         == [("check.crashed", "WARN", "t.py")]),
+                               scan_python(PyFile("t.py", b"x = 1\n", "x = 1\n"), [("boom", lambda pf: 1 / 0)], crashed)]
+         == [("check.crashed", "WARN", "t.py")] and [c for c, _ in crashed] == ["boom"]),
         ("aliases", dotted(ast.parse("sp.run").body[0].value, {"sp": "subprocess"}) == "subprocess.run"),
     ]
     return summarize("scanners", checks)

@@ -8,6 +8,7 @@ Public contract:
     make_finding(code, severity, level, node, summary, evidence=None, try_=None,
                  confidence="LIKELY", fix=None) -> dict
     run_check(check_id, fn, snapshot, ctx, node="") -> dict or None
+    crash_finding(check_id, exc, node="") -> the check.crashed finding run_check returns
     worst(findings) -> str
     exit_code(findings) -> int
 
@@ -105,19 +106,24 @@ def run_check(check_id, fn, snapshot, ctx, node=""):
     try:
         return fn(snapshot, ctx)
     except Exception as exc:  # noqa: BLE001 - a broken check must not abort the run
-        # Coerce eagerly: reporting the crash must not raise a second time, or a
-        # non-str check_id would take down the run the handler exists to protect.
-        label = "%s" % (check_id,)
-        return make_finding(
-            "check.crashed",
-            "crash",
-            "WARN",
-            node,
-            "check %s raised %s" % (label, type(exc).__name__),
-            evidence=[("%s: %s" % (type(exc).__name__, exc))[:CRASH_EVIDENCE_MAX]],
-            try_=["fix or disable the check " + label],
-            confidence="VERIFIED",
-        )
+        return crash_finding(check_id, exc, node)
+
+
+def crash_finding(check_id, exc, node=""):
+    """The check.crashed finding for check_id raising exc (WARN, never FAIL)."""
+    # Coerce eagerly: reporting the crash must not raise a second time, or a
+    # non-str check_id would take down the run the handler exists to protect.
+    label = "%s" % (check_id,)
+    return make_finding(
+        "check.crashed",
+        "crash",
+        "WARN",
+        node,
+        "check %s raised %s" % (label, type(exc).__name__),
+        evidence=[("%s: %s" % (type(exc).__name__, exc))[:CRASH_EVIDENCE_MAX]],
+        try_=["fix or disable the check " + label],
+        confidence="VERIFIED",
+    )
 
 
 def worst(findings):

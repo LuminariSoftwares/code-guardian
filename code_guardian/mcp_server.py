@@ -27,7 +27,8 @@ TOOL_SPECS = [
     {"name": "scan", "title": "Scan a codebase",
      "description": "Is it safe to run, will it work, does it have what it needs? Safe, Works and Complete scores "
                     "(0-100, higher is better), Overall and an A-F grade, every finding with file:line, the egress "
-                    "inventory and orphan-code hygiene. Deterministic; parses only, never runs the code.",
+                    "inventory and orphan-code hygiene, and the scan status (COMPLETE, PARTIAL or INVALID: can the "
+                    "scan be trusted). Deterministic; parses only, never runs the code.",
      "inputSchema": {"type": "object", "properties": {"path": _PATH, "goal": _GOAL,
                                                       "fail_on": {"type": "string", "enum": ["INFO", "WARN", "FAIL"]}},
                      "required": ["path"]},
@@ -118,7 +119,7 @@ def serve(lines, write, tools):
 
 def make_tools(scan_fn, orphans_fn, exit_fn):
     """Bind the protocol to scan_fn(path, goal, explain) -> report, orphans_fn(path, goal) -> hygiene and
-    exit_fn(findings, fail_on) -> 0/1."""
+    exit_fn(findings, fail_on, status) -> 0, 1 or 3 (3: the scan is PARTIAL or INVALID)."""
     def goal_of(a):
         return resolve_path(a["goal"], "goal") if a.get("goal") else None
 
@@ -127,7 +128,7 @@ def make_tools(scan_fn, orphans_fn, exit_fn):
         fail_on = str(a.get("fail_on") or "FAIL").upper()
         if fail_on not in ("INFO", "WARN", "FAIL"):
             raise ValueError("fail_on must be INFO, WARN or FAIL")
-        rep["exit_code"] = exit_fn(rep["findings"], fail_on)
+        rep["exit_code"] = exit_fn(rep["findings"], fail_on, rep.get("status"))
         return rep
 
     def orphans(a):
@@ -172,7 +173,7 @@ def _selftest():
         calls.append((path, goal, explain))
         return {"scores": {"overall": 100, "grade": "A"}, "findings": [{"level": "WARN"}], "notes": ["n"]}
 
-    tools = make_tools(fake_scan, lambda p, g: {"path": p}, lambda f, lv: 1 if lv != "FAIL" else 0)
+    tools = make_tools(fake_scan, lambda p, g: {"path": p}, lambda f, lv, st: 3 if st else 1 if lv != "FAIL" else 0)
 
     def req(i, method, params=None):
         m = {"jsonrpc": "2.0", "id": i, "method": method}
