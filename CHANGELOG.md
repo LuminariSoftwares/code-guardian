@@ -1,5 +1,52 @@
 # Changelog
 
+## code-guardian 0.3.0 — unreleased
+
+The verify loop: code-guardian becomes the tool an AI-assisted developer runs before and after every change. It
+answers four questions: what did the change fix, what did it break, what should be fixed next, and can I trust this
+scan. Report and MCP shapes are additive only: every 0.2 key keeps its meaning; the JSON now carries
+`schema_version: 2`.
+
+- **Scan status** (`status`, `status_reasons`, `outcomes`). Every scanner, check and the file walk reports `ran`,
+  `skipped` (with a reason) or `crashed`; `works`, `complete`, `supply`, `orphans`, the manifest and secret scans
+  are now guarded like the Python scanners, so one broken check never kills the scan. **COMPLETE**, **PARTIAL** (a
+  check crashed or was skipped, a Python file did not parse, a Python file or manifest was too large or unreadable:
+  the grade is capped at **B**) or **INVALID** (PATH unreadable, or no Python files and no manifests: no grade,
+  `scores.grade` is `null`). Shown in JSON, text, Markdown, SARIF run properties and MCP. **New exit code 3**: the
+  scan is incomplete and nothing is at or above `--fail-on`.
+- **Every deduction cites its evidence.** Each check row carries `locations` (every distinct `file:line`, sorted, at
+  most 20) and `more`; the text report shows up to three per row.
+- **Nothing secret is printed.** One `redact()` on every output path (JSON, text, Markdown, SARIF, MCP, and what
+  `--explain` sends) masks API-key shapes and email addresses; the evidence of `secret.*` and `privacy.*` findings is
+  redacted strictly. 0.2 printed a key or an email inside a URL literal raw in the egress summary.
+- **Baseline.** `code-guardian baseline PATH` writes the sorted fingerprints of every finding
+  (`sha256(code | level | path | normalised evidence line)`, no line numbers) to `code-guardian.baseline.json`.
+  `scan --baseline FILE` marks each finding `new: true|false`, reports `N new, M known`, and `--fail-on` counts new
+  findings only; **the scores still count every finding**. Every finding carries its `fingerprint` (SARIF
+  `partialFingerprints`). GitHub Action input `baseline`, pre-commit hook `code-guardian-new`, MCP `scan` argument
+  `baseline`.
+- **`code-guardian diff BEFORE.json AFTER.json`**: fixed, new and unchanged findings by fingerprint, per-dimension
+  score deltas, and a verdict (improved, regressed, mixed, unchanged); exit 1 when anything regressed.
+- **`code-guardian plan PATH [--top 10]`**: the repair plan. Each check row's exact Overall gain if its findings were
+  gone (re-scored, the code never touched), labelled "estimated gain if fixed", best first, with the catalogue fix
+  and every location; a floored dimension is called out. Markdown or `--json`.
+- **MCP**: new read-only tools `diff(before, after)` and `plan(path, top)`; a coding agent can loop scan → plan →
+  edit → scan → diff.
+- **`scan --history [--history-depth N]`** (opt-in): one read-only `git log -p` (argument list, no shell, hardened
+  against the scanned repo's own git config, byte-capped) checks the lines commits added with the `secret.key`
+  shape rules. New **`secret.history`** (Safe, FAIL, 30): a key a commit added that the file no longer has; it names
+  the short sha and the path, never the value.
+- **AI-leftover checks** (`leftovers.py`): `works.todo_stub` (WARN 3: a `pass` / `...` / `raise
+  NotImplementedError` body an entry point reaches), `works.commented_code` (INFO: 5+ comment lines that parse as
+  Python), `works.dead_flag` (INFO: an ALL_CAPS boolean nothing reads).
+- **Privacy checks**: `privacy.pii_log` and `privacy.pii_prompt` (Safe, WARN 5): personal-data names (email, phone,
+  ssn, dob, a person's address, passport, card number, iban, ip address) flowing into a log, `print` or an LLM
+  prompt, one function deep.
+- **Calibrated** on the nine repositories (`calibration.md`): no new FAIL; one new WARN (requests, a documented
+  override hook), justified. Thirteen first-run `works.todo_stub` hits were deliberate no-ops and were fixed in the
+  check.
+- An empty repository is now INVALID (no grade) instead of grade A.
+
 ## code-guardian 0.2.0 — unreleased
 
 One command now answers three questions about any repo without running it: is it **safe** to run, will it
