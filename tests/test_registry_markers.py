@@ -33,3 +33,11 @@ def test_server_json_points_at_this_pypi_package():
     assert pkg["transport"] == {"type": "stdio"}
     assert project["scripts"]["code-guardian-mcp"] == "code_guardian.mcp_server:main"
     assert len(server["description"]) <= 100
+
+
+def test_release_descriptions_mention_the_verify_loop():
+    with open(ROOT / "pyproject.toml", "rb") as fh:
+        project = tomllib.load(fh)["project"]
+    server = json.loads((ROOT / "server.json").read_text(encoding="utf-8"))
+    assert "verify loop" in project["description"] and "verify loop" in server["description"]
+    assert len(server["description"]) <= 100

@@ -17,10 +17,12 @@ from deterministic checks with fixed weights: same repo, same version, same outp
 - **Orphan code**: functions, classes and modules nothing reachable from the project's entry points uses, judged
   against a small goal contract.
 - An optional **plain-English explanation** from a local model, which never adds, removes or rescores a finding.
+- A **verify loop** for AI-assisted changes: run it before and after every change to learn what the change fixed,
+  what it broke, what to fix next, and whether the scan itself can be trusted (see [The verify loop](#the-verify-loop)).
 
 It parses the code (`ast` for Python; `json`, `tomllib` and `configparser` for manifests; regular expressions for
 secrets) and never executes, imports or installs it. A scan makes
-no network calls. Python 3.11+, standard library only. Status: **0.2.0 is the current release.** The fourth guardian,
+no network calls. Python 3.11+, standard library only. Status: **0.3.0 is the current release.** The fourth guardian,
 next to [stack-guardian](https://github.com/LuminariSoftwares/stack-guardian),
 [context-guardian](https://github.com/LuminariSoftwares/context-guardian) and
 [tool-guardian](https://github.com/LuminariSoftwares/tool-guardian).
@@ -58,7 +60,7 @@ code-guardian scan risky_repo
 Real output:
 
 ```
-code-guardian 0.2.0  scan of risky
+code-guardian 0.3.0  scan of risky
 files: 7 Python, 3 manifests, 2 other (0 skipped, 0 excluded by the goal file)
 status: COMPLETE
 
@@ -122,12 +124,13 @@ weights used (each check (code + level) deducts its weight once, plus a quarter 
   Safe     deps.unpinned INFO 0 · deser.unsafe WARN 10 · exec.dynamic FAIL 30 · exec.dynamic WARN 10 ·
            exec.shell FAIL 30 · exec.shell WARN 10 · fs.outside WARN 3 · install.hook WARN 15 ·
            net.bind_all WARN 5 · net.egress INFO 0 · net.egress WARN 2 · obfuscation FAIL 40 ·
-           obfuscation WARN 10 · secret.key FAIL 40 · secret.key INFO 0 · supply.lookalike WARN 15 ·
-           supply.unknown_package FAIL 40 · supply.unknown_package INFO 0 · supply.unknown_package WARN 10 ·
-           tls.off FAIL 25 · tls.off WARN 10
-  Works    orphan.dead WARN 3 · works.entry_missing FAIL 30 · works.import_unresolved WARN 10 ·
-           works.relative_missing FAIL 25 · works.syntax FAIL 30 · works.syntax INFO 0 ·
-           works.test_no_assert WARN 5 · works.tests_missing WARN 15
+           obfuscation WARN 10 · privacy.pii_log WARN 5 · privacy.pii_prompt WARN 5 · secret.history FAIL 30 ·
+           secret.key FAIL 40 · secret.key INFO 0 · supply.lookalike WARN 15 · supply.unknown_package FAIL 40 ·
+           supply.unknown_package INFO 0 · supply.unknown_package WARN 10 · tls.off FAIL 25 · tls.off WARN 10
+  Works    orphan.dead WARN 3 · works.commented_code INFO 0 · works.dead_flag INFO 0 ·
+           works.entry_missing FAIL 30 · works.import_unresolved WARN 10 · works.relative_missing FAIL 25 ·
+           works.syntax FAIL 30 · works.syntax INFO 0 · works.test_no_assert WARN 5 ·
+           works.tests_missing WARN 15 · works.todo_stub WARN 3
   Complete complete.ci_missing WARN 10 · complete.env_example WARN 10 · complete.license_missing WARN 20 ·
            complete.license_undeclared WARN 5 · complete.lockfile WARN 10 · complete.metadata WARN 10 ·
            complete.readme_missing WARN 20 · complete.readme_sections WARN 5 · complete.readme_short WARN 10 ·
@@ -148,6 +151,53 @@ Exit code 1: there are FAIL findings. `--json` prints the same report as JSON (s
 
 `scan` gates on every scored finding (Safe, Works and Complete); `code-guardian orphans PATH` gates on the hygiene
 findings.
+
+## The verify loop
+
+code-guardian answers four questions about a change, so a developer or a coding agent can run it before and after
+every edit:
+
+| question | command | MCP tool |
+|---|---|---|
+| Can I trust this scan? | every report's `status`: COMPLETE, PARTIAL (grade capped at B) or INVALID (no grade); exit 3 | `scan` |
+| What should be fixed next? | `code-guardian plan PATH` (each check row's **estimated gain if fixed**, best first) | `plan` |
+| What did the change fix, and what did it break? | `code-guardian diff BEFORE.json AFTER.json` (exit 1 when anything regressed) | `diff` |
+| Is this finding new? | `code-guardian baseline PATH`, then `scan --baseline FILE` (gate on new findings only) | `scan` with `baseline` |
+
+An agent's loop, from the shell:
+
+```
+code-guardian scan . --json > before.json      # 1. scan: is the scan COMPLETE? what is the grade?
+code-guardian plan . --top 5                   # 2. plan: the five fixes worth the most points, with locations
+#                                                3. fix the top item (the plan never edits code)
+code-guardian scan . --json > after.json       # 4. scan again
+code-guardian diff before.json after.json      # 5. diff: verdict improved / regressed / mixed / unchanged
+```
+
+```
+verdict: improved (1 fixed, 0 new, 31 unchanged)
+
+            before  after  delta
+  Safe           0      0     +0
+  Works         85     85     +0
+  Complete      35     55    +20
+  Overall       33     37     +4
+  grade          F      F
+  status    COMPLETE -> COMPLETE
+
+fixed (1):
+  WARN  complete.license_missing .  no licence file: nobody may legally reuse this code
+
+new (0):
+  none
+
+matched by fingerprint (code, level, file and the evidence line; line numbers ignored); INFO findings never decide the verdict
+```
+
+The same loop over MCP is `scan` → `plan` → edit → `scan` → `diff(before, after)`, where `before` and `after` are the
+two `scan` replies (JSON text) or paths to `scan --json` files. Findings are matched by fingerprint (code, level,
+file and the evidence line, never the line number), so moving code does not count as a change. Everything in the
+loop is deterministic, offline and read-only.
 
 ## How the scores work
 
@@ -434,7 +484,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: LuminariSoftwares/code-guardian@v0.2.0
+      - uses: LuminariSoftwares/code-guardian@v0.3.0
         with:
           path: .
           fail-on: FAIL        # or WARN
@@ -450,7 +500,7 @@ environment variables, never by text substitution.
 ```yaml
 repos:
   - repo: https://github.com/LuminariSoftwares/code-guardian
-    rev: v0.2.0
+    rev: v0.3.0
     hooks:
       - id: code-guardian
         # args: [--fail-on, WARN]
@@ -625,7 +675,7 @@ The `env` block is only needed for `explain`.
 
 ```
 python -m code_guardian.scanners --selftest
-scanners selftest: 18 checks, 18 passed, 0 failed
+scanners selftest: 27 checks, 27 passed, 0 failed
 ```
 
 Each of `finding`, `walk`, `scanners`, `manifests`, `score`, `goal`, `orphans`, `works`, `complete`, `supply`,

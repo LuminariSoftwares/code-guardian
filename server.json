@@ -2,15 +2,15 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.LuminariSoftwares/code-guardian",
   "title": "Code Guardian",
-  "description": "Safe to run? Will it work? Is it complete? A deterministic A-F grade for a repo, without running it.",
+  "description": "A deterministic A-F grade for a repo without running it, plus a verify loop: plan, fix, diff.",
   "repository": {"url": "https://github.com/LuminariSoftwares/code-guardian", "source": "github"},
-  "version": "0.2.0",
+  "version": "0.3.0",
   "packages": [
     {
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "code-guardian-mcp",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "runtimeHint": "uvx",
       "transport": {"type": "stdio"},
       "packageArguments": [{"type": "positional", "value": "mcp"}],
