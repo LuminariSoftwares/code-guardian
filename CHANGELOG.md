@@ -1,5 +1,29 @@
 # Changelog
 
+## code-guardian 0.3.2 — unreleased
+
+The report no longer claims checks that never ran on repos that are not Python. On 0.3.1 a repo with only
+`package.json`, one `.js` file and a short README scored **Works 100/100** and **COMPLETE**, and the only hint that no
+code was analysed was a note at the bottom.
+
+- **Coverage is computed and reported.** Source files are counted by language; every report prints a `coverage:`
+  line under the status (`coverage: 40 Python analysed; 112 .ts, 9 .go secret-scan only`). JSON: a new `coverage`
+  block; SARIF: `coverage` in the run properties (results unchanged). The note "code-guardian analyses Python only:
+  ..." is replaced by that line.
+- **No Python source:** Works is **not scored** (`n/a (Python only)`; `scores.works` is `null`,
+  `dimensions.works.scored` is `false`), Safe is labelled **partial** (`dimensions.safe.partial`: it can only see
+  secrets, manifests and install hooks), Overall is the weighted mean of the scored dimensions (5 × Safe + 2 ×
+  Complete) / 7 and the Overall line names what was left out, and the status is **PARTIAL**. The Safe FAIL cap (D)
+  and the PARTIAL cap (B) apply as before.
+- **Mostly-other-language repos** (at least 5 other-language source files and more than twice as many as Python
+  files) are **PARTIAL** with the same scores. A Python project with a few stray helpers stays COMPLETE; all nine
+  calibration repos are unchanged and COMPLETE.
+- **Coverage alone never fails the gate:** a PARTIAL that is only about coverage keeps exit 0 or 1 from the
+  findings (never 3), so `--fail-on` means what it meant.
+- **GitHub Action:** new output `status` (`COMPLETE`, `PARTIAL` or `INVALID`); the job summary opens with the status
+  and the coverage line; `description` now says Python.
+- Every dimension in `dimensions` carries `scored` and `partial` (additive; `schema_version` stays 2).
+
 ## code-guardian 0.3.1 — unreleased
 
 - **`plan`: the floored-dimension note no longer contradicts the plan.** When Safe (or any dimension) is at 0 with

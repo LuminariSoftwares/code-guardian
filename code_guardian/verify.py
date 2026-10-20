@@ -85,7 +85,7 @@ def diff(before, after):
     better = any(f["level"] in VERDICT_LEVELS for f in fixed) or STATUS_RANK.get(sa, 0) < STATUS_RANK.get(sb, 0)
     verdict = "mixed" if worse and better else "regressed" if worse else "improved" if better else "unchanged"
     scores = {k: {"before": before["scores"].get(k), "after": after["scores"].get(k),
-                  "delta": after["scores"].get(k, 0) - before["scores"].get(k, 0)}
+                  "delta": _delta(before["scores"].get(k, 0), after["scores"].get(k, 0))}
               for k in ("safe", "works", "complete", "overall")}
     return {"tool": "code-guardian", "verdict": verdict,
             "counts": {"fixed": len(fixed), "new": len(new), "unchanged": len(unchanged)},
@@ -94,6 +94,11 @@ def diff(before, after):
             "fixed": [_brief(f) for f in score.sort_findings(fixed)],
             "new": [_brief(f) for f in score.sort_findings(new)],
             "unchanged": [_brief(f) for f in score.sort_findings(unchanged)]}
+
+
+def _delta(before, after):
+    """None when either side was not scored (Works on a repo with no Python source)."""
+    return None if before is None or after is None else after - before
 
 
 def diff_exit(d):
@@ -106,7 +111,9 @@ def render_diff(d):
              "", "  %-9s %6s %6s %6s" % ("", "before", "after", "delta")]
     for k in ("safe", "works", "complete", "overall"):
         s = d["scores"][k]
-        lines.append("  %-9s %6s %6s %+6d" % (LABELS[k], s["before"], s["after"], s["delta"]))
+        lines.append("  %-9s %6s %6s %6s" % (LABELS[k], "n/a" if s["before"] is None else s["before"],
+                                             "n/a" if s["after"] is None else s["after"],
+                                             "-" if s["delta"] is None else "%+d" % s["delta"]))
     lines += ["  %-9s %6s %6s" % ("grade", d["grade"]["before"] or "-", d["grade"]["after"] or "-"),
               "  %-9s %s -> %s" % ("status", d["status"]["before"], d["status"]["after"])]
     for name in ("fixed", "new"):
@@ -144,7 +151,8 @@ def plan(rep, top=10):
         for row in dim["checks"]:
             key = (row["code"], row["level"])
             rest = [f for f in every if (f["code"], f["level"]) != key]
-            dims = {n: score.dimension(rest, n) for n in score.DIMENSIONS}
+            dims = {n: score.dimension(rest, n) if rep["dimensions"][n].get("scored", True) else score.unscored()
+                    for n in score.DIMENSIONS}
             after = score.scores([f for f in rep["findings"] if (f["code"], f["level"]) != key], dims, status)
             entry = catalogue.CATALOGUE.get(row["code"], {})
             items.append({"code": row["code"], "level": row["level"], "dimension": name,

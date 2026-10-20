@@ -11,7 +11,7 @@ import sys
 
 PROTOCOL = "2024-11-05"
 SERVER_NAME = "code-guardian"
-VERSION = "0.3.1"  # keep equal to code_guardian.__version__ and pyproject.toml (this module stays package-free)
+VERSION = "0.3.2"  # keep equal to code_guardian.__version__ and pyproject.toml (this module stays package-free)
 _PATH = {"type": "string", "description": "the project directory to read"}
 _GOAL = {"type": "string", "description": "goal contract file; default PATH/code-guardian.goal.toml if present"}
 
@@ -143,9 +143,11 @@ def _report_arg(value, field):
     return resolve_path(value, field)
 
 
-def make_tools(scan_fn, orphans_fn, exit_fn, diff_fn=None, plan_fn=None):
+def make_tools(scan_fn, orphans_fn, exit_fn, diff_fn=None, plan_fn=None, gate_fn=None):
     """Bind the protocol to scan_fn(path, goal, explain, baseline) -> report, orphans_fn(path, goal) -> hygiene and
-    exit_fn(findings, fail_on, status, baseline) -> 0, 1 or 3 (3: the scan is PARTIAL or INVALID)."""
+    exit_fn(findings, fail_on, status, baseline) -> 0, 1 or 3 (3: the scan is PARTIAL or INVALID). gate_fn(report)
+    -> the status exit_fn gates on (default: the report's status)."""
+    gate_fn = gate_fn or (lambda rep: rep.get("status"))
     def goal_of(a):
         return resolve_path(a["goal"], "goal") if a.get("goal") else None
 
@@ -155,7 +157,7 @@ def make_tools(scan_fn, orphans_fn, exit_fn, diff_fn=None, plan_fn=None):
             raise ValueError("fail_on must be INFO, WARN or FAIL")
         base = resolve_path(a["baseline"], "baseline") if a.get("baseline") else None
         rep = scan_fn(resolve_path(a.get("path")), goal_of(a), False, base)
-        rep["exit_code"] = exit_fn(rep["findings"], fail_on, rep.get("status"), rep.get("baseline"))
+        rep["exit_code"] = exit_fn(rep["findings"], fail_on, gate_fn(rep), rep.get("baseline"))
         return rep
 
     def orphans(a):
@@ -193,7 +195,7 @@ def default_tools():
         return d
 
     tools = make_tools(lambda p, g, e, b: report.scan(p, g, explain=e, baseline=b), report.orphans, report.exit_code,
-                       diff, lambda p, g, top: verify.plan(report.scan(p, g), top))
+                       diff, lambda p, g, top: verify.plan(report.scan(p, g), top), report.gate_status)
     return {name: (lambda a, fn=fn: redact_report(fn(a))) for name, fn in tools.items()}
 
 

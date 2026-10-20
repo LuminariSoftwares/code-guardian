@@ -74,7 +74,8 @@ def test_risky_exact_nodes(tmp_path):
     assert [(e["level"], e["kind"], e["target"]) for e in rep["egress"]] == [
         ("WARN", "url", HTTP + "{host}:8080/upload"), ("INFO", "url", "https://example.com/docs"),
         ("INFO", "ip", tailnet(5)), ("INFO", "call", "requests.post")]
-    assert any(".js 1" in n and "secret scan only" in n for n in rep["notes"])
+    assert rep["coverage"]["other_source"] == {".js": 1} and rep["status"] == "COMPLETE"
+    assert "coverage: %d Python analysed; 1 .js secret-scan only" % rep["files"]["python"] in report.render(rep)
 
 
 def test_risky_secret_values_never_printed(tmp_path):
@@ -91,7 +92,8 @@ def test_tracked_risky_repo_without_secrets():
 
 def test_clean_repo_grade_a():
     rep = report.scan(str(FIXTURES / "clean_repo"))
-    assert rep["dimensions"]["safe"] == {"score": 100, "deducted": 0, "checks": []} and rep["top"] == []
+    assert rep["dimensions"]["safe"] == {"score": 100, "scored": True, "partial": False, "deducted": 0,
+                                         "checks": []} and rep["top"] == []
     assert [(f["code"], f["level"], f["node"]) for f in rep["findings"]] == [
         ("net.egress", "INFO", "cleanpkg/fetch.py:3"), ("net.egress", "INFO", "cleanpkg/fetch.py:7")]
     assert not [f for f in rep["findings"] if f["level"] == "FAIL"]

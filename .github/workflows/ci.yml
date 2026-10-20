@@ -83,6 +83,28 @@ jobs:
           echo "overall=$OVERALL grade=$GRADE exit-code=$RC"
           test "$OVERALL" = 100 && test "$GRADE" = A && test "$RC" = 0
           python -c "import json;s=json.load(open('code-guardian.sarif'));assert s['version']=='2.1.0';print(len(s['runs'][0]['tool']['driver']['rules']),'rules')"
+      - name: A JavaScript-only repo (no Python source)
+        run: |
+          mkdir -p /tmp/js_only/src
+          printf '%s\n' '{"name": "demo", "version": "1.0.0"}' > /tmp/js_only/package.json
+          printf '%s\n' 'const app = require("express")();' 'app.get("/", (q, r) => r.send(eval(q.query.x)));' > /tmp/js_only/src/index.js
+          printf '# demo\n' > /tmp/js_only/README.md
+      - name: The action reports it PARTIAL with Works not scored, and coverage alone does not fail the job
+        id: cgjs
+        uses: ./
+        with:
+          path: /tmp/js_only
+          sarif-file: /tmp/js_only.sarif
+          upload-sarif: "false"
+      - name: The JS-only outputs
+        env:
+          STATUS: ${{ steps.cgjs.outputs.status }}
+          RC: ${{ steps.cgjs.outputs.exit-code }}
+          CLEAN_STATUS: ${{ steps.cg.outputs.status }}
+        run: |
+          echo "status=$STATUS exit-code=$RC (clean_repo status=$CLEAN_STATUS)"
+          test "$STATUS" = PARTIAL && test "$RC" = 0 && test "$CLEAN_STATUS" = COMPLETE
+          python -c "import json;p=json.load(open('/tmp/js_only.sarif'))['runs'][0]['properties'];assert p['scores']['works'] is None,p['scores'];assert p['coverage']['other_source']=={'.js':1},p['coverage'];print('works not scored;',p['coverage'])"
       - name: Write a baseline for the risky fixture
         run: |
           python tests/make_risky.py /tmp/risky_repo
