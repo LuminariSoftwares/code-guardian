@@ -1,4 +1,4 @@
-name: code-guardian
+name: Code Guardian Repo Scan
 description: "Is this repo safe to run, will it work, does it have what it needs? Static scan, SARIF upload, job summary."
 author: LuminariSoftwares
 branding:
