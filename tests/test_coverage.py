@@ -26,7 +26,7 @@ def cli(*args):
 def put(root, rel, text):
     path = root.joinpath(*rel.split("/"))
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
+    path.write_bytes(text.encode("utf-8"))  # exact bytes: write_text would give \r\n on Windows
 
 
 @pytest.fixture
