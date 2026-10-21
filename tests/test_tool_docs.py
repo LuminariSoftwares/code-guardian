@@ -24,13 +24,26 @@ def _reference_module():
 def test_tool_description_covers_purpose_usage_behaviour_and_output(tool):
     desc = tool.get("description") or ""
     assert tool["name"].isidentifier() and tool["name"].islower(), tool["name"]
-    assert 200 <= len(desc) <= 1200, (tool["name"], len(desc))
+    assert 200 <= len(desc) <= 1000, (tool["name"], len(desc))
     assert "Use " in desc or "Use it" in desc, "%s: says when to use it" % tool["name"]
     siblings = [n for n in NAMES if n != tool["name"] and n in desc]
     assert siblings, "%s: names a sibling tool to use instead" % tool["name"]
     assert "Behaviour:" in desc, "%s: states side effects" % tool["name"]
     assert "Returns JSON:" in desc, "%s: states the output shape" % tool["name"]
     assert ("network" in desc) or ("offline" in desc), "%s: says whether it uses the network" % tool["name"]
+    assert "Errors:" in desc, "%s: states its failure modes" % tool["name"]
+    assert not desc.split(".")[0].endswith("?"), "%s: opens with what it does, not a question" % tool["name"]
+
+
+@pytest.mark.parametrize("tool", SPECS, ids=NAMES)
+def test_description_explains_every_parameter(tool):
+    """Glama's Parameters dimension stays at its baseline when the description adds nothing beyond the schema, so
+    each description carries a Parameters clause that names every parameter."""
+    desc = tool["description"]
+    assert "Parameters:" in desc, tool["name"]
+    clause = desc[desc.index("Parameters:"):desc.index("Behaviour:")]
+    for name in tool["inputSchema"]["properties"]:
+        assert name in clause, (tool["name"], name)
 
 
 @pytest.mark.parametrize("tool", SPECS, ids=NAMES)

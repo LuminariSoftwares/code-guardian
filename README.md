@@ -766,7 +766,7 @@ fails when the two disagree.
 
 #### `scan`: Scan a codebase
 
-Grade a project without running it: Safe, Works and Complete scores (0-100, higher is better), Overall and an A-F grade, every finding with file:line, the egress inventory and the orphan-code hygiene section. Use it first, and again after each change. Use plan instead to rank what to fix, diff to compare two scans, orphans for dead code only, explain for a plain-English summary. Behaviour: read-only, deterministic, offline (no network); parses Python with ast and reads manifests; writes nothing. Returns JSON: status (COMPLETE, PARTIAL or INVALID: can the scan be trusted), scores, dimensions, findings[] (code, level, node, summary, fix, fingerprint, new when a baseline is given), egress, hygiene, coverage, notes and exit_code (0 pass, 1 findings at or above fail_on, 3 incomplete scan).
+Grade a project without running it: Safe, Works and Complete scores (0-100, higher is better), Overall and an A-F grade, and every finding with file:line. Use it first and after every edit. Use plan instead to rank fixes, diff to compare two scans, orphans when you only want dead code (scan already includes it as hygiene), explain for a narrative for a person. Parameters: path is the project root; goal overrides PATH/code-guardian.goal.toml; fail_on (default FAIL) and baseline only change exit_code, never the scores. Behaviour: read-only, deterministic, offline; parses with ast, never imports or runs the code. Returns JSON: status (COMPLETE, PARTIAL or INVALID: can the scan be trusted), scores, findings[] (code, level, node, summary, fix, fingerprint), egress, hygiene, coverage, notes, exit_code (0 pass, 1 findings at or above fail_on, 3 incomplete scan). Errors: path, goal or baseline missing, or fail_on not INFO/WARN/FAIL.
 
 Annotations: `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false`
 
@@ -779,7 +779,7 @@ Annotations: `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: tr
 
 #### `diff`: Compare two scans
 
-What did a change fix and what did it break? Compares two scan reports by finding fingerprint (code, level, file and evidence line; line numbers ignored, so moved code is not a change). Use it after an edit, with the scan reply from before and after. Use scan to produce the reports; use plan to choose the next fix. Behaviour: read-only, offline; reads only the two reports, never the project. Returns JSON: verdict (improved, regressed, mixed or unchanged), counts, per-dimension score before/after/delta, grade, status, fixed[], new[], unchanged[] and exit_code (1 when anything regressed).
+Compare two scan reports and say what a change fixed and what it broke. Use it after an edit, with the scan output from before and after; use scan to produce them and plan to choose the next fix. Parameters: before and after are each the JSON text a scan call returned or the path of a `code-guardian scan --json` file; the forms can be mixed. Findings match by fingerprint (code, level, file, evidence line), never line number, so moved code is not a change. Behaviour: read-only, offline; reads only the two reports, never the project. Returns JSON: verdict (improved, regressed, mixed or unchanged), counts, per-dimension score before/after/delta, grade, status, fixed[], new[], unchanged[], exit_code (1 when anything regressed). Errors: a file that does not exist, or text that is not a scan report.
 
 Annotations: `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false`
 
@@ -790,7 +790,7 @@ Annotations: `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: tr
 
 #### `plan`: Plan the next fixes
 
-What should be fixed next? Scans path, then re-scores it without each check row in turn and ranks the rows by the Overall points each would gain if fixed (an estimate), best first. Use it after scan when the grade is not what you want, to pick one fix; then edit, scan again and diff. Use scan instead for the full report, orphans for dead code only. Behaviour: read-only, deterministic, offline; the code is never edited or run. Returns JSON: status, overall, grade, label and items[] (rank, code, level, dimension, title, gain, overall_after, grade_after, deduction, count, locations, fix, false_positives), notes.
+Rank what to fix next: scans path, then re-scores it without each check row in turn and lists the rows by the Overall points each would gain if fixed, best first. Use it after scan when the grade is too low and you need one fix to make; then edit, scan again and diff. Use scan instead for every finding, orphans for dead code only. Parameters: path is the project root; goal overrides PATH/code-guardian.goal.toml; top (default 10, at least 1) caps the rows returned. Behaviour: read-only, deterministic, offline; the gain is an estimate and the code is never edited or run. Returns JSON: status, overall, grade, items[] (rank, code, level, dimension, title, gain, overall_after, grade_after, count, locations, fix, false_positives), notes. Errors: path or goal missing, or top below 1.
 
 Annotations: `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false`
 
@@ -802,7 +802,7 @@ Annotations: `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: tr
 
 #### `orphans`: Find orphan code
 
-Find code nothing uses: functions, classes and modules not reachable from the project's entry points, each labelled dead, test-only or uncertain (reachable only by dynamic dispatch). Entry points come from the goal contract, else are inferred (scripts, __main__ blocks, a library's public API). Use it to clean up or before deleting code. Use scan instead for the full grade (its hygiene section is the same result); orphans never changes the Safe score. Behaviour: read-only, deterministic, offline; builds a call graph with ast, runs nothing. Returns JSON: source (contract or inferred), goal, entry_points, keep, findings[] (code orphan.dead, orphan.test_only or orphan.uncertain, node file:line, summary, try), counts, files, notes.
+List code nothing uses: functions, classes and modules no entry point reaches, each labelled dead, test-only or uncertain (reachable only by dynamic dispatch). Use it before deleting code or to clean up a repo; it is lighter than scan because it skips the Safe, Works and Complete checks. Use scan instead when you also need the grade (its hygiene section holds this same result). Parameters: path is the project root; goal names the contract whose entry_points and keep lists decide what is reachable (default PATH/code-guardian.goal.toml; without one, entry points are inferred from scripts, __main__ blocks and a library's public API). Behaviour: read-only, deterministic, offline; builds a call graph with ast, runs nothing. Returns JSON: source (contract or inferred), entry_points, keep, findings[] (code, node file:line, summary, try), counts, notes. Errors: path or goal missing.
 
 Annotations: `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false`
 
@@ -813,7 +813,7 @@ Annotations: `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: tr
 
 #### `explain`: Explain the scan in plain English
 
-A plain-English summary of a scan, written by a local model. Use it when a person wants the findings explained; use scan instead for the scores and findings themselves (explain returns the scores, not the findings). Behaviour: runs scan, then POSTs the findings only (code, level, file:line, summary, scores; no source, no evidence, secrets redacted) to the model at the CODE_GUARDIAN_LLM_URL environment variable (Ollama or OpenAI-compatible). The only tool that uses the network; writes nothing; the score never changes. Without a configured or reachable model it still succeeds and a note says why. Returns JSON: scores, explanation (text, or null without a model) and notes.
+Summarise a scan in plain English for a person, written by a local model. Use it when someone needs the result explained; use scan instead for the findings themselves (explain returns only scores and the summary). Parameters: path and goal mean the same as in scan. The model comes from the server's environment (CODE_GUARDIAN_LLM_URL, an Ollama or OpenAI-compatible URL, and CODE_GUARDIAN_LLM_MODEL), not from arguments. Behaviour: runs scan, then POSTs the findings only (code, level, file:line, summary, scores; no source, secrets redacted) to that one URL; the only tool that uses the network; writes nothing; the score never changes. Returns JSON: scores, explanation (text; the model is asked for at most 150 words) and notes. Without a configured or reachable model it still succeeds: explanation is null and a note says why. Errors: path or goal missing.
 
 Annotations: `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: true`
 
