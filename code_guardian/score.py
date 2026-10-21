@@ -6,7 +6,8 @@ No model, no randomness, no clock: the same findings always give the same scores
         A check (one row of a table: code + level) deducts its weight once, plus a quarter of the weight for each
         extra occurrence, capped at twice the weight. Fifty copies of one minor issue cannot zero a score.
     dimension score      = max(0, 100 - sum of its deductions)      (Safe = 100 - the v0.1 threat score)
-    Overall              = 0.5*Safe + 0.3*Works + 0.2*Complete, rounded half up
+    Overall              = 0.5*Safe + 0.3*Works + 0.2*Complete, rounded half up; a dimension that is not scored
+                           (Works when there is no Python source) is left out and the others' weights rescaled
     grade                = A >= 90, B >= 75, C >= 60, D >= 40, F below 40
     FAIL cap             = any Safe finding at FAIL caps the grade at D, whatever the average
     PARTIAL cap          = a PARTIAL scan caps the grade at B; an INVALID scan has no grade (None)
@@ -16,11 +17,13 @@ Public contract:
     DIMENSIONS, WEIGHTS_RULE
     dimension_of(code) -> "safe" | "works" | "complete"
     weight(finding) -> int          deduction(weight, n) -> int
-    dimension(findings, name) -> {"score", "deducted",
+    dimension(findings, name) -> {"score", "scored": True, "partial": False, "deducted",
                                   "checks": [{"code","level","count","weight","deduction","first","locations","more"}]}
-    overall(safe, works, complete) -> int        grade(overall) -> "A".."F"
+    unscored() -> a dimension that was not scored: {"score": None, "scored": False, "partial": False, ...}
+    overall(safe, works, complete) -> int        overall_of({name: score or None}) -> int
+    grade(overall) -> "A".."F"
     scores(findings, dimensions=None, status=None)
-        -> {"safe","works","complete","overall","grade","grade_uncapped","capped","cap_reason"}
+        -> {"safe","works","complete","overall","grade","grade_uncapped","capped","cap_reason"}  (None: not scored)
     top(dimensions, n=5) -> the biggest deductions across dimensions
     weight_table() -> {dimension: {"code LEVEL": weight}}
     node_key(node), sort_findings(findings)
@@ -140,13 +143,24 @@ def dimension(findings, name):
                        "locations": where[:LOCATIONS_MAX], "more": max(0, len(where) - LOCATIONS_MAX)})
     checks.sort(key=lambda r: (-r["deduction"], r["code"], r["level"]))
     deducted = sum(r["deduction"] for r in checks)
-    return {"score": max(0, 100 - deducted), "deducted": deducted, "checks": checks}
+    return {"score": max(0, 100 - deducted), "scored": True, "partial": False, "deducted": deducted, "checks": checks}
+
+
+def unscored():
+    """A dimension whose checks could not run (Works on a repo with no Python source): no score, no rows."""
+    return {"score": None, "scored": False, "partial": False, "deducted": 0, "checks": []}
+
+
+def overall_of(values):
+    """Weighted mean of the scored dimensions ({name: score, or None when not scored}), rounded half up. With all
+    three scored this is exactly overall(); without one, the others keep their relative weights."""
+    num = sum(OVERALL_TENTHS[n] * v for n, v in values.items() if v is not None)
+    den = sum(OVERALL_TENTHS[n] for n, v in values.items() if v is not None)
+    return (2 * num + den) // (2 * den)
 
 
 def overall(safe, works, complete):
-    tenths = (OVERALL_TENTHS["safe"] * safe + OVERALL_TENTHS["works"] * works
-              + OVERALL_TENTHS["complete"] * complete)
-    return (tenths + 5) // 10
+    return overall_of({"safe": safe, "works": works, "complete": complete})
 
 
 def grade(value):
@@ -159,8 +173,8 @@ def grade(value):
 def scores(findings, dimensions=None, status=None):
     """status (COMPLETE / PARTIAL / INVALID, see report.py): PARTIAL caps the grade at B; INVALID gives no grade."""
     dims = dimensions or {name: dimension(findings, name) for name in DIMENSIONS}
-    s, w, c = (dims[n]["score"] for n in DIMENSIONS)
-    total = overall(s, w, c)
+    s, w, c = (dims[n]["score"] if dims[n].get("scored", True) else None for n in DIMENSIONS)
+    total = overall_of({"safe": s, "works": w, "complete": c})
     if status == "INVALID":
         return {"safe": s, "works": w, "complete": c, "overall": total, "grade": None, "grade_uncapped": None,
                 "capped": False, "cap_reason": None}
@@ -225,6 +239,14 @@ def selftest():
          and scores([f("secret.key", "FAIL")], status="PARTIAL")["grade"] == "D"
          and scores([f("secret.key", "FAIL")], status="PARTIAL")["cap_reason"].count(": the grade is at most") == 2),
         ("invalid_no_grade", scores([], status="INVALID")["grade"] is None and scores([], status="COMPLETE")["grade"] == "A"),
+        ("unscored", overall_of({"safe": 60, "works": None, "complete": 60}) == 60
+         and overall_of({"safe": 100, "works": None, "complete": 0}) == 71  # 500 / 7 = 71.4
+         and scores([f("secret.key", "FAIL")], dict({n: dimension([f("secret.key", "FAIL")], n) for n in DIMENSIONS},
+                                                     works=unscored()))
+         == {"safe": 60, "works": None, "complete": 100, "overall": 71, "grade": "D", "grade_uncapped": "C",
+             "capped": True, "cap_reason": "a Safe check is FAIL (secret.key): the grade is at most D"}),
+        ("overall_same", all(overall(a, b, c) == (5 * a + 3 * b + 2 * c + 5) // 10
+                             for a in range(0, 101, 7) for b in range(0, 101, 11) for c in range(0, 101, 13))),
         ("tainted_exec_fail", scores([f("exec.dynamic", "FAIL")])["safe"] == 70
          and scores([f("secret.key", "INFO")])["safe"] == 100),
     ]

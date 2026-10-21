@@ -3,7 +3,10 @@ so the same report always gives the same bytes.
 
 SARIF: one rule per check code (from the catalogue), one result per finding (scored findings plus the hygiene
 section). GitHub code scanning rejects results without a physical location, so repo-level findings (node ".") are
-attached to report["anchor"] (the root manifest or README) with no line.
+attached to report["anchor"] (the root manifest or README) with no line. The run properties carry the scores, the
+status and the coverage (which files were analysed).
+
+Markdown (the Action's job summary) opens with the status and the coverage line, then the score table.
 
 Public contract:
     to_sarif(report) -> dict          to_markdown(report) -> str
@@ -78,9 +81,10 @@ def to_sarif(report):
             "runs": [{"tool": {"driver": {"name": "code-guardian", "version": report["version"], "informationUri": HOME,
                                           "rules": [_rule(c) for c in codes]}},
                       "results": results,
-                      "properties": {"scores": report["scores"], "weights_rule": report["weights_rule"],
-                                     "status": report.get("status", "COMPLETE"),
-                                     "status_reasons": report.get("status_reasons", [])}}]}
+                      "properties": dict({"scores": report["scores"], "weights_rule": report["weights_rule"],
+                                          "status": report.get("status", "COMPLETE"),
+                                          "status_reasons": report.get("status_reasons", [])},
+                                         **({"coverage": report["coverage"]} if report.get("coverage") else {}))}]}
 
 
 def _cell(text):
@@ -92,8 +96,16 @@ def _row(f):
                                           " **(new)**" if f.get("new") else "")
 
 
+def _score_cell(report, d):
+    dim = (report.get("dimensions") or {}).get(d, {})
+    if not dim.get("scored", True):
+        return "n/a (Python only)"
+    return "%d/100%s" % (report["scores"][d], " (partial)" if dim.get("partial") else "")
+
+
 def to_markdown(report):
     import os
+    from .report import coverage_line, overall_notes
     report = redact_report(report)
     s = report["scores"]
     name = os.path.basename(os.path.abspath(report["path"])) or report["path"]
@@ -103,10 +115,14 @@ def to_markdown(report):
     if status == "INVALID":
         out += ["**Status: INVALID**: no scores and no grade (%s)." % _cell("; ".join(reasons)), ""]
     else:
-        out += ["| | score | |", "|---|---:|---|"]
-        out += ["| **%s** | %d/100 | %s |" % (LABELS[d], s[d], QUESTIONS[d]) for d in score.DIMENSIONS]
-        out += ["| **Overall** | %d/100 | grade **%s** |" % (s["overall"], s["grade"]), ""]
         out += ["**Status: %s**%s" % (status, " (%s)" % _cell("; ".join(reasons)) if reasons else ""), ""]
+        if report.get("coverage"):
+            out += ["**Coverage:** %s" % _cell(coverage_line(report["coverage"]).split(": ", 1)[1]), ""]
+        unscored = [n for n in overall_notes(report) if "not scored" in n]
+        out += ["| | score | |", "|---|---:|---|"]
+        out += ["| **%s** | %s | %s |" % (LABELS[d], _score_cell(report, d), QUESTIONS[d]) for d in score.DIMENSIONS]
+        out += ["| **Overall** | %d/100 | grade **%s**%s |" % (s["overall"], s["grade"],
+                                                            " (%s)" % _cell("; ".join(unscored)) if unscored else ""), ""]
     if s["capped"]:
         out += ["> %s" % _cell(s["cap_reason"]), ""]
     if report["top"]:

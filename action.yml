@@ -1,5 +1,5 @@
 name: Code Guardian Repo Scan
-description: "Is this repo safe to run, will it work, does it have what it needs? Static scan, SARIF upload, job summary."
+description: "Is this Python repo safe to run, will it work, does it have what it needs? Static scan, SARIF upload, job summary."
 author: LuminariSoftwares
 branding:
   icon: shield
@@ -35,8 +35,11 @@ outputs:
   grade:
     description: "A-F grade."
     value: ${{ steps.scan.outputs.grade }}
+  status:
+    description: "COMPLETE, PARTIAL (no Python source, mostly other languages, or a check or file could not be analysed) or INVALID."
+    value: ${{ steps.scan.outputs.status }}
   exit-code:
-    description: "0 when nothing is at or above fail-on, 1 when something is, 2 on a usage error, 3 when the scan is incomplete (PARTIAL or INVALID)."
+    description: "0 when nothing is at or above fail-on, 1 when something is, 2 on a usage error, 3 when the scan is incomplete (PARTIAL or INVALID); coverage alone (PARTIAL for other languages) never gives 3."
     value: ${{ steps.scan.outputs.exit-code }}
 
 runs:
@@ -69,7 +72,7 @@ runs:
         rc=$?
         set -e
         code-guardian scan "$CG_PATH" --markdown "${extra[@]}" >> "$GITHUB_STEP_SUMMARY" || true
-        python -c "import json,sys; s=json.load(open(sys.argv[1]))['runs'][0]['properties']['scores']; print('overall=%d' % s['overall']); print('grade=%s' % (s['grade'] or 'none'))" "$CG_SARIF" >> "$GITHUB_OUTPUT"
+        python -c "import json,sys; p=json.load(open(sys.argv[1]))['runs'][0]['properties']; s=p['scores']; print('overall=%d' % s['overall']); print('grade=%s' % (s['grade'] or 'none')); print('status=%s' % p['status'])" "$CG_SARIF" >> "$GITHUB_OUTPUT"
         echo "exit-code=$rc" >> "$GITHUB_OUTPUT"
     - name: Upload SARIF to code scanning
       if: ${{ inputs.upload-sarif == 'true' }}

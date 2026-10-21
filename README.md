@@ -22,10 +22,22 @@ from deterministic checks with fixed weights: same repo, same version, same outp
 
 It parses the code (`ast` for Python; `json`, `tomllib` and `configparser` for manifests; regular expressions for
 secrets) and never executes, imports or installs it. A scan makes
-no network calls. Python 3.11+, standard library only. Status: **0.3.1 is the current release.** The fourth guardian,
+no network calls. Python 3.11+, standard library only. Status: **0.3.2 is the current release.** The fourth guardian,
 next to [stack-guardian](https://github.com/LuminariSoftwares/stack-guardian),
 [context-guardian](https://github.com/LuminariSoftwares/context-guardian) and
 [tool-guardian](https://github.com/LuminariSoftwares/tool-guardian).
+
+## What it analyses
+
+**Python is analysed in depth**; every Safe, Works and Complete check runs on it. **Other languages** (JavaScript,
+TypeScript, Go, Rust, shell and the rest) **get the secret scan and the repo-hygiene checks only**: key shapes,
+manifest and install-hook reading (`package.json`, `setup.py`, `pyproject.toml`, ...) and the Complete checks
+(licence, README, CI, `.env.example`). Every report prints a `coverage:` line saying which files were analysed, e.g.
+`coverage: 40 Python analysed; 112 .ts, 9 .go secret-scan only`. When there is no Python source at all, Works is
+**not scored** (`n/a (Python only)`, `null` in JSON), Safe is labelled **partial**, Overall comes from the scored
+dimensions only, and the status is **PARTIAL**. A repo whose source is mostly another language is also PARTIAL with
+the same scores (rule in [Scan status](#scan-status)). PARTIAL means "do not read this grade as covering the whole
+repo"; it never fails `--fail-on` on its own.
 
 ## Install
 
@@ -60,9 +72,10 @@ code-guardian scan risky_repo
 Real output:
 
 ```
-code-guardian 0.3.1  scan of risky
+code-guardian 0.3.2  scan of risky
 files: 7 Python, 3 manifests, 2 other (0 skipped, 0 excluded by the goal file)
 status: COMPLETE
+coverage: 7 Python analysed; 1 .js secret-scan only
 
   Safe       0/100  is it safe to run?           -237
   Works     85/100  will it work?                -15
@@ -117,9 +130,6 @@ egress inventory (4):
 
 hygiene (inferred (library public API) entry points: 1): 0 dead, 0 test-only, 0 uncertain
 
-notes:
-  - code-guardian analyses Python only: 1 file(s) in other languages (.js 1) got the secret scan only
-
 weights used (each check (code + level) deducts its weight once, plus a quarter of the weight per extra occurrence (rounded up), at most 2x the weight; INFO is never scored):
   Safe     deps.unpinned INFO 0 · deser.unsafe WARN 10 · exec.dynamic FAIL 30 · exec.dynamic WARN 10 ·
            exec.shell FAIL 30 · exec.shell WARN 10 · fs.outside WARN 3 · install.hook WARN 15 ·
@@ -144,10 +154,10 @@ Exit code 1: there are FAIL findings. `--json` prints the same report as JSON (s
 
 | exit | meaning |
 |---|---|
-| 0 | nothing at or above `--fail-on` (default `FAIL`), and the scan is COMPLETE |
+| 0 | nothing at or above `--fail-on` (default `FAIL`), and the scan is COMPLETE (or PARTIAL for coverage only) |
 | 1 | findings at or above it |
 | 2 | usage error, a missing PATH, or a bad goal file |
-| 3 | incomplete scan: the status is PARTIAL or INVALID (see [Scan status](#scan-status)) and nothing is at or above `--fail-on` |
+| 3 | incomplete scan: the status is PARTIAL or INVALID (see [Scan status](#scan-status)) and nothing is at or above `--fail-on`; a PARTIAL that is only about coverage (other languages) never gives 3 |
 
 `scan` gates on every scored finding (Safe, Works and Complete); `code-guardian orphans PATH` gates on the hygiene
 findings.
@@ -211,7 +221,9 @@ Complete.
   one minor issue cannot zero a score.
 - **Dimension score** = max(0, 100 − its deductions). Safe is 100 minus the v0.1 threat score; its weights are the
   v0.1 weights, unchanged.
-- **Overall** = 0.5 × Safe + 0.3 × Works + 0.2 × Complete, rounded half up.
+- **Overall** = 0.5 × Safe + 0.3 × Works + 0.2 × Complete, rounded half up. A dimension that is not scored (Works
+  when there is no Python source) is left out and the others keep their relative weights: (5 × Safe + 2 × Complete)
+  / 7. The Overall line names the dimension left out.
 - **Grade**: **A** ≥ 90 · **B** ≥ 75 · **C** ≥ 60 · **D** ≥ 40 · **F** below 40.
 - **FAIL cap**: any Safe finding at FAIL caps the grade at **D**, whatever the average. One leaked key never hides
   behind a good README.
@@ -234,7 +246,17 @@ check and the file walk (`ran`, `skipped` with a reason, or `crashed` with the e
 |---|---|---|
 | `COMPLETE` | everything ran | none |
 | `PARTIAL` | a check crashed or was skipped, a Python file did not parse, or a Python file or manifest was too large (over 2 MB) or unreadable | the grade is capped at **B** and the report says why; exit 3 unless a finding already gives exit 1 |
+| `PARTIAL` (coverage) | there is no Python source, or the source is mostly in other languages (rule below) | the grade is capped at **B** and the `coverage:` line says what was not analysed; **the exit code is unchanged** (0 or 1 from the findings, never 3) |
 | `INVALID` | PATH is unreadable, or there are no Python files and no manifests to judge | no grade (`scores.grade` is `null`); exit 3 |
+
+**Coverage rule.** Source files are counted by extension (`.js`, `.mjs`, `.ts`, `.tsx`, `.go`, `.rs`, `.java`,
+`.rb`, `.php`, `.sh`, `.c`, `.cs` and other common languages; data, docs and config files are not source). With
+**no Python source**, Works is not scored, Safe is partial (it can only see secrets, manifests and install hooks),
+Overall is the weighted mean of Safe and Complete, and the scan is PARTIAL. With Python present, the scan is PARTIAL
+when there are **at least 5 other-language source files and more than twice as many as Python files** (Python is
+under a third of the source); the scores are computed as usual. A Python project with a few build, docs or shell
+helpers stays COMPLETE: in [calibration](calibration.md) the most JS-heavy repo has 37 `.js`/`.mjs` files to 33
+Python files and is COMPLETE. `tests/test_coverage.py` pins both sides of the line.
 
 Binary files, symlinks and large non-source files (images, design files) are only ever secret-scanned; skipping them
 is listed in the notes but does not make a scan PARTIAL.
@@ -248,9 +270,12 @@ is listed in the notes but does not make a scan PARTIAL.
   "outcomes": [{"check", "outcome": "ran" | "skipped" | "crashed", "reason"}],
   "files": {"python", "manifests", "other", "skipped", "ignored", "excluded", "unparsed"},
   "other_languages": {".js": 1, ...},
+  "coverage": {"analysed": "python", "python", "other_source": {".js": 1, ...}, "other_source_files",
+               "works_scored", "safe_partial", "partial", "reason"},
   "anchor": "pyproject.toml",                (the file repo-level findings are attached to in SARIF)
   "scores": {"safe", "works", "complete", "overall", "grade", "grade_uncapped", "capped", "cap_reason"},
-  "dimensions": {"safe" | "works" | "complete": {"score", "deducted",
+                                             (a dimension that is not scored is null)
+  "dimensions": {"safe" | "works" | "complete": {"score", "scored", "partial", "deducted",
                  "checks": [{"code", "level", "count", "weight", "deduction", "first",
                              "locations": [every distinct file:line, sorted, at most 20], "more": N}]}},
   "top": [the five biggest deductions, each a check row plus "dimension"],
@@ -268,8 +293,10 @@ is listed in the notes but does not make a scan PARTIAL.
 
 The MCP `scan` reply adds `exit_code`. Nothing in the report depends on the clock. `schema_version` 2 only adds
 keys to the v0.2 shape (which had no `schema_version`); every v0.2 key keeps its meaning. `scores.grade` (and
-`grade_uncapped`) is `null` for an INVALID scan; `capped` and `cap_reason` also cover the PARTIAL cap. SARIF carries
-`status` and `status_reasons` in the run properties; the text and Markdown reports print them under the scores.
+`grade_uncapped`) is `null` for an INVALID scan; `capped` and `cap_reason` also cover the PARTIAL cap. With no Python
+source, `scores.works` is `null` and `dimensions.works` is `{"score": null, "scored": false, ...}`;
+`dimensions.safe.partial` is `true`. SARIF carries `status`, `status_reasons` and `coverage` in the run properties;
+the text and Markdown reports print the status and the coverage line above the scores.
 
 ## Safe checks
 
@@ -470,8 +497,9 @@ Every format is deterministic: no timestamps, no absolute paths. `--fail-on` wor
 `scan` tool keeps returning JSON.
 
 **GitHub Action** (`action.yml` in this repo, a composite action). It installs code-guardian from the action's own
-checkout, writes `code-guardian.sarif`, adds the Markdown report to the job summary, uploads the SARIF to code
-scanning, and then fails the job when a finding is at or above `fail-on`:
+checkout, writes `code-guardian.sarif`, adds the Markdown report to the job summary (it opens with the status and
+the coverage line), uploads the SARIF to code scanning, and then fails the job when a finding is at or above
+`fail-on`:
 
 ```yaml
 name: code-guardian
@@ -484,7 +512,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: LuminariSoftwares/code-guardian@v0.3.1
+      - uses: LuminariSoftwares/code-guardian@v0.3.2
         with:
           path: .
           fail-on: FAIL        # or WARN
@@ -492,7 +520,7 @@ jobs:
 ```
 
 Inputs: `path`, `fail-on`, `online`, `baseline` (a committed baseline file: gate on new findings only),
-`sarif-file` (default `code-guardian.sarif`), `upload-sarif` (default `true`), `python-version` (default `3.11`). Outputs: `overall`, `grade`, `exit-code`. Inputs reach the shell only through
+`sarif-file` (default `code-guardian.sarif`), `upload-sarif` (default `true`), `python-version` (default `3.11`). Outputs: `overall`, `grade`, `status` (`COMPLETE`, `PARTIAL` or `INVALID`), `exit-code`. Inputs reach the shell only through
 environment variables, never by text substitution.
 
 **pre-commit** (`.pre-commit-hooks.yaml`). It scans the whole repository, not just the staged files:
@@ -500,7 +528,7 @@ environment variables, never by text substitution.
 ```yaml
 repos:
   - repo: https://github.com/LuminariSoftwares/code-guardian
-    rev: v0.3.1
+    rev: v0.3.2
     hooks:
       - id: code-guardian
         # args: [--fail-on, WARN]
@@ -659,7 +687,8 @@ The `env` block is only needed for `explain`.
 
 - **Only Python is analysed.** Manifests (`package.json`, `setup.py`, `setup.cfg`, `pyproject.toml`,
   `requirements*.txt`) are read for install hooks and pins; every other language gets the secret scan only, and the
-  report says which files.
+  `coverage:` line says which files (see [What it analyses](#what-it-analyses)). An `eval` of request input in a
+  `.js` file is not seen.
 - **Static analysis cannot see runtime behaviour.** A finding means the code is there, not that it runs; code that
   builds its behaviour at runtime (downloaded plugins, `exec` of fetched text) is flagged where the parse can see it
   and invisible where it cannot. A grade A is "nothing the scanners recognise", not "proven safe".

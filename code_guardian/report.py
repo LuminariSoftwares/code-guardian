@@ -7,11 +7,15 @@ Public contract:
                                        # raises UsageError (bad PATH or baseline) / goal.GoalError
     orphans(path, goal_file=None, infer=False) -> hygiene dict (+ "files")
     render(report) -> text            render_orphans(hygiene) -> text       status_line(report) -> text
+    coverage_of(inv, langs) -> coverage dict          coverage_line(coverage) -> 'coverage: ...'
     exit_code(findings, fail_on, status=None, baseline=None) -> 0, 1 or 3 (an incomplete scan: PARTIAL or INVALID);
                                        # with a baseline block only findings marked new count
+    gate_status(report) -> the status exit_code uses: a PARTIAL that is only about coverage gates as COMPLETE
     scored_findings(report) -> the findings the scores count (findings + hygiene orphan.dead)
     redact_report(report) -> a redacted copy (scanners.redact_report: every output path uses it)
-    STATUSES, SCHEMA_VERSION, Outcomes, status_of(outcomes, inv, unparsed, unreadable, invalid) -> (status, reasons)
+    STATUSES, SCHEMA_VERSION, Outcomes,
+    status_of(outcomes, inv, unparsed, unreadable, invalid, coverage=None) -> (status, reasons)
+    COVERAGE_MIN_OTHER, COVERAGE_RATIO   # the mixed-repo rule (README: Scan status)
 """
 
 import ast
@@ -68,6 +72,37 @@ def _languages(files):
     return dict(sorted(counts.items()))
 
 
+# Coverage. Only Python is analysed; other source files get the secret scan only. With no Python source, Works is not
+# scored and Safe is partial. Other-language source is material (the scan is PARTIAL) when there are at least
+# COVERAGE_MIN_OTHER such files and more than COVERAGE_RATIO times as many as Python files: Python is under a third
+# of the source. Calibrated so the nine repos in calibration.md stay COMPLETE (the most JS-heavy has 37 .js/.mjs
+# files to 33 Python files).
+COVERAGE_MIN_OTHER = 5
+COVERAGE_RATIO = 2
+
+
+def coverage_of(inv, langs):
+    python, other = len(inv["python"]), sum(langs.values())
+    material = other >= COVERAGE_MIN_OTHER and other > COVERAGE_RATIO * python
+    if not python:
+        reason = "no Python source: Works not scored, Safe partial"
+    elif material:
+        reason = ("Python is under a third of the source: %d file(s) in other languages got the secret scan only"
+                  % other)
+    else:
+        reason = None
+    return {"analysed": "python", "python": python, "other_source": langs, "other_source_files": other,
+            "works_scored": bool(python), "safe_partial": not python, "partial": reason is not None,
+            "reason": reason}
+
+
+def coverage_line(cov):
+    """'coverage: 40 Python analysed; 112 .ts, 9 .go secret-scan only' (most files first)."""
+    other = sorted(cov["other_source"].items(), key=lambda kv: (-kv[1], kv[0]))
+    return "coverage: %d Python analysed%s" % (cov["python"], "; %s secret-scan only"
+                                               % ", ".join("%d %s" % (n, ext) for ext, n in other) if other else "")
+
+
 STATUSES = ("COMPLETE", "PARTIAL", "INVALID")
 SCHEMA_VERSION = 2  # 1 was v0.2's shape; 2 adds keys (status, outcomes...) and never changes an existing one
 
@@ -110,13 +145,14 @@ def _listing(rels, limit=5):
     return shown + (" and %d more" % (len(rels) - limit) if len(rels) > limit else "")
 
 
-def status_of(outcomes, inv, unparsed, unreadable, invalid):
-    """(status, reasons). INVALID: nothing could be judged. PARTIAL: a check crashed or was skipped, or a file that
-    would have been analysed was not (did not parse, too large, unreadable). Binary files, symlinks and large
-    non-source assets (only ever secret-scanned) do not make a scan PARTIAL; the notes still list them."""
+def status_of(outcomes, inv, unparsed, unreadable, invalid, coverage=None):
+    """(status, reasons). INVALID: nothing could be judged. PARTIAL: there is no Python source, or most source is in
+    languages code-guardian does not analyse (coverage), a check crashed or was skipped, or a file that would have
+    been analysed was not (did not parse, too large, unreadable). Binary files, symlinks and large non-source assets
+    (only ever secret-scanned) do not make a scan PARTIAL; the notes still list them."""
     if invalid:
         return "INVALID", invalid
-    reasons = []
+    reasons = [coverage["reason"]] if coverage and coverage["reason"] else []
     for row in outcomes:
         if row["outcome"] != "ran":
             what = row["reason"].split(":", 1)[0].split(" on ", 1)[0] if row["outcome"] == "crashed" else row["reason"]
@@ -245,9 +281,7 @@ def scan(path, goal_file=None, explain=False, env=None, online=False, baseline=N
         out.skipped("leftovers", "no Python files and no manifests")
     findings = score.sort_findings(scanners.dedupe(_test_code_to_info(_one_secret_per_line(findings))))
     langs = _languages(inv["other"])
-    if langs:
-        notes.append("code-guardian analyses Python only: %d file(s) in other languages (%s) got the secret scan only"
-                     % (sum(langs.values()), ", ".join("%s %d" % kv for kv in langs.items())))
+    coverage = coverage_of(inv, langs)
     for rel, why in inv["skipped"]:
         notes.append("skipped %s (%s)" % (rel, why))
     for rel in unreadable:
@@ -260,7 +294,7 @@ def scan(path, goal_file=None, explain=False, env=None, online=False, baseline=N
                                                            "orphan.uncertain": 0}}
         findings = score.sort_findings(findings)
     outcomes = out.as_list()
-    status, reasons = status_of(outcomes, inv, sorted(broken), unreadable, invalid)
+    status, reasons = status_of(outcomes, inv, sorted(broken), unreadable, invalid, coverage)
     split = {rel: text.splitlines() for rel, text in sources.items()}
     every = findings + hygiene["findings"]
     baseline_mod.stamp(every, lambda rel, n: split[rel][n - 1] if rel in split and 0 < n <= len(split[rel]) else "")
@@ -276,6 +310,7 @@ def scan(path, goal_file=None, explain=False, env=None, online=False, baseline=N
                   "skipped": len(inv["skipped"]), "ignored": inv["ignored"], "excluded": inv["excluded"],
                   "unparsed": len(inv["python"]) - len(trees)},
         "other_languages": langs,
+        "coverage": coverage,
         "anchor": _anchor(inv),
         "findings": findings,
         "egress": [{"node": f["node"], "level": f["level"], "kind": f["evidence"][0][6:], "target": f["evidence"][1][8:]}
@@ -372,6 +407,10 @@ def _score(report):
     """scores, per-dimension deductions, the top five and the weight table, from report["findings"] plus the
     hygiene section's orphan.dead (folded into Works at a low weight)."""
     dims = {name: score.dimension(scored_findings(report), name) for name in score.DIMENSIONS}
+    cov = report.get("coverage")
+    if cov and not cov["works_scored"]:
+        dims["works"] = score.unscored()
+    dims["safe"]["partial"] = bool(cov and cov["safe_partial"])
     report["scores"] = score.scores(report["findings"], dims, report.get("status"))
     report["dimensions"] = dims
     report["top"] = score.top(dims)
@@ -401,9 +440,18 @@ def orphans(path, goal_file=None, infer=False):
     return hygiene
 
 
+def gate_status(report):
+    """The status exit_code gates on. Coverage alone (no Python source, or mostly other languages) never fails the
+    gate: a PARTIAL whose only reason is coverage gates as COMPLETE. The report's own status stays PARTIAL."""
+    reason = (report.get("coverage") or {}).get("reason")
+    if report.get("status") == "PARTIAL" and reason and report.get("status_reasons") == [reason]:
+        return "COMPLETE"
+    return report.get("status")
+
+
 def exit_code(findings, fail_on="FAIL", status=None, baseline=None):
     """1 when a finding is at or above fail_on; else 3 when the scan is PARTIAL or INVALID (incomplete); else 0.
-    With a baseline (the report's "baseline" block), only new findings count."""
+    With a baseline (the report's "baseline" block), only new findings count. Pass gate_status(report) as status."""
     rank = LEVELS.index(fail_on.upper())
     if baseline:
         findings = [f for f in findings if f.get("new", True)]
@@ -433,6 +481,18 @@ def _hygiene_lines(h):
 
 LABELS = {"safe": "Safe", "works": "Works", "complete": "Complete"}
 QUESTIONS = {"safe": "is it safe to run?", "works": "will it work?", "complete": "does it have what it needs?"}
+NOT_SCORED = "n/a (Python only)"
+PARTIAL_LABEL = "partial: language-neutral checks only"
+
+
+def overall_notes(report):
+    """What the Overall line must say beside the grade: the dimensions left out, then the cap."""
+    s, dims = report["scores"], report.get("dimensions") or {}
+    out = ["%s not scored: no Python source" % LABELS[d] for d in score.DIMENSIONS
+           if not dims.get(d, {}).get("scored", True)]
+    if s["capped"]:
+        out.append(("capped: %s" if s["grade"] != s["grade_uncapped"] else "%s") % s["cap_reason"])
+    return out
 
 
 def _weight_lines(report):
@@ -479,17 +539,24 @@ def render(report):
     lines = ["code-guardian %s  scan of %s" % (report["version"], name),
              "files: %d Python, %d manifests, %d other (%d skipped, %d excluded by the goal file)"
              % (fl["python"], fl["manifests"], fl["other"], fl["skipped"], fl["excluded"]),
-             status_line(report), ""]
+             status_line(report)]
+    if report.get("coverage"):
+        lines.append(coverage_line(report["coverage"]))
+    lines.append("")
     if report.get("status") == "INVALID":
         lines.append("  no scores and no grade: the scan is INVALID")
     for dim in score.DIMENSIONS if report.get("status") != "INVALID" else ():
         d = report["dimensions"][dim]
-        lines.append(("  %-8s %3d/100  %-28s %s" % (LABELS[dim], s[dim], QUESTIONS[dim],
-                                                    "-%d" % d["deducted"] if d["deducted"] else "")).rstrip())
+        if not d.get("scored", True):
+            lines.append("  %-8s %s  %s" % (LABELS[dim], NOT_SCORED, QUESTIONS[dim]))
+            continue
+        lines.append(("  %-8s %3d/100  %-28s %s%s" % (LABELS[dim], s[dim], QUESTIONS[dim],
+                                                      "-%d" % d["deducted"] if d["deducted"] else "",
+                                                      "  " + PARTIAL_LABEL if d.get("partial") else "")).rstrip())
     if s["grade"] is not None:
+        why = overall_notes(report)
         lines.append("  %-8s %3d/100  grade %s%s" % ("Overall", s["overall"], s["grade"],
-                                                    "  (capped: %s)" % s["cap_reason"] if s["capped"] and s["grade"] != s["grade_uncapped"]
-                                                    else "  (%s)" % s["cap_reason"] if s["capped"] else ""))
+                                                    "  (%s)" % "; ".join(why) if why else ""))
     if report["top"]:
         lines += ["", "biggest deductions:"]
         lines.extend("  -%-3d %-8s %-24s x%-3d %s" % (t["deduction"], LABELS[t["dimension"]],
@@ -552,6 +619,7 @@ def selftest():
         put("app/broken.py", "def (:\n")
         put("tests/test_run.py", "from app import run\ndef test_main():\n    assert run.main\n")
         put("web/x.js", "fetch('/');\n")
+        put("web2/package.json", '{"name": "w"}\n')
         first, second = scan(tmp), scan(tmp)
         text = render(scan(tmp))
         checks = [
@@ -559,7 +627,14 @@ def selftest():
             ("score", first["scores"]["safe"] == 90 and first["scores"]["works"] == 67 and first["scores"]["grade"] == "B"),
             ("unparsed", first["files"]["unparsed"] == 1 and any(f["code"] == "works.syntax" for f in first["findings"])),
             ("hygiene", [f["evidence"][0] for f in first["hygiene"]["findings"]] == ["name: app.run.unused"]),
-            ("languages", first["other_languages"] == {".js": 1} and "secret scan only" in first["notes"][0]),
+            ("languages", first["other_languages"] == {".js": 1} and first["coverage"]["python"] == 4
+             and not first["coverage"]["partial"] and "coverage: 4 Python analysed; 1 .js secret-scan only" in text),
+            ("coverage_line", coverage_line({"python": 40, "other_source": {".go": 9, ".ts": 112}})
+             == "coverage: 40 Python analysed; 112 .ts, 9 .go secret-scan only"),
+            ("no_python", scan(os.path.join(tmp, "web2"))["scores"]["works"] is None),
+            ("gate_status", gate_status({"status": "PARTIAL", "status_reasons": ["r"], "coverage": {"reason": "r"}})
+             == "COMPLETE" and gate_status({"status": "PARTIAL", "status_reasons": ["r", "x"],
+                                            "coverage": {"reason": "r"}}) == "PARTIAL"),
             ("render", "Safe      90/100" in text and "Works     67/100" in text and "hygiene (inferred" in text),
             ("exit_code", exit_code(first["findings"]) == 1 and exit_code([f for f in first["findings"]
                                                                            if f["level"] != "FAIL"]) == 0),

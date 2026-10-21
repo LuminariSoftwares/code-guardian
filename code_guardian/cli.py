@@ -10,7 +10,8 @@
     code-guardian mcp                      # the MCP server on stdio (same as code-guardian-mcp)
 
 Exit codes: 0 nothing at or above --fail-on (default FAIL); 1 findings at or above it; 2 usage or parse error;
-3 (scan only) the scan is incomplete (PARTIAL or INVALID) and nothing is at or above --fail-on.
+3 (scan only) the scan is incomplete (PARTIAL or INVALID) and nothing is at or above --fail-on; coverage alone
+(no Python source, or mostly other languages) is reported as PARTIAL but never gives 3.
 scan gates on every scored finding (Safe, Works, Complete); orphans gates on the hygiene findings.
 """
 
@@ -129,7 +130,7 @@ def main(argv=None):
                 sys.stdout.write(outputs.to_markdown(rep))
             else:
                 sys.stdout.write(report.render(rep))
-            return report.exit_code(rep["findings"], args.fail_on, rep["status"], rep.get("baseline"))
+            return report.exit_code(rep["findings"], args.fail_on, report.gate_status(rep), rep.get("baseline"))
         if args.command == "diff":
             try:
                 result = verify.diff(verify.load_report(args.before), verify.load_report(args.after))
