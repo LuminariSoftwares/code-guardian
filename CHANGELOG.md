@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+Documentation and MCP tool definitions; the scanner, scores and CLI behave as in 0.3.2.
+
+- **MCP tool definitions rewritten for agents.** Each of `scan`, `diff`, `plan`, `orphans` and `explain` now says
+  what it does, when to use it, which sibling tool to use instead, what each parameter means, its side effects
+  (read-only; network only for `explain`), its output shape and its errors. Every parameter has a description, `examples`, and where it applies a `default`
+  (`fail_on` FAIL, `top` 10) and `minLength`; each `inputSchema` sets `additionalProperties: false`. The server still
+  accepts the same arguments and gives the same results.
+- **`tests/test_tool_docs.py`** fails if a tool or parameter loses its description, example or documented default,
+  if a documented default differs from the one the server uses, or if the README's tool reference drifts from the
+  served schemas, or if a description stops naming every parameter in its `Parameters:` clause. The schemas are validated with `jsonschema` (installed in the CI test job; skipped when absent).
+- **`tools/tool_reference.py`** generates the README's MCP tool reference from `TOOL_SPECS` (`--write`).
+- **README:** a 60-second quick start, an Architecture section (Mermaid diagram and the key decisions with their
+  trade-offs), Claude Desktop / Claude Code / generic MCP client config, the generated tool reference, "How it is
+  tested" and Credits. "30-second example" is now "Example: a repo that trips every scanner".
+- **`docs/adr/`:** six architecture decision records for choices already in the code.
+- Removed an unused import in `report.py` and one in `tests/test_supply.py`.
+
 ## code-guardian 0.3.2 — unreleased
 
 The report no longer claims checks that never ran on repos that are not Python. On 0.3.1 a repo with only

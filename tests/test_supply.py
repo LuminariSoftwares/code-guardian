@@ -2,7 +2,6 @@
 The online tests use a stub PyPI on loopback; nothing here reaches the real network."""
 import datetime
 import gzip
-import json
 
 import pytest
 from conftest import FIXTURES

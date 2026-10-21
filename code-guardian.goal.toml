@@ -20,6 +20,7 @@ entry_points = [
   "code_guardian.outputs:__main__",
   "tools.build_known_packages:__main__",
   "tools.calibrate:__main__",
+  "tools.tool_reference:__main__",
   "code_guardian.explain:__main__",
   "code_guardian.report:__main__",
   "code_guardian.cli:__main__",
