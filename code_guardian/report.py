@@ -28,7 +28,7 @@ import warnings
 from . import (__version__, baseline as baseline_mod, complete, explain as explain_mod, history as history_mod,
                leftovers, goal, manifests, orphans as orphans_mod, scanners, score,
                supply, walk, works)
-from .finding import LEVELS, crash_finding, make_finding, summarize
+from .finding import LEVELS, crash_finding, summarize
 from .scanners import redact_report
 
 SOURCE_EXT = frozenset({".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx", ".go", ".rs", ".java", ".kt", ".rb", ".php",
