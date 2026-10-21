@@ -5,7 +5,9 @@
 
 mcp-name: io.github.LuminariSoftwares/code-guardian
 
-One command that tells you three things about any repo, without running it:
+Before you run a repository you did not write, or merge a change an AI assistant made, you want to know whether it
+is dangerous, whether it is broken and what is missing. code-guardian answers that from the source alone, in one
+command that tells you three things about any repo without running it:
 
 - **Safe**: is it safe to run?
 - **Works**: will it work?
@@ -59,7 +61,25 @@ pip install -e . pytest
 python -m pytest -q
 ```
 
-## 30-second example
+## Quick start (60 seconds)
+
+From a clean Python 3.11+ environment (no other dependencies):
+
+```
+pip install code-guardian-mcp
+code-guardian scan /home/user/project              # the grade, every finding with file:line; exit 0, 1 or 3
+code-guardian plan /home/user/project --top 3      # the three fixes worth the most Overall points
+```
+
+Success looks like a first line `code-guardian 0.3.2  scan of <name>`, then a `status: COMPLETE` line and four score
+lines. On a one-file project it takes well under a second. To give the same tools to an AI client, add the MCP server
+(see [MCP server](#mcp-server) for Claude Desktop and other clients):
+
+```
+claude mcp add code-guardian -- uvx code-guardian-mcp mcp
+```
+
+## Example: a repo that trips every scanner
 
 `tests/fixtures/risky_repo` is a small project that trips every scanner. Its key-shaped strings are never stored in
 the repository; `tests/make_risky.py` adds them to a copy at test time:
@@ -208,6 +228,43 @@ The same loop over MCP is `scan` → `plan` → edit → `scan` → `diff(before
 two `scan` replies (JSON text) or paths to `scan --json` files. Findings are matched by fingerprint (code, level,
 file and the evidence line, never the line number), so moving code does not count as a change. Everything in the
 loop is deterministic, offline and read-only.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph entry["Front ends"]
+        CLI["cli.py<br/>code-guardian"]
+        MCP["mcp_server.py<br/>stdio JSON-RPC"]
+        GHA["action.yml<br/>pre-commit hook"]
+    end
+    GHA --> CLI
+    CLI --> REP["report.scan()"]
+    MCP --> REP
+    REP --> WALK["walk.py<br/>files + goal contract"]
+    WALK --> CHECKS["Checks, each guarded<br/>scanners · manifests · supply · history (Safe)<br/>works · leftovers · orphans (Works)<br/>complete (Complete)"]
+    CHECKS --> FIND["finding.py<br/>findings + fingerprints"]
+    FIND --> SCORE["score.py<br/>fixed weights, A-F, caps"]
+    SCORE --> RED["redact()"]
+    RED --> OUT["outputs.py<br/>text · JSON · Markdown · SARIF"]
+    RED --> VER["verify.py · baseline.py<br/>plan · diff · new-only gate"]
+    RED -. "findings only, opt-in" .-> LLM["explain.py<br/>local model"]
+```
+
+One pipeline serves every front end: the CLI, the MCP server, the GitHub Action and the pre-commit hook all call
+`report.scan()` and get the same report. Each check reads the parsed tree or the raw text and returns findings; none
+of them imports, executes or installs the project. Every output path passes through one `redact()`.
+
+Key design decisions, each with its trade-off (full records in [docs/adr](docs/adr/)):
+
+| decision | why | trade-off |
+|---|---|---|
+| [Static analysis only, standard library only](docs/adr/0001-static-analysis-stdlib-only.md) | scanning a repo you do not trust must not run it; nothing to install or audit | cannot see runtime behaviour; Python only in depth |
+| [Fixed weights, no model in the score](docs/adr/0002-deterministic-fixed-weight-scoring.md) | same repo, same version, same grade; a CI gate needs that | weights are judgement calls, published and calibrated rather than learned |
+| [Hand-written MCP stdio server](docs/adr/0003-hand-written-mcp-stdio-server.md) | keeps the zero-dependency install; five read-only tools need little protocol | follows the protocol by hand; only stdio, protocol `2024-11-05` |
+| [Scan status and exit code 3](docs/adr/0004-scan-status-and-exit-code-3.md) | a crashed or skipped check must not read as a clean A | one more exit code and status for callers to handle |
+| [Line-number-free fingerprints](docs/adr/0005-line-free-finding-fingerprints.md) | moving code is not a change; baseline and diff stay stable | editing a flagged line makes it "new" |
+| [Offline package list, opt-in PyPI](docs/adr/0006-offline-known-packages-list.md) | a scan never touches the network and is reproducible | offline, an unknown name is only INFO; `--online` is not reproducible |
 
 ## How the scores work
 
@@ -650,38 +707,122 @@ Guarantees, each covered by a test against a stub model on loopback:
 
 ## MCP server
 
-`code-guardian-mcp` (or `code-guardian mcp`) speaks MCP over stdio with five read-only tools, each with a `title`
-and `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true`:
+`code-guardian-mcp` (or `code-guardian mcp`) speaks MCP over stdio with five tools. All five only read: none writes,
+deletes or runs project code, and asking twice gives the same answer. Only `explain` uses the network, and only the
+model URL you configure. A typical agent loop is `scan` → `plan` → edit → `scan` → `diff`.
 
-| tool | does | `openWorldHint` |
+| tool | use it to | instead, use |
 |---|---|---|
-| `scan` | the full report for `path` (+ optional `goal`, `fail_on`, `baseline`; the reply carries `exit_code`) | false |
-| `diff` | `before` and `after` (each a scan report as JSON text, or a path to a `scan --json` file): fixed, new, unchanged, score deltas, verdict and `exit_code` | false |
-| `plan` | the repair plan for `path` (+ optional `top`, default 10, and `goal`) | false |
-| `orphans` | the hygiene section for `path` | false |
-| `explain` | `scan` plus the model explanation | true |
+| `scan` | grade a project and list every finding | `plan` to rank fixes, `orphans` for dead code only |
+| `plan` | pick the fix worth the most points | `scan` for the full report |
+| `diff` | see what a change fixed and broke | `scan` to produce the two reports |
+| `orphans` | find unreachable code before deleting | `scan` (its `hygiene` section is the same result) |
+| `explain` | get a plain-English summary for a person | `scan` for the findings themselves |
 
-A `path` argument is resolved and must exist. Claude Code:
+**Claude Code:**
 
 ```
 claude mcp add code-guardian -- uvx code-guardian-mcp mcp
 ```
 
-Any MCP client:
+**Claude Desktop:** add this to `claude_desktop_config.json` (Settings → Developer → Edit Config), then restart the
+app:
 
 ```json
 {
   "mcpServers": {
     "code-guardian": {
       "command": "uvx",
-      "args": ["code-guardian-mcp", "mcp"],
+      "args": ["code-guardian-mcp", "mcp"]
+    }
+  }
+}
+```
+
+**Any other MCP client** (stdio): run `uvx code-guardian-mcp mcp`, or `code-guardian-mcp` after
+`pip install code-guardian-mcp`. To enable `explain`, give the server the model URL:
+
+```json
+{
+  "mcpServers": {
+    "code-guardian": {
+      "command": "code-guardian-mcp",
       "env": {"CODE_GUARDIAN_LLM_URL": "http://127.0.0.1:11434/api/chat", "CODE_GUARDIAN_LLM_MODEL": "qwen3:8b"}
     }
   }
 }
 ```
 
-The `env` block is only needed for `explain`.
+A tool error (a missing `path`, a bad `top`) comes back as a tool result with `isError: true` and a one-line message,
+never as a crash of the server. The MCP tools do not expose the CLI's `--online` or `--history`; use the CLI for
+those.
+
+### Tool reference
+
+Generated from the schemas the server serves (`python tools/tool_reference.py --write`); `tests/test_tool_docs.py`
+fails when the two disagree.
+
+<!-- tool-reference:start (generated by tools/tool_reference.py; do not edit by hand) -->
+
+#### `scan`: Scan a codebase
+
+Grade a project without running it: Safe, Works and Complete scores (0-100, higher is better), Overall and an A-F grade, every finding with file:line, the egress inventory and the orphan-code hygiene section. Use it first, and again after each change. Use plan instead to rank what to fix, diff to compare two scans, orphans for dead code only, explain for a plain-English summary. Behaviour: read-only, deterministic, offline (no network); parses Python with ast and reads manifests; writes nothing. Returns JSON: status (COMPLETE, PARTIAL or INVALID: can the scan be trusted), scores, dimensions, findings[] (code, level, node, summary, fix, fingerprint, new when a baseline is given), egress, hygiene, coverage, notes and exit_code (0 pass, 1 findings at or above fail_on, 3 incomplete scan).
+
+Annotations: `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false`
+
+| parameter | type | required | default | description | example |
+|---|---|---|---|---|---|
+| `path` | string | yes | none | The project directory to read (absolute, or relative to the server's working directory; ~ is expanded). It must exist. The code in it is parsed, never imported or run. | `"/home/user/project"` |
+| `goal` | string | no | none | Optional goal contract (TOML: goal, entry_points, keep, exclude) that says what the project is for and where it starts. Must exist when given. Default: PATH/code-guardian.goal.toml if present, else entry points are inferred. | `"/home/user/project/code-guardian.goal.toml"` |
+| `fail_on` | `INFO` \| `WARN` \| `FAIL` | no | `"FAIL"` | Lowest finding level that makes exit_code 1 (case-insensitive). Only sets exit_code; the scores and findings are the same either way. Default FAIL. | `"FAIL"` |
+| `baseline` | string | no | none | Optional baseline file written by `code-guardian baseline PATH`. Each finding is marked new or known and exit_code counts new findings only; the scores still count every finding. Must exist when given. | `"/home/user/project/code-guardian.baseline.json"` |
+
+#### `diff`: Compare two scans
+
+What did a change fix and what did it break? Compares two scan reports by finding fingerprint (code, level, file and evidence line; line numbers ignored, so moved code is not a change). Use it after an edit, with the scan reply from before and after. Use scan to produce the reports; use plan to choose the next fix. Behaviour: read-only, offline; reads only the two reports, never the project. Returns JSON: verdict (improved, regressed, mixed or unchanged), counts, per-dimension score before/after/delta, grade, status, fixed[], new[], unchanged[] and exit_code (1 when anything regressed).
+
+Annotations: `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false`
+
+| parameter | type | required | default | description | example |
+|---|---|---|---|---|---|
+| `before` | string | yes | none | The report before the change: the JSON text a scan call returned (starts with {), or the path of an existing `code-guardian scan --json` file. | `"/home/user/project/before.json"` |
+| `after` | string | yes | none | The report after the change, in the same form as before: scan JSON text or the path of an existing scan --json file. | `"/home/user/project/after.json"` |
+
+#### `plan`: Plan the next fixes
+
+What should be fixed next? Scans path, then re-scores it without each check row in turn and ranks the rows by the Overall points each would gain if fixed (an estimate), best first. Use it after scan when the grade is not what you want, to pick one fix; then edit, scan again and diff. Use scan instead for the full report, orphans for dead code only. Behaviour: read-only, deterministic, offline; the code is never edited or run. Returns JSON: status, overall, grade, label and items[] (rank, code, level, dimension, title, gain, overall_after, grade_after, deduction, count, locations, fix, false_positives), notes.
+
+Annotations: `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false`
+
+| parameter | type | required | default | description | example |
+|---|---|---|---|---|---|
+| `path` | string | yes | none | The project directory to read (absolute, or relative to the server's working directory; ~ is expanded). It must exist. The code in it is parsed, never imported or run. | `"/home/user/project"` |
+| `goal` | string | no | none | Optional goal contract (TOML: goal, entry_points, keep, exclude) that says what the project is for and where it starts. Must exist when given. Default: PATH/code-guardian.goal.toml if present, else entry points are inferred. | `"/home/user/project/code-guardian.goal.toml"` |
+| `top` | integer ≥ 1 | no | `10` | How many rows to return, best first. A whole number of at least 1; default 10. | `5` |
+
+#### `orphans`: Find orphan code
+
+Find code nothing uses: functions, classes and modules not reachable from the project's entry points, each labelled dead, test-only or uncertain (reachable only by dynamic dispatch). Entry points come from the goal contract, else are inferred (scripts, __main__ blocks, a library's public API). Use it to clean up or before deleting code. Use scan instead for the full grade (its hygiene section is the same result); orphans never changes the Safe score. Behaviour: read-only, deterministic, offline; builds a call graph with ast, runs nothing. Returns JSON: source (contract or inferred), goal, entry_points, keep, findings[] (code orphan.dead, orphan.test_only or orphan.uncertain, node file:line, summary, try), counts, files, notes.
+
+Annotations: `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false`
+
+| parameter | type | required | default | description | example |
+|---|---|---|---|---|---|
+| `path` | string | yes | none | The project directory to read (absolute, or relative to the server's working directory; ~ is expanded). It must exist. The code in it is parsed, never imported or run. | `"/home/user/project"` |
+| `goal` | string | no | none | Optional goal contract (TOML: goal, entry_points, keep, exclude) that says what the project is for and where it starts. Must exist when given. Default: PATH/code-guardian.goal.toml if present, else entry points are inferred. | `"/home/user/project/code-guardian.goal.toml"` |
+
+#### `explain`: Explain the scan in plain English
+
+A plain-English summary of a scan, written by a local model. Use it when a person wants the findings explained; use scan instead for the scores and findings themselves (explain returns the scores, not the findings). Behaviour: runs scan, then POSTs the findings only (code, level, file:line, summary, scores; no source, no evidence, secrets redacted) to the model at the CODE_GUARDIAN_LLM_URL environment variable (Ollama or OpenAI-compatible). The only tool that uses the network; writes nothing; the score never changes. Without a configured or reachable model it still succeeds and a note says why. Returns JSON: scores, explanation (text, or null without a model) and notes.
+
+Annotations: `readOnlyHint: true`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: true`
+
+| parameter | type | required | default | description | example |
+|---|---|---|---|---|---|
+| `path` | string | yes | none | The project directory to read (absolute, or relative to the server's working directory; ~ is expanded). It must exist. The code in it is parsed, never imported or run. | `"/home/user/project"` |
+| `goal` | string | no | none | Optional goal contract (TOML: goal, entry_points, keep, exclude) that says what the project is for and where it starts. Must exist when given. Default: PATH/code-guardian.goal.toml if present, else entry points are inferred. | `"/home/user/project/code-guardian.goal.toml"` |
+
+<!-- tool-reference:end -->
 
 ## Limitations
 
@@ -700,15 +841,40 @@ The `env` block is only needed for `explain`.
   name), so it reports less dead code rather than wrong dead code.
 - `.gitignore` support is simple globs from the root file; negation (`!`) and nested `.gitignore` files are ignored.
 
-## Every module tests itself
+## How it is tested
 
 ```
-python -m code_guardian.scanners --selftest
+python -m pytest -q                                  # the whole suite (about 390 tests, 20-30 seconds)
+python -m code_guardian.scanners --selftest          # one module's built-in checks
 scanners selftest: 27 checks, 27 passed, 0 failed
 ```
 
-Each of `finding`, `walk`, `scanners`, `manifests`, `score`, `goal`, `orphans`, `works`, `complete`, `supply`,
-`explain`, `report`, `cli`, `mcp_server`, `baseline`, `verify`, `history` and `leftovers` has one; `tests/test_selftests.py` runs them all.
+- **Fixture repos** (`tests/fixtures/`): a clean library, a risky repo that trips every Safe scanner (its key-shaped
+  strings are generated at test time by `tests/make_risky.py`, never committed), broken and weakly tested packages,
+  an orphan repo, a supply-chain repo and two Complete repos. Their scores are asserted exactly.
+- **Every module tests itself:** each of `finding`, `walk`, `scanners`, `manifests`, `score`, `goal`, `orphans`,
+  `works`, `complete`, `supply`, `catalogue`, `outputs`, `explain`, `report`, `cli`, `mcp_server`, `baseline`,
+  `verify`, `history` and `leftovers` has a `--selftest`; `tests/test_selftests.py` runs them all.
+- **Docs that cannot drift:** the README's weight tables, check catalogue and MCP tool reference are compared with
+  the code by `tests/test_readme_sync.py` and `tests/test_tool_docs.py`.
+- **The MCP server over real stdio** (`tests/test_mcp.py`, `tests/test_tool_annotations.py`), and `--explain`
+  against a stub model on loopback (`tests/test_explain.py`).
+- **It scans itself:** `tests/test_self_scan.py` requires grade A, Safe 100 and no dead code.
+- **Calibration** on nine real repositories at pinned commits ([calibration.md](calibration.md),
+  `tools/calibrate.py`).
+- **CI** ([ci.yml](.github/workflows/ci.yml)): the suite on Ubuntu, Windows and macOS (Python 3.11); the built wheel
+  installed in a clean venv and run against the risky fixture; SARIF validated against the official 2.1.0 schema; the
+  GitHub Action and the pre-commit hook run from the checkout. A separate privacy workflow scans every tracked file.
+
+## Credits
+
+- The finding shape, the MCP stdio server, the test conftest and the privacy workflow are adapted from
+  [stack-guardian](https://github.com/LuminariSoftwares/stack-guardian) (MIT, same author), so the guardian family
+  reads alike.
+- Output follows the [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html) standard and
+  the [Model Context Protocol](https://modelcontextprotocol.io/) specification.
+- No third-party code is vendored; the known-packages list is hand-built (see
+  [Invented and lookalike packages](#invented-and-lookalike-packages-safe)).
 
 ## License
 

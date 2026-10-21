@@ -1,0 +1,16 @@
+# Architecture decision records
+
+Short records of the architectural choices already in the code, written down after the fact (2026-10-21) from the
+code, its docstrings and the commit history. Each one says what was decided, what else was possible and what it
+costs. Format: context, decision, alternatives, consequences.
+
+| # | decision | since |
+|---|---|---|
+| [0001](0001-static-analysis-stdlib-only.md) | Static analysis only, standard library only | 0.1.0 |
+| [0002](0002-deterministic-fixed-weight-scoring.md) | Deterministic fixed-weight scores; a model never scores | 0.1.0 / 0.2 |
+| [0003](0003-hand-written-mcp-stdio-server.md) | A hand-written MCP stdio server, not the MCP SDK | 0.1.0 |
+| [0004](0004-scan-status-and-exit-code-3.md) | Every scan reports whether it can be trusted (COMPLETE, PARTIAL, INVALID; exit 3) | 0.3.0 |
+| [0005](0005-line-free-finding-fingerprints.md) | Finding fingerprints without line numbers | 0.3.0 |
+| [0006](0006-offline-known-packages-list.md) | An offline, hand-built package list; PyPI only on request | 0.2 |
+
+A new record is added when a change alters one of these, or makes a choice of the same weight.
