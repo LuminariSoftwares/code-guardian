@@ -12,8 +12,15 @@ import sys
 PROTOCOL = "2024-11-05"
 SERVER_NAME = "code-guardian"
 VERSION = "0.3.2"  # keep equal to code_guardian.__version__ and pyproject.toml (this module stays package-free)
-_PATH = {"type": "string", "description": "the project directory to read"}
-_GOAL = {"type": "string", "description": "goal contract file; default PATH/code-guardian.goal.toml if present"}
+_PATH = {"type": "string", "minLength": 1,
+         "description": "The project directory to read (absolute, or relative to the server's working directory; "
+                        "~ is expanded). It must exist. The code in it is parsed, never imported or run.",
+         "examples": ["/home/user/project", "."]}
+_GOAL = {"type": "string", "minLength": 1,
+         "description": "Optional goal contract (TOML: goal, entry_points, keep, exclude) that says what the project "
+                        "is for and where it starts. Must exist when given. Default: PATH/code-guardian.goal.toml if "
+                        "present, else entry points are inferred.",
+         "examples": ["/home/user/project/code-guardian.goal.toml"]}
 
 
 def _annotations(title, open_world):
@@ -23,44 +30,94 @@ def _annotations(title, open_world):
             "openWorldHint": open_world}
 
 
+# Each description answers, in order: what it returns, when to use it, which sibling to use instead, its side effects
+# and its output shape. tests/test_tool_docs.py fails if a tool or parameter loses any of that.
 TOOL_SPECS = [
     {"name": "scan", "title": "Scan a codebase",
-     "description": "Is it safe to run, will it work, does it have what it needs? Safe, Works and Complete scores "
-                    "(0-100, higher is better), Overall and an A-F grade, every finding with file:line, the egress "
-                    "inventory and orphan-code hygiene, and the scan status (COMPLETE, PARTIAL or INVALID: can the "
-                    "scan be trusted). Deterministic; parses only, never runs the code.",
-     "inputSchema": {"type": "object", "properties": {
-         "path": _PATH, "goal": _GOAL, "fail_on": {"type": "string", "enum": ["INFO", "WARN", "FAIL"]},
-         "baseline": {"type": "string", "description": "a baseline file from `code-guardian baseline`: each finding "
-                                                       "is marked new or known and exit_code counts new ones only"}},
+     "description": "Grade a project without running it: Safe, Works and Complete scores (0-100, higher is better), "
+                    "Overall and an A-F grade, every finding with file:line, the egress inventory and the orphan-code "
+                    "hygiene section. Use it first, and again after each change. "
+                    "Use plan instead to rank what to fix, diff to compare two scans, orphans for dead code only, "
+                    "explain for a plain-English summary. "
+                    "Behaviour: read-only, deterministic, offline (no network); parses Python with ast and reads "
+                    "manifests; writes nothing. "
+                    "Returns JSON: status (COMPLETE, PARTIAL or INVALID: can the scan be trusted), scores, "
+                    "dimensions, findings[] (code, level, node, summary, fix, fingerprint, new when a baseline is "
+                    "given), egress, hygiene, coverage, notes and exit_code (0 pass, 1 findings at or above fail_on, "
+                    "3 incomplete scan).",
+     "inputSchema": {"type": "object", "additionalProperties": False, "properties": {
+         "path": _PATH, "goal": _GOAL,
+         "fail_on": {"type": "string", "enum": ["INFO", "WARN", "FAIL"], "default": "FAIL",
+                     "description": "Lowest finding level that makes exit_code 1 (case-insensitive). Only sets "
+                                    "exit_code; the scores and findings are the same either way. Default FAIL.",
+                     "examples": ["FAIL", "WARN"]},
+         "baseline": {"type": "string", "minLength": 1,
+                      "description": "Optional baseline file written by `code-guardian baseline PATH`. Each finding "
+                                     "is marked new or known and exit_code counts new findings only; the scores "
+                                     "still count every finding. Must exist when given.",
+                      "examples": ["/home/user/project/code-guardian.baseline.json"]}},
                      "required": ["path"]},
      "annotations": _annotations("Scan a codebase", False)},
     {"name": "diff", "title": "Compare two scans",
-     "description": "What did a change fix and what did it break? Compares two scan reports (each a JSON string from "
-                    "scan, or a path to a scan --json file) by finding fingerprint: fixed, new and unchanged findings, "
-                    "per-dimension score deltas and a verdict (improved, regressed, mixed, unchanged). Read-only.",
-     "inputSchema": {"type": "object", "properties": {
-         "before": {"type": "string", "description": "the report before the change: JSON text or a file path"},
-         "after": {"type": "string", "description": "the report after the change: JSON text or a file path"}},
+     "description": "What did a change fix and what did it break? Compares two scan reports by finding fingerprint "
+                    "(code, level, file and evidence line; line numbers ignored, so moved code is not a change). "
+                    "Use it after an edit, with the scan reply from before and after. "
+                    "Use scan to produce the reports; use plan to choose the next fix. "
+                    "Behaviour: read-only, offline; reads only the two reports, never the project. "
+                    "Returns JSON: verdict (improved, regressed, mixed or unchanged), counts, per-dimension score "
+                    "before/after/delta, grade, status, fixed[], new[], unchanged[] and exit_code (1 when anything "
+                    "regressed).",
+     "inputSchema": {"type": "object", "additionalProperties": False, "properties": {
+         "before": {"type": "string", "minLength": 1,
+                    "description": "The report before the change: the JSON text a scan call returned (starts with "
+                                   "{), or the path of an existing `code-guardian scan --json` file.",
+                    "examples": ["/home/user/project/before.json"]},
+         "after": {"type": "string", "minLength": 1,
+                   "description": "The report after the change, in the same form as before: scan JSON text or "
+                                  "the path of an existing scan --json file.",
+                   "examples": ["/home/user/project/after.json"]}},
                      "required": ["before", "after"]},
      "annotations": _annotations("Compare two scans", False)},
     {"name": "plan", "title": "Plan the next fixes",
-     "description": "What should be fixed next? Scans path, then re-scores it without each check row in turn: the "
-                    "Overall points each row would gain if fixed (an estimate, the code is never touched), best "
-                    "first, each with how to fix it and every location. Loop: scan, plan, edit, scan, diff.",
-     "inputSchema": {"type": "object", "properties": {
-         "path": _PATH, "goal": _GOAL, "top": {"type": "integer", "minimum": 1, "description": "rows (default 10)"}},
+     "description": "What should be fixed next? Scans path, then re-scores it without each check row in turn and "
+                    "ranks the rows by the Overall points each would gain if fixed (an estimate), best first. "
+                    "Use it after scan when the grade is not what you want, to pick one fix; then edit, scan again "
+                    "and diff. Use scan instead for the full report, orphans for dead code only. "
+                    "Behaviour: read-only, deterministic, offline; the code is never edited or run. "
+                    "Returns JSON: status, overall, grade, label and items[] (rank, code, level, dimension, title, "
+                    "gain, overall_after, grade_after, deduction, count, locations, fix, false_positives), notes.",
+     "inputSchema": {"type": "object", "additionalProperties": False, "properties": {
+         "path": _PATH, "goal": _GOAL,
+         "top": {"type": "integer", "minimum": 1, "default": 10,
+                 "description": "How many rows to return, best first. A whole number of at least 1; default 10.",
+                 "examples": [5, 10]}},
                      "required": ["path"]},
      "annotations": _annotations("Plan the next fixes", False)},
     {"name": "orphans", "title": "Find orphan code",
-     "description": "Functions, classes and modules nothing reachable from the project's entry points uses: dead, "
-                    "test-only or uncertain (dynamic dispatch). Judged against the goal contract when there is one.",
-     "inputSchema": {"type": "object", "properties": {"path": _PATH, "goal": _GOAL}, "required": ["path"]},
+     "description": "Find code nothing uses: functions, classes and modules not reachable from the project's entry "
+                    "points, each labelled dead, test-only or uncertain (reachable only by dynamic dispatch). Entry "
+                    "points come from the goal contract, else are inferred (scripts, __main__ blocks, a library's "
+                    "public API). Use it to clean up or before deleting code. Use scan instead for the full grade "
+                    "(its hygiene section is the same result); orphans never changes the Safe score. "
+                    "Behaviour: read-only, deterministic, offline; builds a call graph with ast, runs nothing. "
+                    "Returns JSON: source (contract or inferred), goal, entry_points, keep, findings[] (code "
+                    "orphan.dead, orphan.test_only or orphan.uncertain, node file:line, summary, try), counts, "
+                    "files, notes.",
+     "inputSchema": {"type": "object", "additionalProperties": False,
+                     "properties": {"path": _PATH, "goal": _GOAL}, "required": ["path"]},
      "annotations": _annotations("Find orphan code", False)},
     {"name": "explain", "title": "Explain the scan in plain English",
-     "description": "Runs scan, then asks the local model at CODE_GUARDIAN_LLM_URL for a plain-English summary. Sends "
-                    "the findings only (no source). The score never changes; without a model it returns a note.",
-     "inputSchema": {"type": "object", "properties": {"path": _PATH, "goal": _GOAL}, "required": ["path"]},
+     "description": "A plain-English summary of a scan, written by a local model. Use it when a person wants the "
+                    "findings explained; use scan instead for the scores and findings themselves (explain returns "
+                    "the scores, not the findings). "
+                    "Behaviour: runs scan, then POSTs the findings only (code, level, file:line, summary, scores; "
+                    "no source, no evidence, secrets redacted) to the model at the CODE_GUARDIAN_LLM_URL environment "
+                    "variable (Ollama or OpenAI-compatible). The only tool that uses the network; writes nothing; "
+                    "the score never changes. Without a configured or reachable model it still succeeds and a note "
+                    "says why. "
+                    "Returns JSON: scores, explanation (text, or null without a model) and notes.",
+     "inputSchema": {"type": "object", "additionalProperties": False,
+                     "properties": {"path": _PATH, "goal": _GOAL}, "required": ["path"]},
      "annotations": _annotations("Explain the scan in plain English", True)},
 ]
 
