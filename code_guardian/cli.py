@@ -7,6 +7,7 @@
     code-guardian plan PATH [--top 10] [--json] [--goal FILE]  # Markdown by default
     code-guardian orphans PATH [--json] [--goal FILE] [--fail-on LEVEL]
     code-guardian init [PATH] [--force]
+    code-guardian ui [PATH] [--port N] [--no-browser] [--selftest]   # the local page, on 127.0.0.1 only
     code-guardian mcp                      # the MCP server on stdio (same as code-guardian-mcp)
 
 Exit codes: 0 nothing at or above --fail-on (default FAIL); 1 findings at or above it; 2 usage or parse error;
@@ -72,6 +73,11 @@ def _parser():
     i = sub.add_parser("init", help="write a starter %s with the inferred entry points" % goal.FILENAME)
     i.add_argument("path", nargs="?", default=".")
     i.add_argument("--force", action="store_true", help="overwrite an existing goal file")
+    u = sub.add_parser("ui", help="open the scan in your browser: a local page on 127.0.0.1, nothing leaves this machine")
+    u.add_argument("path", nargs="?", help="scan this folder (or one file) before the page opens")
+    u.add_argument("--port", type=int, default=0, metavar="N", help="port to listen on (default: any free port)")
+    u.add_argument("--no-browser", action="store_true", help="print the link but do not open a browser")
+    u.add_argument("--selftest", action="store_true", help="run the ui module's own checks and exit")
     return p
 
 
@@ -151,6 +157,13 @@ def main(argv=None):
             return report.exit_code(hyg["findings"], args.fail_on)
         if args.command == "init":
             return init(args.path, args.force)
+        if args.command == "ui":
+            from . import ui
+            if args.selftest:
+                return ui.selftest()
+            if not 0 <= args.port <= 65535:
+                raise report.UsageError("--port must be between 0 and 65535")
+            return ui.run(args.path, args.port, not args.no_browser)
     except (report.UsageError, goal.GoalError) as exc:
         sys.stderr.write("code-guardian: %s\n" % exc)
         return 2

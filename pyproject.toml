@@ -42,5 +42,5 @@ code-guardian-mcp = "code_guardian.mcp_server:main"
 packages = ["code_guardian"]
 
 [tool.setuptools.package-data]
-# the offline list of known PyPI projects; without this a wheel installs with no list
-code_guardian = ["data/*.gz"]
+# the offline list of known PyPI projects; without this a wheel installs with no list; ui/ is the local page
+code_guardian = ["data/*.gz", "ui/*.html", "ui/*.css", "ui/*.js"]
