@@ -4,13 +4,13 @@
   "title": "Code Guardian",
   "description": "A deterministic A-F grade for a repo without running it, plus a verify loop: plan, fix, diff.",
   "repository": {"url": "https://github.com/LuminariSoftwares/code-guardian", "source": "github"},
-  "version": "0.3.2",
+  "version": "0.3.4",
   "packages": [
     {
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "code-guardian-mcp",
-      "version": "0.3.2",
+      "version": "0.3.4",
       "runtimeHint": "uvx",
       "transport": {"type": "stdio"},
       "packageArguments": [{"type": "positional", "value": "mcp"}],

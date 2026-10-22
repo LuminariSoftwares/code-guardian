@@ -1,9 +1,14 @@
 # Changelog
 
-## Unreleased
+## code-guardian 0.3.4 (2026-10-22)
 
 Review fixes (external review triage, 2026-10-21). One behaviour change in the scanner (URL credentials are
 redacted); otherwise the scores, findings and CLI behave as in 0.3.2.
+
+This also brings the version strings on `main` back in line with what is released: the `v0.3.3` tag carries
+`0.3.3`, but it sits on a hotfix branch that was never merged, so `main` still reported `0.3.2` from
+`code-guardian --version`, the MCP `serverInfo.version`, a report's `version` field and `server.json`. All of them
+now say `0.3.4`.
 
 - **Secrets inside a URL literal are no longer printed.** A webhook URL, a signed query string or
   `user:password@host` is itself a credential, and `scan` reprinted it verbatim in `egress[].target`, in the
