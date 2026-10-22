@@ -15,8 +15,8 @@ from code_guardian import baseline, report, scanners
 # Built at runtime: the self-scan reads string literals, and these are test input, not this project's egress.
 HTTP = "http" + "s://"
 WEBHOOK = HTTP + "hooks.slack.com/services/T000/B000/XXXXSECRETXXXX"
-SIGNED = HTTP + "api.example.org/v1?api_key=abcd1234SECRETvalue"
-USERINFO = HTTP + "user:hunter2SECRET@api.example.org/v1"
+SIGNED = HTTP + "api.example.com/v1?api_key=abcd1234SECRETvalue"
+USERINFO = HTTP + "user:hunter2SECRET@api.example.com/v1"
 SOURCE = """import urllib.request
 
 
@@ -51,8 +51,8 @@ def test_no_secret_from_a_url_literal_reaches_the_report(tmp_path):
     targets = [e["target"] for e in rep["egress"] if e["kind"] == "url"]
     assert sorted(targets) == sorted([
         HTTP + "hooks.slack.com/services/<redacted>",
-        HTTP + "api.example.org/v1?api_key=<redacted>",
-        HTTP + "<redacted>@api.example.org/v1",
+        HTTP + "api.example.com/v1?api_key=<redacted>",
+        HTTP + "<redacted>@api.example.com/v1",
     ]), targets
 
 
@@ -106,8 +106,8 @@ def test_a_baseline_marks_every_redacted_finding_known(tmp_path):
 
 def test_redact_url_keeps_the_destination_and_is_idempotent():
     once = scanners.redact_url(SIGNED)
-    assert once == HTTP + "api.example.org/v1?api_key=<redacted>"
+    assert once == HTTP + "api.example.com/v1?api_key=<redacted>"
     assert scanners.redact_url(once) == once
-    plain = HTTP + "api.example.org/v1/status"
+    plain = HTTP + "api.example.com/v1/status"
     assert scanners.redact_url(plain) == plain
     assert scanners.redact_url("not a url") == "not a url"

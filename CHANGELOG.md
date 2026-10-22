@@ -37,6 +37,13 @@ redacted); otherwise the scores, findings and CLI behave as in 0.3.2.
   messages are pinned by tests; a "one maintainer, best effort" line.
 - **`docs/adr/0003`** no longer says the server is listed in the MCP Registry: the wheel carries the `mcp-name:`
   marker, but the entry does not exist yet. `pyproject.toml` declares `Development Status :: 4 - Beta`.
+- **The test harness no longer leaves a thread running after a test** (`tests/conftest.py`). The stub HTTP server
+  the timeout tests use left a daemon handler thread asleep in its route delay after the client had given up; that
+  thread then wrote a socketserver traceback to stderr for a socket nobody was reading, and a thread writing to
+  stderr while CPython finalises aborts the process (`Fatal Python error: _enter_buffered_busy`, exit code 134) —
+  after the suite had already reported every test passed. The delay is now interruptible, handler threads are
+  joined by `close()`, and a client hanging up is recorded instead of printed, with anything unexpected failing
+  the test that caused it (`tests/test_stub_server.py`). No change to code-guardian itself.
 
 - **MCP tool definitions rewritten for agents.** Each of `scan`, `diff`, `plan`, `orphans` and `explain` now says
   what it does, when to use it, which sibling tool to use instead, its side effects (read-only; network only for
