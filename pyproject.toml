@@ -14,6 +14,7 @@ license-files = ["LICENSE"]
 authors = [{ name = "LuminariSoftwares" }]
 keywords = ["security", "static-analysis", "dead-code", "supply-chain", "secrets", "mcp", "local-llm", "ai-code-review", "baseline"]
 classifiers = [
+  "Development Status :: 4 - Beta",
   "Programming Language :: Python :: 3",
   "Operating System :: OS Independent",
   "Environment :: Console",
@@ -21,6 +22,12 @@ classifiers = [
   "Topic :: Software Development :: Quality Assurance",
 ]
 dependencies = []
+
+[project.optional-dependencies]
+# The test suite only; `dependencies` stays empty, so installing the tool pulls in nothing.
+# build: tests/test_spdx_license.py builds a wheel and reads its METADATA.
+# jsonschema: tests/test_outputs.py validates the SARIF, tests/test_tool_docs.py the MCP schemas.
+test = ["pytest", "build", "jsonschema"]
 
 [project.urls]
 Homepage = "https://github.com/LuminariSoftwares/code-guardian"
