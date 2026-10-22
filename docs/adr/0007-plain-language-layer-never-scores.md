@@ -45,8 +45,9 @@ a check saw, and what follows from that is written with *can*, *may* or *if*. `t
 nothing else — no other file, no whole report, no path outside the scanned tree.
 
 **Stdlib only, loopback only.** The layer and the app it serves add no dependency (`dependencies = []` stays). The
-server binds `127.0.0.1` only, and every request must carry the session token and a `Host`/`Origin` from that
-loopback address.
+server binds `127.0.0.1` only. Every `/api/*` request carries the session token (C7); the page itself and its two
+static files are served without one, so a browser can load them. Every request, token or not, must arrive with a
+`Host` header on that loopback address, and an `Origin` header, where the browser sends one, from the same place.
 
 ## Alternatives
 

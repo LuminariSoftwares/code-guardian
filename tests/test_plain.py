@@ -162,7 +162,7 @@ def test_harm_nothing_branch_on_a_report_with_zero_findings():
     assert h["partial"] is False
     assert "No Safe check reported anything" in h["why"]
     assert plain.checked_lines(r) == [{"label": "Python", "files": 3, "depth": "full",
-                                       "text": "Python: 3 files -- %s." % plain.PYTHON_TEXT}]
+                                       "text": "Python: 3 files -- every Safe and Works check ran on these."}]
     assert plain.fix_first(r) == [] and plain.fix_first_notes(r) == []
 
 
@@ -319,3 +319,70 @@ def test_adr_0007_records_the_mapping_and_the_forbidden_words():
     # inventory when it scans itself.
     loopback = "127.0." + "0.1"
     assert "dependencies = []" in body and loopback in body
+
+
+# ---- Overseer review of c667512: six sentences claimed more than the check knows ------------------------------
+
+# (item, code, what the sentence must now say, what it must no longer claim, the scanner fact that forces it).
+# Each row is a FAILED review line on c667512; the "must not" string is the wording that shipped there.
+OVERCLAIMS = [
+    ("1-exec.dynamic", "exec.dynamic", ["module"], ["assembles a piece of program text"],
+     "scanners.scan_exec_dynamic also fires on __import__ of a computed name, which is not program text, and it "
+     "only ever sees that the argument is not a literal -- never that anything was assembled"),
+    ("2-works.test_no_assert", "works.test_no_assert", ["no assertion", "another file", "may "],
+     ["so they only notice a problem"],
+     "works.test_no_assert builds its helper set from the one file it is parsing, so a helper that asserts in "
+     "another file is invisible to it (the catalogue lists exactly that as a false positive)"),
+    ("3-works.todo_stub", "works.todo_stub", ["not implemented"], ["does nothing when it is called"],
+     "leftovers.is_stub also matches a body of only `raise NotImplementedError`, which stops with an error rather "
+     "than doing nothing"),
+    ("4-privacy.pii_prompt", "privacy.pii_prompt", ["looks like", "if it is one"],
+     ["is placed into a prompt for a language model"],
+     "scanners.scan_pii_prompt matches a messages=/prompt= argument or a .chat( / .complete( / .generate( call; "
+     "the catalogue lists a .complete( that is not a model call as a false positive"),
+]
+
+
+@pytest.mark.parametrize("item,code,must_say,must_not_claim,because", OVERCLAIMS,
+                         ids=[row[0] for row in OVERCLAIMS])
+def test_why_claims_no_more_than_the_check_can_see(item, code, must_say, must_not_claim, because):
+    text = plain.WHY[code]
+    for phrase in must_not_claim:
+        assert phrase not in text, (because, text)
+    for phrase in must_say:
+        assert phrase in text, (because, text)
+    assert any(h in text for h in (" can ", " may ", " if ", "looks like")), text
+
+
+def test_item_5_python_entry_leaves_out_the_files_that_did_not_parse():
+    """works_broken: 4 Python files, 1 of which ast.parse rejected. The "full" line may claim only the other 3."""
+    rep_ = report.scan(str(ROOT / "tests" / "fixtures" / "works_broken"))
+    assert rep_["coverage"]["python"] == 4 and rep_["files"]["unparsed"] == 1
+    lines = {e["label"]: e for e in plain.checked_lines(rep_)}
+    assert lines["Python"]["files"] == 3
+    assert lines["Python"]["text"].startswith("Python: 3 files -- ")
+    assert lines["Python that did not parse"]["files"] == 1
+    assert lines["Python that did not parse"]["depth"] == "secrets only"  # it was read, just not parsed
+
+
+def test_item_5_python_entry_never_claims_every_check_on_an_incomplete_scan():
+    crashed = f("check.crashed", "WARN", "a.py:1", "a check crashed")
+    for r in (rep([crashed]), rep([], status="PARTIAL", reasons=["1 Python file(s) did not parse: x.py"])):
+        text = [e for e in plain.checked_lines(r) if e["label"] == "Python"][0]["text"]
+        assert "every" not in text, text
+        assert "checks ran on these, except" in text, text
+    full = [e for e in plain.checked_lines(rep([])) if e["label"] == "Python"][0]["text"]
+    assert "every Safe and Works check ran" in full, full
+
+
+def test_item_5_python_entry_makes_no_per_file_claim_about_complete():
+    """Complete reads the project as a whole (a licence, a README, CI), never each Python file."""
+    for r in (rep([]), rep([], status="PARTIAL", reasons=["x"]), rep([f("check.crashed", "WARN")])):
+        text = [e for e in plain.checked_lines(r) if e["label"] == "Python"][0]["text"]
+        assert "Complete" not in text, text
+
+
+def test_item_6_adr_scopes_the_token_to_api_requests():
+    body = (ROOT / "docs" / "adr" / "0007-plain-language-layer-never-scores.md").read_text(encoding="utf-8")
+    assert "every request must carry the session token" not in body
+    assert "/api/*" in body and "Host" in body and "Origin" in body

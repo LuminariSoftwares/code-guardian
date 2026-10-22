@@ -97,8 +97,8 @@ WHY = {
         "An earlier change added a string shaped like a key to this file and a later change took it out again; "
         "anyone holding a copy of the project's history can still read it, and it may still work.",
     "exec.dynamic":
-        "The code assembles a piece of program text while it is running and then runs it, so reading the file does "
-        "not tell you everything it can end up doing.",
+        "The code runs a piece of text, or loads a module, that is chosen while the program runs rather than written "
+        "out in the file, so reading the file does not show everything it can end up doing.",
     "exec.shell":
         "The code hands a command to the system's command line; if any part of that command can come from outside, "
         "whoever controls that input may be able to run commands of their own.",
@@ -136,8 +136,8 @@ WHY = {
         "A value whose name says it holds personal data is written into the log; logs get copied, shared and kept "
         "far longer than the data itself.",
     "privacy.pii_prompt":
-        "A value whose name says it holds personal data is placed into a prompt for a language model, so it can be "
-        "sent to whoever runs that model and kept by them.",
+        "A value whose name says it holds personal data is passed to something that looks like a call to a language "
+        "model; if it is one, that data can be sent to whoever runs the model and kept by them.",
     "check.crashed":
         "One of code-guardian's own checks stopped with an error on this file, so that one check did not finish; "
         "the rest of the scan did, and this says nothing about your project.",
@@ -155,14 +155,14 @@ WHY = {
         "There are no test files anywhere in this project, so nothing here checks that the code still does what it "
         "is meant to do.",
     "works.test_no_assert":
-        "These tests run the code but never state what the result should be, so they only notice a problem if the "
-        "code stops with an error.",
+        "The check found no assertion in these tests, and it cannot see a helper that asserts in another file, so "
+        "they may only notice a problem if the code stops with an error.",
     "works.entry_missing":
         "A command this project installs points at a function that is not in the project, so typing that command "
         "can fail straight away.",
     "works.todo_stub":
-        "This is an empty placeholder somebody meant to fill in later, and the program can reach it, so that part "
-        "does nothing when it is called.",
+        "This is a placeholder somebody meant to fill in later, and the program can reach it, so if it is called it "
+        "either does nothing or stops with a \"not implemented\" error.",
     "works.commented_code":
         "Several lines of real code here are commented out instead of deleted; the project's history already keeps "
         "the old version, so this is leftover text that makes the file harder to read.",
@@ -369,13 +369,20 @@ def _cap_clause(scores):
 # ---------------------------------------------------------------------------------------------------------------
 # C4: what was actually checked
 
-PYTHON_TEXT = "every Safe, Works and Complete check ran on these"
+# Complete looks at the project as a whole, not at each file, so it is not part of a per-file claim. "every"
+# is only true when nothing was skipped or crashed; otherwise the line points at the reasons instead.
+PYTHON_TEXT = "every Safe and Works check ran on these"
+PYTHON_TEXT_PARTIAL = "the Safe and Works checks ran on these, except where the first line says otherwise"
+PYTHON_TEXT_CRASHED = "the Safe and Works checks ran on these, except where a check did not finish"
 OTHER_TEXT = ("read for key shapes, and where the file is a manifest for install hooks and pins; the code itself "
               "was not analysed")
 # Measured, not quoted: a skipped file is never opened. walk.py puts a file in files.skipped when it is binary, a
 # symlink, over the size limit or unreadable, and report.scan() secret-scans only inv["other"], never inv["skipped"].
 SKIPPED_TEXT = "not read at all, because they are binary, a symlink, too large or unreadable; the notes name each"
-UNPARSED_TEXT = "read, but Python could not parse them, so only the checks that do not need the parse tree ran"
+# An unparsed file is read and secret-scanned (report.scan() scans the text before building the parse tree) and
+# only then fails to parse, so it is "secrets only", not "not read".
+UNPARSED_TEXT = ("read and scanned for key shapes, but Python could not parse them, so every check that needs the "
+                 "parse tree was skipped on them")
 
 
 def checked_lines(rep):
@@ -383,27 +390,39 @@ def checked_lines(rep):
     PARTIAL or INVALID leads with why, so the first screen says it before it says anything else."""
     out = []
     reasons = _reasons(rep)
-    if rep.get("status") in ("PARTIAL", "INVALID") and reasons:
+    leads = rep.get("status") in ("PARTIAL", "INVALID") and bool(reasons)
+    if leads:
         out.append({"label": "Not fully checked", "files": 0, "depth": "not read",
                     "text": "Not fully checked: %s" % "; ".join(reasons)})
     cov = _coverage(rep)
-    python = int(cov.get("python") or 0)
+    files = rep.get("files") or {}
+    unparsed = int(files.get("unparsed") or 0)
+    # The files that did not parse get their own entry below; they are not files every check ran on.
+    python = max(0, int(cov.get("python") or 0) - unparsed)
     out.append({"label": "Python", "files": python, "depth": "full",
-                "text": "Python: %s -- %s." % (_plural(python, "file"), PYTHON_TEXT)})
+                "text": "Python: %s -- %s." % (_plural(python, "file"), _python_text(rep, leads))})
     for ext, count in sorted((cov.get("other_source") or {}).items()):
         label = LANGUAGES.get(ext, ext)
         out.append({"label": label, "files": int(count), "depth": "secrets+manifests",
                     "text": "%s: %s -- %s." % (label, _plural(int(count), "file"), OTHER_TEXT)})
-    files = rep.get("files") or {}
     skipped = int(files.get("skipped") or 0)
     if skipped:
         out.append({"label": "Skipped", "files": skipped, "depth": "not read",
                     "text": "Skipped: %s -- %s." % (_plural(skipped, "file"), SKIPPED_TEXT)})
-    unparsed = int(files.get("unparsed") or 0)
     if unparsed:
-        out.append({"label": "Python that did not parse", "files": unparsed, "depth": "not read",
+        out.append({"label": "Python that did not parse", "files": unparsed, "depth": "secrets only",
                     "text": "Python that did not parse: %s -- %s." % (_plural(unparsed, "file"), UNPARSED_TEXT)})
     return out
+
+
+def _python_text(rep, leads):
+    """"every check ran" only when the report says nothing was skipped, crashed or left unread."""
+    crashed = any(f.get("code") == "check.crashed" for f in _findings(rep))
+    if leads:
+        return PYTHON_TEXT_PARTIAL
+    if crashed or rep.get("status") in ("PARTIAL", "INVALID"):
+        return PYTHON_TEXT_CRASHED
+    return PYTHON_TEXT
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -496,9 +515,10 @@ def selftest():
     unknown_ext = _demo([], coverage=dict(low["coverage"], other_source={".zzq": 2}, other_source_files=2))
     skipped = _demo([], files={"python": 3, "manifests": 0, "other": 0, "skipped": 2, "ignored": 0, "excluded": 0,
                                "unparsed": 1})
+    crashed_rep = _demo([f("check.crashed", "WARN", "a.py:1", "a check crashed")])
 
     sentences = []
-    for rep in (high, medium, low, nothing, invalid, no_python, mixed, unknown_ext, skipped):
+    for rep in (high, medium, low, nothing, invalid, no_python, mixed, unknown_ext, skipped, crashed_rep):
         h = harm(rep)
         sentences += [h["level"], h["why"]]
         sentences += [score_sentence(d, rep) for d in ("safe", "works", "complete", "overall")]
@@ -549,7 +569,12 @@ def selftest():
          and checked_lines(no_python)[-1]["text"].startswith("JavaScript: 1 file --")),
         ("checked_lines_unknown_extension", ".zzq" in [e["label"] for e in checked_lines(unknown_ext)]),
         ("checked_lines_skipped_and_unparsed",
-         {"Skipped", "Python that did not parse"} <= {e["label"] for e in checked_lines(skipped)}),
+         {"Skipped", "Python that did not parse"} <= {e["label"] for e in checked_lines(skipped)}
+         and [e["files"] for e in checked_lines(skipped) if e["label"] == "Python"] == [2]),  # 3 read - 1 unparsed
+        ("checked_lines_hedge_when_a_check_did_not_finish",
+         "every" in checked_lines(low)[0]["text"]
+         and "every" not in [e for e in checked_lines(crashed_rep) if e["label"] == "Python"][0]["text"]
+         and "every" not in [e for e in checked_lines(no_python) if e["label"] == "Python"][0]["text"]),
         ("status_reasons_first", checked_lines(invalid)[0]["text"].endswith(invalid["status_reasons"][0])),
         ("finding_card_known", card["what"] == _title("secret.key") and card["why"] == WHY["secret.key"]
          and card["how"] == catalogue.CATALOGUE["secret.key"]["fix"] and card["confidence"] == "LIKELY"
