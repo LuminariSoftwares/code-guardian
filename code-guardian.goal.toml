@@ -21,6 +21,8 @@ entry_points = [
   "tools.build_known_packages:__main__",
   "tools.calibrate:__main__",
   "tools.tool_reference:__main__",
+  "tools.contrast_check:__main__",
+  "tools.ui_screenshots:__main__",
   "code_guardian.explain:__main__",
   "code_guardian.report:__main__",
   "code_guardian.cli:__main__",
