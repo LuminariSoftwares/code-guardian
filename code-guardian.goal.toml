@@ -29,6 +29,8 @@ entry_points = [
   "code_guardian.verify:__main__",
   "code_guardian.history:__main__",
   "code_guardian.leftovers:__main__",
+  "code_guardian.plain:__main__",
+  "code_guardian.ui:__main__",
 ]
 
 keep = []

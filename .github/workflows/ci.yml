@@ -57,6 +57,9 @@ jobs:
       - name: The wheel carries the offline list of known packages
         run: |
           python -c "import glob,zipfile;w=glob.glob('dist/*.whl')[0];n=zipfile.ZipFile(w).namelist();assert 'code_guardian/data/known_packages.txt.gz' in n,n;print('known_packages list present in',w)"
+      - name: The wheel carries the three files of the local page
+        run: |
+          python -c "import glob,zipfile;w=glob.glob('dist/*.whl')[0];n=zipfile.ZipFile(w).namelist();need=['code_guardian/ui/index.html','code_guardian/ui/app.css','code_guardian/ui/app.js'];missing=[x for x in need if x not in n];assert not missing,missing;print('ui files present in',w)"
       - name: Install the wheel in a clean venv and scan the risky fixture
         run: |
           python -m venv /tmp/wv
@@ -70,6 +73,7 @@ jobs:
           echo "scan exit code: $rc"
           test "$rc" = 1
           python -c "import json;r=json.load(open('/tmp/report.json'));codes=sorted({f['code'] for f in r['findings']});print(len(codes),'codes:',codes);safe={'deps.unpinned','deser.unsafe','exec.dynamic','exec.shell','fs.outside','install.hook','net.bind_all','net.egress','obfuscation','secret.key','tls.off'};assert safe<=set(codes),safe-set(codes);assert r['dimensions']['safe']['deducted']==237,r['dimensions']['safe'];assert (r['scores']['safe'],r['scores']['overall'],r['scores']['grade'])==(0,33,'F'),r['scores'];print('scores ok',r['scores'])"
+          /tmp/wv/bin/code-guardian ui --selftest
           printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | /tmp/wv/bin/code-guardian-mcp mcp | python -c "import json,sys;r=json.loads(sys.stdin.readline());assert r['result']['serverInfo']['name']=='code-guardian',r;print('mcp ok',r['result']['serverInfo'])"
 
   outputs:
