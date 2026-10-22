@@ -19,7 +19,12 @@ Documentation and MCP tool definitions; the scanner, scores and CLI behave as in
 - **`docs/adr/`:** six architecture decision records for choices already in the code.
 - Removed an unused import in `report.py` and one in `tests/test_supply.py`.
 
-## code-guardian 0.3.2 — unreleased
+## code-guardian 0.3.3 (2026-10-22)
+
+Re-release of the 0.3.2 fix. The v0.3.2 tag and GitHub release point at a commit from before the fix (it still
+reported 0.3.1 and scored JavaScript-only repos as COMPLETE / Works 100). Use v0.3.3.
+
+## code-guardian 0.3.2 (not published; tag v0.3.2 is the pre-fix commit)
 
 The report no longer claims checks that never ran on repos that are not Python. On 0.3.1 a repo with only
 `package.json`, one `.js` file and a short README scored **Works 100/100** and **COMPLETE**, and the only hint that no
@@ -43,7 +48,7 @@ code was analysed was a note at the bottom.
   and the coverage line; `description` now says Python.
 - Every dimension in `dimensions` carries `scored` and `partial` (additive; `schema_version` stays 2).
 
-## code-guardian 0.3.1 — unreleased
+## code-guardian 0.3.1 (2026-10-16)
 
 - **`plan`: the floored-dimension note no longer contradicts the plan.** When Safe (or any dimension) is at 0 with
   more than 100 points deducted, 0.3.0 always printed "no single Safe fix moves Overall yet (each shows +0)", even
