@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `code_guardian/plain.py`: a plain-language layer over a scan report -- a five-label harm level, one sentence per score, what was and was not checked, a card per finding and the fix-first list, in words for a reader who does not write code. It reads the report and changes nothing in it; the scores and findings are unchanged ([ADR 0007](docs/adr/0007-plain-language-layer-never-scores.md)).
+
 ## code-guardian 0.3.4 (2026-10-22)
 
 Review fixes (external review triage, 2026-10-21). One behaviour change in the scanner (URL credentials are
