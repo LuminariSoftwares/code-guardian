@@ -325,6 +325,8 @@ def _behind(rows):
 
 
 def _incomplete_clause(rep):
+    """Said once, on the Overall sentence: the page's banner already leads with it, so repeating it on Safe, Works
+    and Complete as well only adds noise."""
     return _PARTIAL_CLAUSE if rep.get("status") in ("PARTIAL", "INVALID") else ""
 
 
@@ -341,8 +343,7 @@ def score_sentence(dimension, rep):
         reason = _coverage(rep).get("reason") or "the check could not run on this project"
         return "%s is not scored for this project, because %s." % (DIMENSION_LABEL[dimension], reason)
     rows = _rows(rep, dimension)
-    return "%s scores %d out of 100: %s (%s)%s." % (DIMENSION_LABEL[dimension], value, _band(value), _behind(rows),
-                                                    _incomplete_clause(rep))
+    return "%s scores %d out of 100: %s (%s)." % (DIMENSION_LABEL[dimension], value, _band(value), _behind(rows))
 
 
 def _overall_sentence(rep, scores):
@@ -357,7 +358,7 @@ def _overall_sentence(rep, scores):
 
 
 def _cap_clause(scores):
-    """", capped at D: <cap_reason>" -- the reason verbatim from the report, the letter read back out of it."""
+    """", capped at D: <cap_reason>": the reason verbatim from the report, the letter read back out of it."""
     reason = scores.get("cap_reason")
     if not scores.get("capped") or not reason:
         return ""
@@ -374,6 +375,8 @@ def _cap_clause(scores):
 PYTHON_TEXT = "every Safe and Works check ran on these"
 PYTHON_TEXT_PARTIAL = "the Safe and Works checks ran on these, except where the first line says otherwise"
 PYTHON_TEXT_CRASHED = "the Safe and Works checks ran on these, except where a check did not finish"
+# With no Python file there is nothing for those checks to run on, so the line says that and claims nothing ran.
+PYTHON_TEXT_NONE = "there was no Python here for the Safe and Works checks to read"
 OTHER_TEXT = ("read for key shapes, and where the file is a manifest for install hooks and pins; the code itself "
               "was not analysed")
 # Measured, not quoted: a skipped file is never opened. walk.py puts a file in files.skipped when it is binary, a
@@ -400,23 +403,25 @@ def checked_lines(rep):
     # The files that did not parse get their own entry below; they are not files every check ran on.
     python = max(0, int(cov.get("python") or 0) - unparsed)
     out.append({"label": "Python", "files": python, "depth": "full",
-                "text": "Python: %s -- %s." % (_plural(python, "file"), _python_text(rep, leads))})
+                "text": "Python: %s \u2014 %s." % (_plural(python, "file"), _python_text(rep, leads, python))})
     for ext, count in sorted((cov.get("other_source") or {}).items()):
         label = LANGUAGES.get(ext, ext)
         out.append({"label": label, "files": int(count), "depth": "secrets+manifests",
-                    "text": "%s: %s -- %s." % (label, _plural(int(count), "file"), OTHER_TEXT)})
+                    "text": "%s: %s \u2014 %s." % (label, _plural(int(count), "file"), OTHER_TEXT)})
     skipped = int(files.get("skipped") or 0)
     if skipped:
         out.append({"label": "Skipped", "files": skipped, "depth": "not read",
-                    "text": "Skipped: %s -- %s." % (_plural(skipped, "file"), SKIPPED_TEXT)})
+                    "text": "Skipped: %s \u2014 %s." % (_plural(skipped, "file"), SKIPPED_TEXT)})
     if unparsed:
         out.append({"label": "Python that did not parse", "files": unparsed, "depth": "secrets only",
-                    "text": "Python that did not parse: %s -- %s." % (_plural(unparsed, "file"), UNPARSED_TEXT)})
+                    "text": "Python that did not parse: %s \u2014 %s." % (_plural(unparsed, "file"), UNPARSED_TEXT)})
     return out
 
 
-def _python_text(rep, leads):
+def _python_text(rep, leads, python):
     """"every check ran" only when the report says nothing was skipped, crashed or left unread."""
+    if not python:
+        return PYTHON_TEXT_NONE
     crashed = any(f.get("code") == "check.crashed" for f in _findings(rep))
     if leads:
         return PYTHON_TEXT_PARTIAL
@@ -566,7 +571,7 @@ def selftest():
         ("checked_lines_python_first", [e["label"] for e in checked_lines(low)][0] == "Python"
          and checked_lines(low)[0]["depth"] == "full"),
         ("checked_lines_language_named", [e for e in checked_lines(no_python) if e["label"] == "JavaScript"]
-         and checked_lines(no_python)[-1]["text"].startswith("JavaScript: 1 file --")),
+         and checked_lines(no_python)[-1]["text"].startswith("JavaScript: 1 file \u2014")),
         ("checked_lines_unknown_extension", ".zzq" in [e["label"] for e in checked_lines(unknown_ext)]),
         ("checked_lines_skipped_and_unparsed",
          {"Skipped", "Python that did not parse"} <= {e["label"] for e in checked_lines(skipped)}
@@ -575,6 +580,13 @@ def selftest():
          "every" in checked_lines(low)[0]["text"]
          and "every" not in [e for e in checked_lines(crashed_rep) if e["label"] == "Python"][0]["text"]
          and "every" not in [e for e in checked_lines(no_python) if e["label"] == "Python"][0]["text"]),
+        ("checked_lines_no_python_claims_nothing_ran",
+         [e["text"] for e in checked_lines(no_python) if e["label"] == "Python"][0] == "Python: 0 files \u2014 %s."
+         % PYTHON_TEXT_NONE),
+        ("no_ascii_double_dash", not [s for s in sentences if " -- " in (s or "")]),
+        ("partial_clause_once", sum(_PARTIAL_CLAUSE in score_sentence(d, no_python)
+                                    for d in ("safe", "works", "complete", "overall")) <= 1
+         and _PARTIAL_CLAUSE not in score_sentence("safe", no_python)),
         ("status_reasons_first", checked_lines(invalid)[0]["text"].endswith(invalid["status_reasons"][0])),
         ("finding_card_known", card["what"] == _title("secret.key") and card["why"] == WHY["secret.key"]
          and card["how"] == catalogue.CATALOGUE["secret.key"]["fix"] and card["confidence"] == "LIKELY"

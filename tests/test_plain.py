@@ -122,10 +122,27 @@ def test_score_sentence_refuses_an_unknown_dimension():
         plain.score_sentence("sideways", rep([]))
 
 
-def test_an_incomplete_scan_says_so_in_the_score_sentence():
-    partial = plain.score_sentence("safe", rep([], status="PARTIAL", reasons=["x"]))
-    assert "did not cover the whole project" in partial
-    assert "did not cover the whole project" not in plain.score_sentence("safe", rep([]))
+def test_an_incomplete_scan_says_so_once_on_the_overall_sentence():
+    r = rep([], status="PARTIAL", reasons=["x"])
+    assert "did not cover the whole project" in plain.score_sentence("overall", r)
+    for d in ("safe", "works", "complete"):
+        assert "did not cover the whole project" not in plain.score_sentence(d, r), d
+    assert "did not cover the whole project" not in plain.score_sentence("overall", rep([]))
+
+
+def test_no_python_line_says_there_was_nothing_to_check():
+    r = rep([], status="PARTIAL", reasons=[NO_PYTHON_REASON], coverage=NO_PYTHON_COVERAGE)
+    py = [e for e in plain.checked_lines(r) if e["label"] == "Python"][0]
+    assert py["files"] == 0
+    assert py["text"] == "Python: 0 files — there was no Python here for the Safe and Works checks to read.", py
+
+
+def test_no_sentence_uses_an_ascii_double_dash():
+    for r in (rep([]), rep([f("secret.key", "FAIL", "a.py:1")], status="PARTIAL", reasons=["x"]),
+              rep([], files=dict(rep([])["files"], skipped=1, unparsed=1))):
+        texts = [plain.harm(r)["why"]] + [plain.score_sentence(d, r) for d in ("safe", "works", "complete", "overall")]
+        texts += [e["text"] for e in plain.checked_lines(r)]
+        assert not [t for t in texts if " -- " in t], texts
 
 
 # ---- C2, every branch ------------------------------------------------------------------------------------------
@@ -162,7 +179,7 @@ def test_harm_nothing_branch_on_a_report_with_zero_findings():
     assert h["partial"] is False
     assert "No Safe check reported anything" in h["why"]
     assert plain.checked_lines(r) == [{"label": "Python", "files": 3, "depth": "full",
-                                       "text": "Python: 3 files -- every Safe and Works check ran on these."}]
+                                       "text": "Python: 3 files — every Safe and Works check ran on these."}]
     assert plain.fix_first(r) == [] and plain.fix_first_notes(r) == []
 
 
@@ -218,13 +235,13 @@ def test_languages_names_every_extension_a_scan_can_report():
 def test_unknown_extension_falls_back_to_the_extension_itself():
     r = rep([], coverage=dict(FULL_COVERAGE, other_source={".zzq": 2}, other_source_files=2))
     entry = [e for e in plain.checked_lines(r) if e["label"] == ".zzq"]
-    assert len(entry) == 1 and entry[0]["files"] == 2 and entry[0]["text"].startswith(".zzq: 2 files -- ")
+    assert len(entry) == 1 and entry[0]["files"] == 2 and entry[0]["text"].startswith(".zzq: 2 files — ")
 
 
 def test_checked_lines_text_pluralises():
     one = rep([], coverage=dict(FULL_COVERAGE, python=1))
-    assert plain.checked_lines(one)[0]["text"].startswith("Python: 1 file -- ")
-    assert plain.checked_lines(rep([]))[0]["text"].startswith("Python: 3 files -- ")
+    assert plain.checked_lines(one)[0]["text"].startswith("Python: 1 file — ")
+    assert plain.checked_lines(rep([]))[0]["text"].startswith("Python: 3 files — ")
 
 
 # ---- C5 ---------------------------------------------------------------------------------------------------------
@@ -360,7 +377,7 @@ def test_item_5_python_entry_leaves_out_the_files_that_did_not_parse():
     assert rep_["coverage"]["python"] == 4 and rep_["files"]["unparsed"] == 1
     lines = {e["label"]: e for e in plain.checked_lines(rep_)}
     assert lines["Python"]["files"] == 3
-    assert lines["Python"]["text"].startswith("Python: 3 files -- ")
+    assert lines["Python"]["text"].startswith("Python: 3 files — ")
     assert lines["Python that did not parse"]["files"] == 1
     assert lines["Python that did not parse"]["depth"] == "secrets only"  # it was read, just not parsed
 

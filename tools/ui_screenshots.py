@@ -7,8 +7,9 @@ so the projects are copied into a neutral folder (default /tmp/demo) and only th
     python tools/ui_screenshots.py [--out docs/screenshots] [--root /tmp/demo]
 
 Writes {open,result,fixfirst,findings,code}_{390x844,1280x800}.png. result_390x844 is a JavaScript-only project, so
-its first screen shows the PARTIAL banner and the "partial check" flag; every other screen is a copy of
-tests/fixtures/risky_repo. Fails if any screen scrolls sideways.
+its first screen shows the PARTIAL banner, the grey "No known risks found" and the "partial check" flag; every other
+screen is a copy of tests/fixtures/risky_repo, whose Fix first screen shows the scan's notes above the list and whose
+Code screen shows one inline note opened. Fails if any screen scrolls sideways.
 """
 import argparse
 import os
@@ -58,7 +59,8 @@ def check(page, path):
     page.fill("#path", str(path))
     page.click("#scan-button")
     page.wait_for_selector("#screen-result:not([hidden])", timeout=60000)
-    page.wait_for_function("document.getElementById('scanned-when').textContent !== ''", timeout=10000)
+    # Selectors, not wait_for_function: that one evaluates a string, which the page's CSP (no unsafe-eval) refuses.
+    page.wait_for_selector("#scanned-when:has-text('checked at')", timeout=10000)
 
 
 def shoot(page, out, name):
@@ -94,6 +96,8 @@ def capture(browser, out, risky, js, width, height, scale):
         shoot(page, out, "findings_%s.png" % size)
         page.get_by_role("button", name=CODE_LINK).first.click()
         page.wait_for_selector("#L7.target")
+        page.click("#L7 + .line-note .note-toggle")
+        page.wait_for_selector("#L7 + .line-note .note-toggle[aria-expanded=true]")
         # Select lines 7-9 the way a finger or a mouse would, so the selection note shows.
         page.evaluate("""() => {
             const r = document.createRange();
@@ -101,7 +105,7 @@ def capture(browser, out, risky, js, width, height, scale):
             r.setEnd(document.querySelector('#L9 .src'), 1);
             const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
         }""")
-        page.wait_for_function("document.getElementById('selection-note').textContent.indexOf('Lines 7') === 0")
+        page.wait_for_selector("#selection-note:has-text('Lines 7')")
         page.evaluate("document.getElementById('code').scrollTop = 0")
         shoot(page, out, "code_%s.png" % size)
         page.click("#new-check")

@@ -187,7 +187,8 @@ def plain_of(rep):
             "sentences": {d: plain.score_sentence(d, rep) for d in DIMENSIONS},
             "checked": plain.checked_lines(rep),
             "cards": [plain.finding_card(f, rep) for f in rep["findings"]],
-            "fix_first": plain.fix_first(rep)}
+            "fix_first": plain.fix_first(rep),
+            "fix_first_notes": plain.fix_first_notes(rep)}
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
