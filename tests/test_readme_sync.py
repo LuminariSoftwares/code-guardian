@@ -1,4 +1,5 @@
-"""The README's check tables and the weight tables in score.py say the same thing: change them together."""
+"""The README's check tables and the weight tables in score.py say the same thing: change them together,
+and every message the troubleshooting table quotes is one the code really produces."""
 import re
 from pathlib import Path
 
@@ -38,3 +39,18 @@ def test_every_catalogue_code_is_in_the_readme_catalogue():
         row = [ln for ln in section.splitlines() if ln.startswith("| `%s` |" % code)]
         assert len(row) == 1, code
         assert entry["fix"].replace("|", "\\|") in row[0], code
+
+
+def test_troubleshooting_table_quotes_real_messages():
+    """The README promises these strings are pinned by tests. Each one has to come from the code (or, for a message
+    assembled at run time, from the fragment the code holds), or the promise is empty."""
+    text = (ROOT / "README.md").read_text(encoding="utf-8")
+    table = text[text.index("<!-- troubleshooting:start -->"):text.index("<!-- troubleshooting:end -->")]
+    source = "\n".join((ROOT / "code_guardian" / name).read_text(encoding="utf-8")
+                       for name in ("mcp_server.py", "report.py", "goal.py", "cli.py"))
+    for fragment in ("does not exist: %s", "no Python files and no manifests to judge", "PATH is unreadable",
+                     "must be a list of strings"):
+        assert fragment in source, fragment
+    for quoted in ("path does not exist", "no Python files and no manifests to judge", "PATH is unreadable",
+                   "entry_points must be a list of strings"):
+        assert quoted in table, quoted

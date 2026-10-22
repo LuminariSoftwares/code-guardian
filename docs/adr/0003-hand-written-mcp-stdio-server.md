@@ -4,8 +4,9 @@ Status: accepted (0.1.0, commit fbe1aa3; shape shared with stack-guardian). Reco
 
 ## Context
 
-code-guardian is offered to AI clients as an MCP server (`uvx code-guardian-mcp mcp`, listed in the MCP Registry and
-on Glama). The server needs `initialize`, `tools/list`, `tools/call` and `ping` over stdio for five read-only tools.
+code-guardian is offered to AI clients as an MCP server (`uvx code-guardian-mcp mcp`, listed on Glama; the wheel
+carries the `mcp-name:` marker an MCP Registry entry needs, but it is not listed there yet). The server
+needs `initialize`, `tools/list`, `tools/call` and `ping` over stdio for five read-only tools.
 The official Python SDK would bring a dependency tree into a package that otherwise has none ([0001](0001-static-analysis-stdlib-only.md)).
 
 ## Decision

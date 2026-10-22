@@ -2,16 +2,58 @@
 
 ## Unreleased
 
-Documentation and MCP tool definitions; the scanner, scores and CLI behave as in 0.3.2.
+Review fixes (external review triage, 2026-10-21). One behaviour change in the scanner (URL credentials are
+redacted); otherwise the scores, findings and CLI behave as in 0.3.2.
+
+- **Secrets inside a URL literal are no longer printed.** A webhook URL, a signed query string or
+  `user:password@host` is itself a credential, and `scan` reprinted it verbatim in `egress[].target`, in the
+  `net.egress` findings and in the payload `--explain` sends. Userinfo, every query-parameter value, the fragment
+  and the path of a known webhook host (`hooks.slack.com/services/…`, `discord.com/api/webhooks/…`) are now masked
+  to `<redacted>`; the scheme, host, port, path and parameter names stay, so the egress inventory still says where
+  the code talks to. New `scanners.redact_url()`. Finding fingerprints are computed from the source line, not from
+  the printed target, so a baseline written before this change still matches (`tests/test_egress_redaction.py`).
+- **The MCP tool definitions are less than half the size.** `tools/list` went from 2,753 tokens to 1,295 against a
+  budget of 1,300, measured by the new `tests/test_tools_list_budget.py` (it starts the real server over stdio, so
+  CI enforces the budget). Tool names, arguments, defaults, annotations and results are unchanged; the
+  `Parameters:` prose that restated the schema is gone, and each description now carries what an agent needs to
+  choose a tool — what it does, which sibling to use instead, side effects, the return shape, and, for `scan`,
+  `plan` and `orphans`, that finding text is repository data and not instructions. `tests/test_tool_docs.py` checks
+  that structure instead of requiring length. The display titles of `plan` and `explain` are shorter ("Plan fixes",
+  "Explain a scan").
+- **MCP replies are compact JSON** (`separators=(",", ":")` instead of `indent=1`): the same fields, about 21%
+  fewer characters (23,078 → 18,154 on `tests/fixtures/risky_repo`).
+- **A JSON line that is not an object** (an array, a string, a number) is answered with JSON-RPC `-32600` and the
+  server keeps reading, instead of being silently dropped. An unknown method was already `-32601`; that is now
+  covered by a test, `server/discover` included, so a client of the stateless MCP revision can fall back.
+- **CI** also runs the suite on Ubuntu with Python 3.12 and 3.13 (the existing job names are unchanged), and every
+  third-party action in the workflows and in `action.yml` is pinned to a full commit SHA with the version in a
+  comment.
+- **`pip install -e ".[test]"`** installs what the suite needs (`pytest`, `build`, `jsonschema`); the README recipe
+  used to leave `tests/test_spdx_license.py` failing on a missing `build`. Runtime `dependencies` stay empty.
+- **`SECURITY.md`** (private vulnerability reporting, plus exactly what leaves the machine and what is written) and
+  **`CONTRIBUTING.md`** (how to run the tests, and the privacy and identity rules for commits).
+- **README:** who the tool is for and the other three guardians; the MCP protocol revision and that the server is
+  stdio only (put an authenticating proxy in front to reach it over a network); a troubleshooting table whose
+  messages are pinned by tests; a "one maintainer, best effort" line.
+- **`docs/adr/0003`** no longer says the server is listed in the MCP Registry: the wheel carries the `mcp-name:`
+  marker, but the entry does not exist yet. `pyproject.toml` declares `Development Status :: 4 - Beta`.
+- **The test harness no longer leaves a thread running after a test** (`tests/conftest.py`). The stub HTTP server
+  the timeout tests use left a daemon handler thread asleep in its route delay after the client had given up; that
+  thread then wrote a socketserver traceback to stderr for a socket nobody was reading, and a thread writing to
+  stderr while CPython finalises aborts the process (`Fatal Python error: _enter_buffered_busy`, exit code 134) —
+  after the suite had already reported every test passed. The delay is now interruptible, handler threads are
+  joined by `close()`, and a client hanging up is recorded instead of printed, with anything unexpected failing
+  the test that caused it (`tests/test_stub_server.py`). No change to code-guardian itself.
 
 - **MCP tool definitions rewritten for agents.** Each of `scan`, `diff`, `plan`, `orphans` and `explain` now says
-  what it does, when to use it, which sibling tool to use instead, what each parameter means, its side effects
-  (read-only; network only for `explain`), its output shape and its errors. Every parameter has a description, `examples`, and where it applies a `default`
-  (`fail_on` FAIL, `top` 10) and `minLength`; each `inputSchema` sets `additionalProperties: false`. The server still
-  accepts the same arguments and gives the same results.
-- **`tests/test_tool_docs.py`** fails if a tool or parameter loses its description, example or documented default,
-  if a documented default differs from the one the server uses, or if the README's tool reference drifts from the
-  served schemas, or if a description stops naming every parameter in its `Parameters:` clause. The schemas are validated with `jsonschema` (installed in the CI test job; skipped when absent).
+  what it does, when to use it, which sibling tool to use instead, its side effects (read-only; network only for
+  `explain`) and its output shape. Every parameter has a description, one `examples` entry, and where it applies a
+  `default` (`fail_on` FAIL, `top` 10) and `minLength`; each `inputSchema` sets `additionalProperties: false`. The
+  server still accepts the same arguments and gives the same results. (The first draft of this also restated the
+  whole schema in prose; see the token-budget entry above for what that cost and what replaced it.)
+- **`tests/test_tool_docs.py`** fails if a tool or parameter loses its description or example, if a documented
+  default differs from the one the server uses, or if the README's tool reference drifts from the served schemas.
+  The schemas are validated with `jsonschema` (in the `[test]` extra; skipped when absent).
 - **`tools/tool_reference.py`** generates the README's MCP tool reference from `TOOL_SPECS` (`--write`).
 - **README:** a 60-second quick start, an Architecture section (Mermaid diagram and the key decisions with their
   trade-offs), Claude Desktop / Claude Code / generic MCP client config, the generated tool reference, "How it is
