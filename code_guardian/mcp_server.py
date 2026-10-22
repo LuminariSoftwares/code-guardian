@@ -11,7 +11,7 @@ import sys
 
 PROTOCOL = "2024-11-05"
 SERVER_NAME = "code-guardian"
-VERSION = "0.3.2"  # keep equal to code_guardian.__version__ and pyproject.toml (this module stays package-free)
+VERSION = "0.3.3"  # keep equal to code_guardian.__version__ and pyproject.toml (this module stays package-free)
 _PATH = {"type": "string", "description": "the project directory to read"}
 _GOAL = {"type": "string", "description": "goal contract file; default PATH/code-guardian.goal.toml if present"}
 
