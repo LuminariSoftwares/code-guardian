@@ -9,6 +9,7 @@ Public contract:
     PY_SCANNERS = [(code, fn(PyFile) -> [finding])]    # Python files only
     scan_python(pf, crashed=None) -> [finding]         # every PY_SCANNERS entry; a crashing scanner is one WARN
     redact(text, strict=False) -> text                 # key shapes and email addresses masked (every output path)
+    redact_url(url) -> url                             # credentials inside a URL literal masked
     key_values(line) -> [str]                          # the FAIL-level key-shaped values on a line (history scan)
     redact_report(obj) -> a redacted deep copy         # what every output path (JSON, text, Markdown, SARIF, MCP) uses
 """
@@ -243,6 +244,51 @@ def redact(text, strict=False):
     if strict:
         text = _STRICT_TOKEN.sub(lambda m: "<redacted value>" if _token_like(m.group(0)) else m.group(0), text)
     return text
+
+
+REDACTED = "<redacted>"
+# A URL can itself be the credential. Webhook hosts whose path is the secret: the prefix stays, the rest goes.
+WEBHOOK_PREFIXES = (("hooks.slack.com", "/services/"), ("discord.com", "/api/webhooks/"),
+                    ("ptb.discord.com", "/api/webhooks/"), ("canary.discord.com", "/api/webhooks/"),
+                    ("discordapp.com", "/api/webhooks/"))
+
+
+def _redact_query(query):
+    """Every parameter value masked, the names kept: api_key, token, sig and X-Amz-Signature are the point, but a
+    value is masked whatever it is called -- a report never needs one."""
+    out = []
+    for part in query.split("&"):
+        name, sep, _value = part.partition("=")
+        out.append(name + sep + REDACTED if sep else part)
+    return "&".join(out)
+
+
+def redact_url(url):
+    """url with the credentials a URL can carry masked: the userinfo (`user:password@`), every query parameter
+    value, the fragment, and the secret part of a known webhook path. Scheme, host, port, path and parameter names
+    stay, so the egress inventory still says where the code talks to. Idempotent; not a scheme-aware parser --
+    anything it cannot split comes back unchanged."""
+    try:
+        parts = urlsplit(url)
+        host = (parts.hostname or "").lower()
+    except ValueError:
+        return url
+    if not parts.scheme or not parts.netloc:
+        return url
+    netloc = parts.netloc
+    if "@" in netloc:
+        netloc = REDACTED + "@" + netloc.rsplit("@", 1)[1]
+    path = parts.path
+    for webhook_host, prefix in WEBHOOK_PREFIXES:
+        if host == webhook_host and path.startswith(prefix) and path != prefix + REDACTED:
+            path = prefix + REDACTED
+            break
+    out = "%s://%s%s" % (parts.scheme, netloc, path)
+    if parts.query:
+        out += "?" + _redact_query(parts.query)
+    if parts.fragment:
+        out += "#" + REDACTED
+    return out
 
 
 SENSITIVE_PREFIXES = ("secret.", "privacy.")  # their evidence is redacted strictly, in every format
@@ -550,6 +596,7 @@ def scan_egress(pf):
     for node, text in pf.strings():
         for url in URL.findall(text):
             level, why = classify_host(*_url_host(url))
+            url = redact_url(url)  # the report says where, never with what: a URL can be the credential
             out.append(finding("net.egress", level, node_of(pf, node), "URL literal %s (%s)" % (url[:80], why),
                                ["kind: url", "target: %s" % url[:200], "why: %s" % why],
                                ["use https", "confirm this destination is expected"] if level == "WARN" else []))
