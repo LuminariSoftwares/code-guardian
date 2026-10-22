@@ -5,4 +5,4 @@ graph and project-file checks, plus an optional plain-English explanation from a
 score. Standard library only; the scanned code is parsed, never executed, imported or installed.
 """
 
-__version__ = "0.3.2"  # keep equal to pyproject.toml version and mcp_server.VERSION
+__version__ = "0.3.3"  # keep equal to pyproject.toml version and mcp_server.VERSION
