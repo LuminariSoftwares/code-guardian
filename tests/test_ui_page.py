@@ -329,7 +329,8 @@ def test_two_saved_files_compare_and_a_new_high_stands_out(tmp_path):
         page.set_input_files("#file-after", str(project / "app.py"))
         page.click("#files-compare")
         page.wait_for_selector("#compare-error:not([hidden])")
-        assert "The after file is not a report saved with code-guardian scan --json" in page.inner_text("#compare-error")
+        assert page.inner_text("#compare-error").startswith(
+            "The after file is not a check saved by code-guardian. Pick files made with Save this check.")
     finally:
         browser.close()
         pw.stop()
@@ -836,3 +837,52 @@ def test_the_save_line_appears_after_a_click_and_goes_when_another_check_is_draw
         page.click("#check-again-summary")
         page.wait_for_selector("#check-again-summary:not([disabled])")
         assert page.is_hidden("#save-note")
+
+
+# ---- error sentences (P76 S6b): plain words first, the command line never the first or only advice ----------------
+
+CLI_ADVICE = re.compile(r"In a terminal|scan --json|code-guardian (?:scan|diff)")
+
+
+def test_no_error_sentence_in_the_page_leads_with_or_consists_of_command_line_advice():
+    found = [s for s in _strings(_js()) if CLI_ADVICE.search(s)]
+    assert found, "the one command-line alternative (Compare, too large) is still offered"
+    for text in found:
+        before = text[:CLI_ADVICE.search(text).start()]
+        assert before.strip(), "starts with command-line advice: " + text
+        first, sep, _ = before.partition("\\n")
+        assert sep and first.rstrip().endswith("."), "the plain sentence must come first, then a line break: " + text
+        assert "In a terminal" not in text and "scan --json" not in text, text
+
+
+def test_wrong_and_too_large_files_get_plain_sentences_with_the_command_line_after(tmp_path):
+    notacheck = tmp_path / "notes.txt"
+    notacheck.write_text("hello", encoding="utf-8")
+    big = tmp_path / "big.json"
+    big.write_text(json.dumps({"pad": "x" * (1024 * 1024 + 10)}), encoding="utf-8")
+    with _page(1280, 800) as (page, url):
+        page.goto(url)
+        page.wait_for_selector("#screen-open:not([hidden])")
+        page.set_input_files("#open-saved", str(notacheck))
+        page.wait_for_selector("#open-error:not([hidden])")
+        text = page.inner_text("#open-error")
+        assert text.startswith("That file is not a check saved by code-guardian. Pick a file made with Save this check."), text
+        assert "command" not in text and "--json" not in text, text
+        page.set_input_files("#open-saved", str(big))
+        page.wait_for_selector("#open-error:has-text('too large')")
+        assert page.inner_text("#open-error") == "That file is too large to open here (over 1 MB)."
+        page.click("#screen-open button[data-screen=compare]")
+        page.set_input_files("#file-before", str(notacheck))
+        page.set_input_files("#file-after", str(big))
+        page.click("#files-compare")
+        page.wait_for_selector("#compare-error:has-text('too large')")
+        lines = page.inner_text("#compare-error").split("\n")
+        lines = [ln for ln in lines if ln.strip()]
+        assert lines == ["These files are too large to compare here (over 1 MB together).",
+                         "If you use the command line: code-guardian diff before.json after.json"], lines
+        page.set_input_files("#file-after", str(notacheck))
+        page.click("#files-compare")
+        page.wait_for_selector("#compare-error:has-text('not a check')")
+        text = page.inner_text("#compare-error")
+        assert text.startswith("The before file is not a check saved by code-guardian. Pick files made with Save this check."), text
+        assert "terminal" not in text
