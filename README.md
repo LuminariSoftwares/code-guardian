@@ -727,6 +727,10 @@ Guarantees, each covered by a test against a stub model on loopback:
 - **It talks to one URL:** the one you configured, directly (no proxy). The scan itself never touches the network.
 - **It fails soft:** with the URL unset or unreachable, the report is unchanged and one note line says why.
 
+`code-guardian ui` can also send *the lines you select* in its Code screen to the same configured model, after it
+has told you how many lines go to which host and you have confirmed; it sends the file name, the two line numbers and
+those lines, and nothing else from the project. `scan --explain` still sends findings only, never source.
+
 ## MCP server
 
 `code-guardian-mcp` (or `code-guardian mcp`) speaks MCP over stdio with five tools. All five only read: none writes,

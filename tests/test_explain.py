@@ -112,3 +112,47 @@ def test_endpoint_detection():
         except ValueError:
             continue
         raise AssertionError(bad)
+
+
+# ---- excerpt: the lines a person picked in `code-guardian ui` ---------------------------------------------------------
+
+CODE = ["alpha = 1", "beta = 2", "gamma = 3", "delta = 4"]
+
+
+def test_excerpt_openai_shape_sends_only_the_picked_lines(stub):
+    model = stub({("POST", "/v1/chat/completions"): (200, OPENAI_REPLY, 0)})
+    text, note = explain.excerpt("pkg/mod.py", CODE, 2, 3, {"CODE_GUARDIAN_LLM_URL": model.url + "/v1",
+                                                            "CODE_GUARDIAN_LLM_MODEL": "m"})
+    assert text == OPENAI_REPLY["choices"][0]["message"]["content"] and note.startswith("explain: openai answered")
+    body = model.requests[0][2]
+    assert body["temperature"] == 0 and body["stream"] is False
+    assert [m["role"] for m in body["messages"]] == ["system", "user"]
+    assert json.loads(body["messages"][1]["content"]) == {"file": "pkg/mod.py", "start": 2, "end": 3,
+                                                          "code": "beta = 2\ngamma = 3"}
+    assert "alpha" not in json.dumps(body) and "delta" not in json.dumps(body)
+
+
+def test_excerpt_fails_soft_and_names_the_host_without_credentials():
+    port = closed_port()
+    url = HTTP + "someone:hunter2@127.0.0.1:%d/api/chat" % port
+    text, note = explain.excerpt("a.py", CODE, 1, 2, {"CODE_GUARDIAN_LLM_URL": url, "CODE_GUARDIAN_LLM_MODEL": "m",
+                                                      "CODE_GUARDIAN_LLM_TIMEOUT": "3"})
+    assert text is None and note.startswith("explain skipped: the model at 127.0.0.1:%d did not answer" % port)
+    assert "hunter2" not in note and "someone" not in note
+
+
+def test_excerpt_soft_failures_use_the_explain_notes(stub):
+    assert explain.excerpt("a.py", CODE, 1, 2, {"CODE_GUARDIAN_LLM_URL": "http://127.0.0.1:9"}) == \
+        (None, "explain skipped: CODE_GUARDIAN_LLM_MODEL is not set")
+    assert explain.excerpt("a.py", CODE, 1, 2, {})[1] == "explain skipped: CODE_GUARDIAN_LLM_URL is not set"
+    assert explain.excerpt("a.py", CODE, 1, 2, {"CODE_GUARDIAN_LLM_URL": "file:///x",
+                                                "CODE_GUARDIAN_LLM_MODEL": "m"})[0] is None
+    model = stub({("POST", "/api/chat"): (200, {"message": {"content": ""}}, 0)})
+    assert explain.excerpt("a.py", CODE, 1, 2, {"CODE_GUARDIAN_LLM_URL": model.url,
+                                                "CODE_GUARDIAN_LLM_MODEL": "m"}) == \
+        (None, "explain skipped: the model returned no text")
+
+
+def test_hostport_drops_credentials():
+    assert explain.hostport(HTTP + "u:p@" + tailnet(2) + ":11434/api/chat") == tailnet(2) + ":11434"
+    assert explain.hostport(HTTP + "localhost/api/chat") == "localhost"

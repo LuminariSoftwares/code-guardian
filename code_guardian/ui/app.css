@@ -471,7 +471,14 @@ input.mono { font-size: 1rem; }
 
 .explain-bar { margin-top: 0.75rem; }
 .explain-bar .row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; }
-.sent-to, .later { color: var(--muted); font-size: 0.875rem; margin: 0.5rem 0 0; }
+.range { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; margin: 0 0 0.5rem; }
+.range label { margin: 0; font-weight: 400; color: var(--muted); font-size: 0.875rem; white-space: nowrap; }
+.range input { width: 5.5rem; min-height: 44px; padding: 0.25rem 0.625rem; }
+.line.picked { background: var(--hl); }
+.line.picked .ln { color: var(--text); }
+.explain-body-text { white-space: pre-wrap; margin: 0 0 0.75rem; }
+#explain-body .row { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; }
+.sent-to { color: var(--muted); font-size: 0.875rem; margin: 0.5rem 0 0; }
 .explain-panel { margin-top: 1rem; }
 .explain-panel h3 { color: var(--medium); }
 

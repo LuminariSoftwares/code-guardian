@@ -16,6 +16,8 @@ Public contract:
     payload(report) -> dict                       # exactly what is sent
     endpoint(url) -> (api, url)                   # api is "ollama" or "openai"; raises ValueError
     explain(report, env=None) -> (text or None, note or None)
+    excerpt(rel, lines, start, end, env=None) -> (text or None, note)   # `code-guardian ui`: only the lines you chose
+    hostport(url) -> "host:port"
 """
 
 import http.server
@@ -36,6 +38,9 @@ SYSTEM = ("You explain the results of a static code scan to someone who does not
           "it have what it needs?), plus an Overall score and grade. Use only the JSON you are given. Do not add, "
           "remove, merge or re-grade findings, and do not invent file names. In at most 150 words: say what the "
           "scores mean, then the two or three most important things to do first, in plain words.")
+SYSTEM_EXCERPT = ("You explain a few lines of code to someone who does not write code. Say in plain words what these "
+                  "lines do and what could go wrong when they run. Use only the JSON you are given. Do not grade, "
+                  "score or rate the code, and do not invent file names. In at most 150 words.")
 FIELDS = ("code", "level", "node", "summary")
 
 
@@ -66,9 +71,16 @@ def endpoint(url):
     return api, urllib.parse.urlunsplit((parts.scheme, parts.netloc, path, "", ""))
 
 
+def _messages(system, user):
+    return [{"role": "system", "content": system}, {"role": "user", "content": user}]
+
+
 def _request(api, model, report):
-    messages = [{"role": "system", "content": SYSTEM},
-                {"role": "user", "content": json.dumps(payload(report), sort_keys=True)}]
+    messages = _messages(SYSTEM, json.dumps(payload(report), sort_keys=True))
+    return _body(api, model, messages)
+
+
+def _body(api, model, messages):
     if api == "ollama":
         return {"model": model, "messages": messages, "stream": False, "options": {"temperature": 0}}
     return {"model": model, "messages": messages, "temperature": 0, "stream": False}
@@ -81,7 +93,13 @@ def _text(api, body):
     return (((choices[0] or {}).get("message") or {}).get("content") or "").strip()
 
 
-def explain(report, env=None):
+def hostport(url):
+    """host:port of a model URL, without any user:password in it."""
+    return urllib.parse.urlsplit(url).netloc.rpartition("@")[2]
+
+
+def _ask(env, build):
+    """Send build(api, model) to the configured model: (text or None, note). The one place a request is made."""
     env = os.environ if env is None else env
     url = (env.get("CODE_GUARDIAN_LLM_URL") or "").strip()
     model = (env.get("CODE_GUARDIAN_LLM_MODEL") or "").strip()
@@ -97,7 +115,7 @@ def explain(report, env=None):
     headers = {"Content-Type": "application/json"}
     if api == "openai" and env.get("CODE_GUARDIAN_LLM_KEY"):
         headers["Authorization"] = "Bearer " + env["CODE_GUARDIAN_LLM_KEY"]
-    req = urllib.request.Request(full, data=json.dumps(_request(api, model, report)).encode("utf-8"),
+    req = urllib.request.Request(full, data=json.dumps(build(api, model)).encode("utf-8"),
                                  headers=headers, method="POST")
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     started = time.perf_counter()
@@ -105,12 +123,23 @@ def explain(report, env=None):
         with opener.open(req, timeout=timeout) as resp:
             body = json.loads(resp.read().decode("utf-8"))
     except (urllib.error.URLError, OSError, ValueError) as exc:
-        return None, "explain skipped: the model at %s did not answer (%s)" % (urllib.parse.urlsplit(full).netloc,
-                                                                            type(exc).__name__)
+        return None, "explain skipped: the model at %s did not answer (%s)" % (hostport(full), type(exc).__name__)
     text = _text(api, body) if isinstance(body, dict) else ""
     if not text:
         return None, "explain skipped: the model returned no text"
     return text, "explain: %s answered in %.1f s" % (api, time.perf_counter() - started)
+
+
+def explain(report, env=None):
+    return _ask(env, lambda api, model: _request(api, model, report))
+
+
+def excerpt(rel, lines, start, end, env=None):
+    """Ask the model what lines start..end (1-based, inclusive) of one file do. Sends only the file name, the two
+    numbers and those lines: nothing else from the project."""
+    sent = json.dumps({"file": rel, "start": start, "end": end, "code": "\n".join(lines[start - 1:end])},
+                      sort_keys=True)
+    return _ask(env, lambda api, model: _body(api, model, _messages(SYSTEM_EXCERPT, sent)))
 
 
 def main(argv=None):
@@ -148,6 +177,7 @@ def selftest():
     try:
         ollama = explain(report, {"CODE_GUARDIAN_LLM_URL": base, "CODE_GUARDIAN_LLM_MODEL": "m"})
         openai = explain(report, {"CODE_GUARDIAN_LLM_URL": base + "/v1", "CODE_GUARDIAN_LLM_MODEL": "m"})
+        picked = excerpt("a.py", ["FIRST", "SECOND", "THIRD"], 2, 2, {"CODE_GUARDIAN_LLM_URL": base, "CODE_GUARDIAN_LLM_MODEL": "m"})
     finally:
         server.shutdown()
         server.server_close()
@@ -159,6 +189,8 @@ def selftest():
         ("unset", explain(report, {}) == (None, "explain skipped: CODE_GUARDIAN_LLM_URL is not set")),
         ("unreachable_soft", dead[0] is None and dead[1].startswith("explain skipped: the model at")),
         ("scheme", explain(report, {"CODE_GUARDIAN_LLM_URL": "file:///x", "CODE_GUARDIAN_LLM_MODEL": "m"})[0] is None),
+        ("excerpt_picked_lines_only", picked[0] == "All clear." and '"code": "SECOND"' in seen[2][1]["messages"][1]["content"]
+         and "FIRST" not in json.dumps(seen[2]) and "THIRD" not in json.dumps(seen[2])),
         ("endpoint", endpoint(base + "/v1/chat/completions")[0] == "openai" and endpoint(base + "/api/chat")[0] == "ollama"),
     ]
     return summarize("explain", checks)

@@ -10,8 +10,14 @@ Writes {open,result,fixfirst,findings,code}_{390x844,1280x800}.png. result_390x8
 its first screen shows the PARTIAL banner, the grey "No known risks found" and the "partial check" flag; every other
 screen is a copy of tests/fixtures/risky_repo, whose Fix first screen shows the scan's notes above the list and whose
 Code screen shows one inline note opened. Fails if any screen scrolls sideways.
+
+The Code screens also show a selection, the filled start and end fields and an answer in the explanation panel. The
+answer comes from a stub model started here, a tiny HTTP server on the loopback address that returns one fixed
+sample reply, so no real model is ever involved and the picture says plainly that it is a sample.
 """
 import argparse
+import http.server
+import json
 import os
 import shutil
 import sys
@@ -32,6 +38,27 @@ JS_FILES = {
     "README.md": "# my-js-app\n\nA tiny web server.\n",
 }
 CODE_LINK = "risky/runner.py line 7"
+SAMPLE_ANSWER = ("Sample answer from a test model: these lines start another program and wait for it to finish. "
+                 "This is a fixed sample reply, not a real analysis.")
+
+
+def start_stub_model():
+    """A model on 127.0.0.1 that answers every /api/chat with SAMPLE_ANSWER; returns (server, url)."""
+    class Stub(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):  # noqa: N802
+            self.rfile.read(int(self.headers.get("Content-Length") or 0))
+            data = json.dumps({"message": {"role": "assistant", "content": SAMPLE_ANSWER}}).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Stub)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server, "http://127.0.0.1:%d/api/chat" % server.server_port
 
 
 def make_projects(root):
@@ -106,6 +133,9 @@ def capture(browser, out, risky, js, width, height, scale):
             const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
         }""")
         page.wait_for_selector("#selection-note:has-text('Lines 7')")
+        page.click("#explain")
+        page.click("#explain-body button.primary")
+        page.wait_for_selector("#explain-body .explain-body-text")
         page.evaluate("document.getElementById('code').scrollTop = 0")
         shoot(page, out, "code_%s.png" % size)
         page.click("#new-check")
@@ -134,6 +164,9 @@ def main(argv=None):
     out.mkdir(parents=True, exist_ok=True)
     risky, js = make_projects(Path(args.root))
     exe = os.environ.get("CG_CHROMIUM")
+    model, url = start_stub_model()
+    os.environ["CODE_GUARDIAN_LLM_URL"] = url
+    os.environ["CODE_GUARDIAN_LLM_MODEL"] = "sample-model"
     with sync_playwright() as pw:
         browser = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
         try:
@@ -141,6 +174,8 @@ def main(argv=None):
                 capture(browser, out, risky, js, width, height, scale)
         finally:
             browser.close()
+            model.shutdown()
+            model.server_close()
     return 0
 
 
