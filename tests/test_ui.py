@@ -424,8 +424,18 @@ def open_call(server, text):
 
 
 def test_open_over_the_body_limit_is_413_and_holds_nothing(server):
-    big = json.dumps({"json": "x" * ui.BODY_LIMIT}).encode()
-    assert call(server, "POST", "/api/open", big) == (413, b'{"error": "body"}')
+    # Only the header claims too much and no body follows: the server answers from Content-Length and closes, so a
+    # client still writing a megabyte would race that close (EPIPE / ECONNRESET on Linux and macOS).
+    port = server.server_address[1]
+    conn = http.client.HTTPConnection("127.0.0.1", port, timeout=60)
+    conn.putrequest("POST", "/api/open", skip_host=True, skip_accept_encoding=True)
+    conn.putheader("Host", "127.0.0.1:%d" % port)
+    conn.putheader("X-CG-Token", server.token)
+    conn.putheader("Content-Length", str(ui.BODY_LIMIT + 1))
+    conn.endheaders()
+    resp = conn.getresponse()
+    assert (resp.status, resp.read()) == (413, b'{"error": "body"}')
+    conn.close()
     assert server.listing() == []
 
 
