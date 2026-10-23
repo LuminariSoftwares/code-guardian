@@ -3,6 +3,8 @@
 Standard library only. The only socket is the loopback listener (127.0.0.1, never all interfaces). Every request
 passes the Host / Origin guard first and, for /api/*, the per-process token, so a page on another site cannot reach it.
 The server calls report.scan() and builds every sentence with plain.py; it never changes a number.
+Only POST /api/scan reads a folder. GET /api/scan?id= hands back a stored result and POST /api/open stores a saved
+`scan --json` (P78 C7); neither touches the disk.
 
     make_server(port=None) -> server bound to 127.0.0.1, not yet serving, with .token; server_close() also removes
                               every per-scan temp directory. None tries DEFAULT_PORTS in order, then any free port;
@@ -122,7 +124,7 @@ class Server(http.server.ThreadingHTTPServer):
 
     def __init__(self, port=0):
         self.token = secrets.token_urlsafe(24)
-        self.scans = []  # entries, oldest first: id, path, when, state, grade, overall, status
+        self.scans = []  # entries, oldest first: id, path, when, state, grade, overall, status (+ saved for POST /api/open)
         self.roots = {}  # scan id -> the directory /api/file may read under
         self.reports = collections.OrderedDict()  # scan id -> its (redacted) report, the last REPORTS_KEPT
         self.inventories = collections.OrderedDict()  # scan id -> the walk the scan saw, trimmed with reports
@@ -199,11 +201,39 @@ class Server(http.server.ThreadingHTTPServer):
             self.reports[entry["id"]] = rep
             if inventory is not None:
                 self.inventories[entry["id"]] = inventory
-            while len(self.reports) > REPORTS_KEPT:
-                self.reports.popitem(last=False)
-            while len(self.inventories) > REPORTS_KEPT:
-                self.inventories.popitem(last=False)
+            self._trim()
         return {"id": entry["id"], "report": rep, "plain": plain_of(rep)}
+
+    def _trim(self):
+        """Keep the last REPORTS_KEPT reports; a report that goes takes its file inventory with it. Caller holds the lock."""
+        while len(self.reports) > REPORTS_KEPT:
+            gone, _ = self.reports.popitem(last=False)
+            self.inventories.pop(gone, None)
+
+    def stored(self, scan_id):
+        """(status, body) for GET /api/scan: the result of a finished check held in memory, exactly what the POST that
+        made it returned, plus its file list (None for a saved check, or one without an inventory). Reads no folder."""
+        with self.lock:
+            rep = self.reports.get(scan_id)
+            saved = any(e["id"] == scan_id and e.get("saved") for e in self.scans)
+        if rep is None:
+            return 404, {"error": "scan"}
+        status, files = (404, None) if saved else self.files_of(scan_id)
+        return 200, {"id": scan_id, "report": rep, "plain": plain_of(rep), "files": files if status == 200 else None,
+                     "saved": saved}
+
+    def open_saved(self, rep):
+        """Hold a report read from a saved `scan --json` file (already validated and redacted) as a finished check with
+        no folder behind it: no root, no inventory. Returns {"id", "report", "plain", "files", "saved"}."""
+        entry = {"id": secrets.token_hex(6), "path": rep["path"], "when": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                 "state": "done", "grade": rep["scores"].get("grade"), "overall": rep["scores"].get("overall"),
+                 "status": rep.get("status"), "saved": True}
+        out = {"id": entry["id"], "report": rep, "plain": plain_of(rep), "files": None, "saved": True}
+        with self.lock:
+            self.scans.append(entry)
+            self.reports[entry["id"]] = rep
+            self._trim()
+        return out
 
     def browse(self, start):
         """(status, body) for /api/browse (C6): open the folder window in a child process and wait for its answer."""
@@ -359,6 +389,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._scan(body)
         if self.command == "POST" and path == "/api/browse":
             return self._browse(body)
+        if self.command == "POST" and path == "/api/open":
+            return self._open(body)
+        if self.command == "GET" and path == "/api/scan":
+            status, out = self.server.stored(dict(parse_qsl(query, keep_blank_values=True)).get("id", ""))
+            return self._json(status, out)
         if self.command == "POST" and path == "/api/explain":
             return self._explain(body)
         if self.command == "POST" and path == "/api/diff":
@@ -392,6 +427,30 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._json(400, {"error": exc.error, "detail": exc.detail})
         except Exception as exc:  # the scanner crashed: say so, never the traceback
             return self._json(500, {"error": "scan", "detail": type(exc).__name__})
+
+    def _open(self, body):
+        """The text of a saved `scan --json` file, held as a finished check with no folder behind it. Parsed with the
+        validator /api/diff uses for before_json; nothing is read from the disk and report.scan is never called."""
+        try:
+            req = json.loads(body.decode("utf-8"))
+        except ValueError:
+            return self._json(400, {"error": "json", "detail": "the request is not JSON"})
+        text = req.get("json") if isinstance(req, dict) else None
+        if not isinstance(text, str):
+            return self._json(400, {"error": "json", "detail": "give json: the text of a file saved with scan --json"})
+        try:
+            data = json.loads(text)
+            if not isinstance(data, dict):  # load_report would take a bare string for a file path
+                raise ValueError("not a code-guardian scan report (from scan --json)")
+            rep = redact_report(verify.load_report(data))
+            if not isinstance(rep.get("path"), str):
+                raise ValueError("not a code-guardian scan report (from scan --json)")
+            return self._json(200, self.server.open_saved(rep))
+        except (ValueError, RecursionError) as exc:
+            detail = "not JSON" if isinstance(exc, (json.JSONDecodeError, RecursionError)) else str(exc)
+        except (KeyError, TypeError, AttributeError, IndexError):  # not the shape scan --json writes
+            detail = "not a code-guardian scan report (from scan --json)"
+        return self._json(400, {"error": "json", "detail": detail})
 
     def _browse(self, body):
         try:
@@ -600,6 +659,12 @@ def selftest():
         page_status, page_headers, _ = _call(server, "GET", "/")
         list_status, _, listed = _call(server, "GET", "/api/scans", headers=token)
         home_status, _, home = post(os.path.expanduser("~"), headers=token)
+        again_status, _, again = _call(server, "GET", "/api/scan?id=%s" % sid, headers=token)
+        open_status, _, opened = _call(server, "POST", "/api/open", {"json": json.dumps((scanned or {}).get("report"))},
+                                       headers=token)
+        oid = (opened or {}).get("id", "")
+        saved_file = _call(server, "GET", "/api/file?id=%s&rel=a.py" % oid, headers=token)[::2]
+        saved_files = _call(server, "GET", "/api/files?id=%s" % oid, headers=token)[::2]
         browse = lambda: _call(server, "POST", "/api/browse", {"start": None}, headers=token)  # noqa: E731
         # Fake runners only: the real one would open a window, and --selftest never starts a process.
         server.dialog_runner = lambda args, **kw: _Done(3)
@@ -654,6 +719,11 @@ def selftest():
         ("temp_copy_removed_on_close", bool(one_dir) and not os.path.exists(one_dir)),
         ("refused_home_400", (home_status, home) == (400, {"error": "refused",
                                                           "detail": refuse.refused(os.path.expanduser("~"))})),
+        ("reopen_get_equal", again_status == 200 and again["report"] == scanned["report"]
+         and again["plain"] == scanned["plain"] and again["saved"] is False and again["files"] == filed),
+        ("open_saved_no_root", open_status == 200 and opened["saved"] is True and opened["files"] is None
+         and opened["report"] == scanned["report"] and saved_file == (404, {"error": "scan"})
+         and saved_files == (404, {"error": "scan"})),
         ("browse_no_dialog_501", (nodialog_status, nodialog) == (501, {"error": "no_dialog",
                                                                       "detail": DIALOG_DETAIL[3]})),
         ("browse_busy_409", (busy_status, busy) == (409, {"error": "busy"})

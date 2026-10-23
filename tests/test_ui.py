@@ -414,3 +414,46 @@ def test_browse_asks_the_runner_for_utf8(server):
     server.dialog_runner = runner
     call(server, "POST", "/api/browse", raw=json.dumps({"start": None}).encode("utf-8"))
     assert seen and seen[0].get("encoding") == "utf-8" and seen[0].get("text") is True, seen
+
+
+# ---- re-open: a stored check and a saved one (P78 S5) --------------------------------------------------------------
+
+def open_call(server, text):
+    status, raw = call(server, "POST", "/api/open", json.dumps({"json": text}).encode())
+    return status, json.loads(raw)
+
+
+def test_open_over_the_body_limit_is_413_and_holds_nothing(server):
+    big = json.dumps({"json": "x" * ui.BODY_LIMIT}).encode()
+    assert call(server, "POST", "/api/open", big) == (413, b'{"error": "body"}')
+    assert server.listing() == []
+
+
+def test_a_saved_entry_survives_in_the_list_next_to_live_ones(server):
+    live = scan_id(server, CLEAN)
+    status, saved = open_call(server, json.dumps(ui.report.scan(str(CLEAN))))
+    assert status == 200
+    again = scan_id(server, CLEAN)
+    rows = json.loads(call(server, "GET", "/api/scans")[1])
+    assert [r["id"] for r in rows] == [live, saved["id"], again]
+    assert [r.get("saved") for r in rows] == [None, True, None]
+    assert all(r["state"] == "done" for r in rows) and rows[1]["path"] == saved["report"]["path"]
+    assert json.loads(call(server, "GET", "/api/scan?id=" + saved["id"])[1])["saved"] is True
+
+
+def test_the_report_cap_also_drops_the_inventory(server, monkeypatch):
+    monkeypatch.setattr(ui, "REPORTS_KEPT", 2)
+    live = scan_id(server, CLEAN)
+    text = json.dumps(ui.report.scan(str(CLEAN)))
+    for _ in range(2):  # two saved checks push the live one out of the last two
+        assert open_call(server, text)[0] == 200
+    assert call(server, "GET", "/api/scan?id=" + live)[0] == 404
+    assert live not in server.inventories and live not in server.reports
+
+
+def test_open_refuses_what_scan_json_never_wrote(server):
+    assert open_call(server, "[1, 2]")[0] == 400
+    assert open_call(server, json.dumps({"findings": [], "scores": {}}))[0] == 400  # no grade, no path: not a report
+    status, js = open_call(server, json.dumps({"findings": [], "scores": {"overall": 1}, "path": 3}))
+    assert (status, js["error"]) == (400, "json")
+    assert server.listing() == []
