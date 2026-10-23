@@ -1,5 +1,6 @@
 "use strict";
-// code-guardian ui: the page. It talks only to the local server's API (/api/scan, /api/scans, /api/file) with the
+// code-guardian ui: the page. It talks only to the local server's API (/api/scan, /api/scans, /api/file, /api/explain,
+// /api/diff) with the
 // token from the link's fragment (#t=...). It never computes a score or a sentence: every number and every sentence
 // on the page comes from the report and its plain-language layer. Text from the report is always set as text, never
 // as markup.
@@ -9,6 +10,8 @@
   var API_SCANS = "/api/scans";
   var API_FILE = "/api/file";
   var API_EXPLAIN = "/api/explain";
+  var API_DIFF = "/api/diff";
+  var KEPT = 20;  // checks the server holds for comparing; the oldest goes first
   var MAX_EXPLAIN = 200;  // lines per question; the server refuses more
   var PICK_HINT = "Select some lines above, or type a start and end line, to ask what they do.";
   var POLL_MS = 800;
@@ -29,6 +32,9 @@
   var state = {
     token: readToken(),
     results: {},      // scan id -> {id, report, plain}, the scans this page ran
+    order: [],        // those ids, oldest first
+    picked: -1,       // state.order.length when the Compare pickers were last filled
+    compared: "",     // "before\nafter" of the last pair compared on its own
     current: null,    // the result on screen
     screen: null,
     file: null,       // rel of the file in the viewer
@@ -168,6 +174,7 @@
     }
     state.screen = screen;
     if (screen === "open") refreshRecent();
+    if (screen === "compare") enterCompare();
     window.scrollTo(0, 0);
   }
 
@@ -310,6 +317,7 @@
     return call(API_SCAN, { method: "POST", body: { path: path, goal_file: null } }).then(function (result) {
       result.asked = path;
       state.results[result.id] = result;
+      state.order.push(result.id);
       return result;
     });
   }
@@ -367,6 +375,7 @@
     $("rail-when").textContent = "";
     call(API_SCANS).then(function (entries) {
       for (var i = 0; i < entries.length; i++) if (entries[i].id === result.id) entry = entries[i];
+      if (entry) result.when = entry.when;
       if (entry && state.current === result) {
         $("scanned-when").textContent = "· checked at " + clock(entry.when);
         $("rail-when").textContent = "checked at " + clock(entry.when);
@@ -465,11 +474,18 @@
     var rows = plain.fix_first || [];
     $("fix-empty").hidden = rows.length > 0;
     // The scan's own notes on its ranking (such as why a Safe fix shows +0 and still comes first) go above the list.
+    // A plain sentence first when the plan has one, then the scanner's notes word for word.
     var notes = plain.fix_first_notes || [];
     var box = $("fix-notes-body");
     clear(box);
-    notes.forEach(function (n) { box.appendChild(el("p", null, n)); });
-    $("fix-notes").hidden = !notes.length;
+    if (plain.fix_first_lead) box.appendChild(el("p", "fix-lead", plain.fix_first_lead));
+    notes.forEach(function (n) {
+      var p = el("p", "fix-note");
+      if (plain.fix_first_lead) p.appendChild(el("span", "fix-note-key", "The scan's own note: "));
+      p.appendChild(document.createTextNode(n));
+      box.appendChild(p);
+    });
+    $("fix-notes").hidden = !notes.length && !plain.fix_first_lead;
     rows.forEach(function (row) {
       var li = el("li", "card");
       li.appendChild(el("h3", null, row.title));
@@ -910,6 +926,194 @@
     });
   }
 
+  // ---- before and after ---------------------------------------------------------------------------------------
+
+  // The pickers list this page's checks, newest first. They start on the last two checks of the folder on screen,
+  // so "Check again" followed by this tab compares the two without another click.
+  function defaultPair() {
+    var ids = state.order.filter(function (id) { return state.results[id]; });
+    if (!ids.length) return null;
+    var path = state.current ? state.current.report.path : null;
+    var same = ids.filter(function (id) { return state.results[id].report.path === path; });
+    if (same.length >= 2) return { before: same[same.length - 2], after: same[same.length - 1] };
+    if (same.length === 1) return { before: same[0], after: same[0] };
+    return { before: ids[ids.length - 1], after: ids[ids.length - 1] };
+  }
+
+  function checkLabel(id) {
+    var r = state.results[id];
+    var scores = r.report.scores || {};
+    var n = state.order.indexOf(id) + 1;
+    return "Check " + n + " · " + (scores.grade ? "grade " + scores.grade : "no grade") +
+      (r.when ? " · " + clock(r.when) : "") + " · " + r.report.path;
+  }
+
+  function fillPickers() {
+    var ids = state.order.filter(function (id) { return state.results[id]; });
+    $("pick-form").hidden = !ids.length;
+    if (state.picked === state.order.length) return;
+    state.picked = state.order.length;
+    var pair = defaultPair();
+    ["pick-before", "pick-after"].forEach(function (sel) {
+      var box = $(sel);
+      clear(box);
+      ids.slice().reverse().forEach(function (id) {
+        var opt = el("option", null, checkLabel(id));
+        opt.value = id;
+        box.appendChild(opt);
+      });
+      if (pair) box.value = sel === "pick-before" ? pair.before : pair.after;
+    });
+    pickHint();
+  }
+
+  function pickHint() {
+    var same = $("pick-before").value === $("pick-after").value;
+    $("pick-hint").textContent = same
+      ? "Before and after are the same check. Fix something, press “Check again”, then come back here; or pick another check."
+      : "Before is the older check, after the newer one. Up to " + KEPT + " checks are kept for comparing.";
+    $("pick-compare").disabled = same;
+  }
+
+  function enterCompare() {
+    fillPickers();
+    var a = $("pick-before").value;
+    var b = $("pick-after").value;
+    if (a && b && a !== b && state.compared !== a + "\n" + b) comparePicked();
+  }
+
+  function comparePicked() {
+    var a = $("pick-before").value;
+    var b = $("pick-after").value;
+    if (!a || !b || a === b) return;
+    state.compared = a + "\n" + b;
+    runCompare({ before: a, after: b }, "Check " + (state.order.indexOf(a) + 1) + " → check " + (state.order.indexOf(b) + 1));
+  }
+
+  function readText(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () { resolve(String(reader.result || "")); };
+      reader.onerror = function () { reject(new Error("read")); };
+      reader.readAsText(file);
+    });
+  }
+
+  function filesPicked() {
+    return $("file-before").files.length && $("file-after").files.length;
+  }
+
+  function compareFiles() {
+    if (!filesPicked()) return;
+    var a = $("file-before").files[0];
+    var b = $("file-after").files[0];
+    compareError("");
+    Promise.all([readText(a), readText(b)]).then(function (texts) {
+      runCompare({ before_json: texts[0], after_json: texts[1] }, a.name + " → " + b.name);
+    }, function () {
+      compareError("One of the files could not be read. Pick it again.");
+    });
+  }
+
+  function compareError(text) {
+    var box = $("compare-error");
+    box.textContent = text || "";
+    box.hidden = !text;
+  }
+
+  function compareErrorText(err) {
+    var body = err.body || {};
+    if (err.status === 0) return "code-guardian is not answering. Is it still running in the terminal?";
+    if (err.status === 403 && body.error === "token") return "This link is from an earlier run of code-guardian. Open the link the terminal printed.";
+    if (err.status === 404) return "code-guardian no longer holds one of these checks (it keeps the last " + KEPT + "). Check the folder again, or compare two saved files.";
+    if (err.status === 413) return "These files are too large to compare here (1 MB for both together). In a terminal, run: code-guardian diff before.json after.json";
+    if (body.error === "report") {
+      return (body.side ? "The " + body.side + " file" : "One of them") + " is not a report saved with code-guardian scan --json (" + (body.detail || "unreadable") + ").";
+    }
+    return "The two could not be compared (" + (body.detail || body.error || err.status) + ").";
+  }
+
+  function runCompare(body, what) {
+    compareError("");
+    $("compare-result").hidden = true;
+    var wait = $("compare-status");
+    clear(wait);
+    wait.appendChild(el("span", "spinner"));
+    wait.appendChild(document.createTextNode("Comparing…"));
+    wait.hidden = false;
+    return call(API_DIFF, { method: "POST", body: body }).then(function (d) {
+      wait.hidden = true;
+      renderDiff(d, what);
+    }, function (err) {
+      wait.hidden = true;
+      state.compared = "";
+      compareError(compareErrorText(err));
+    });
+  }
+
+  // A plain title for a finding: the card of the same check from any report this page holds, else the scanner's own
+  // summary of it (saved files come without the plain layer).
+  function titleOf(f) {
+    for (var i = state.order.length - 1; i >= 0; i--) {
+      var r = state.results[state.order[i]];
+      var cards = (r && r.plain.cards) || [];
+      for (var k = 0; k < cards.length; k++) if (cards[k].code === f.code) return cards[k].what;
+    }
+    return f.summary || f.code;
+  }
+
+  function scoreText(v) {
+    return v === null || v === undefined ? "not scored" : outOf(v);
+  }
+
+  function changeText(delta) {
+    if (delta === null || delta === undefined) return "–";
+    if (delta === 0) return "no change";
+    return (delta > 0 ? "+" : "−") + Math.abs(delta);
+  }
+
+  function renderDiff(d, what) {
+    $("compare-what").textContent = what;
+    $("compare-sentence").textContent = d.sentence;
+    var st = d.status || {};
+    $("compare-scan-status").hidden = st.before === st.after;
+    $("compare-scan-status").textContent = "The scan was " + st.before + " before and " + st.after + " after.";
+    var rows = $("compare-scores");
+    clear(rows);
+    ["safe", "works", "complete", "overall"].forEach(function (k) {
+      var s = (d.scores || {})[k] || {};
+      var tr = el("tr", s.delta > 0 ? "up" : s.delta < 0 ? "down" : null);
+      tr.appendChild(el("th", null, DIM_TITLE[k]));
+      tr.appendChild(el("td", null, scoreText(s.before)));
+      tr.appendChild(el("td", null, scoreText(s.after)));
+      tr.appendChild(el("td", "delta", changeText(s.delta)));
+      rows.appendChild(tr);
+    });
+    var rep = state.current ? state.current.report : null;
+    [["fixed", "fixed"], ["new", "new"], ["unchanged", "unchanged"]].forEach(function (p) {
+      var items = d[p[0]] || [];
+      $("count-" + p[1]).textContent = plural((d.counts || {})[p[0]] || 0, "finding");
+      var list = $("list-" + p[1]);
+      clear(list);
+      if (!items.length) list.appendChild(el("li", "hint", "None."));
+      items.forEach(function (f) { list.appendChild(diffItem(f, p[0], rep)); });
+    });
+    $("compare-result").hidden = false;
+  }
+
+  function diffItem(f, kind, rep) {
+    var group = groupOf({ code: f.code, level: f.level }, rep);
+    var alarm = kind === "new" && group === "High";
+    var li = el("li", "diff-item" + (alarm ? " new-high" : ""));
+    var head = el("p", "diff-head");
+    if (alarm) head.appendChild(el("strong", "new-high-word", "New High"));
+    head.appendChild(el("span", "chip " + group, group));
+    head.appendChild(el("span", "diff-title", titleOf(f)));
+    li.appendChild(head);
+    li.appendChild(el("p", "diff-where mono", describe(f.node)));
+    return li;
+  }
+
   // ---- wiring --------------------------------------------------------------------------------------------------
 
   function wire() {
@@ -933,6 +1137,12 @@
     ["line-start", "line-end"].forEach(function (id) { $(id).addEventListener("input", onFields); });
     $("range-form").addEventListener("submit", function (ev) { ev.preventDefault(); explainClick(); });
     $("explain").addEventListener("click", explainClick);
+    $("pick-form").addEventListener("submit", function (ev) { ev.preventDefault(); comparePicked(); });
+    ["pick-before", "pick-after"].forEach(function (id) { $(id).addEventListener("change", pickHint); });
+    $("files-form").addEventListener("submit", function (ev) { ev.preventDefault(); compareFiles(); });
+    ["file-before", "file-after"].forEach(function (id) {
+      $(id).addEventListener("change", function () { $("files-compare").disabled = !filesPicked(); });
+    });
     window.addEventListener("popstate", function (ev) {
       var screen = ev.state && ev.state.screen;
       if (!screen || SCREENS.indexOf(screen) < 0) screen = state.current ? "result" : "open";

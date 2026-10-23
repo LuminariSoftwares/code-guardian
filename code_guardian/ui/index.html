@@ -41,6 +41,7 @@
     <ul id="recent"></ul>
     <p id="recent-empty" class="hint">Nothing yet. Checks you run appear here until you close code-guardian in the terminal.</p>
   </section>
+  <p class="open-compare"><button type="button" class="ghost" data-screen="compare">Compare two saved files</button></p>
 </section>
 
 <!-- One result: the tabs, the summary rail and the scanned folder are shared by the result screens below. -->
@@ -178,10 +179,67 @@
   </div>
 </section>
 
-<!-- Before / After: built in a later version. -->
+<!-- Before / After: two checks of one folder, or two saved scan --json files. -->
 <section id="screen-compare" class="screen" hidden>
   <h1>Before and after</h1>
-  <p class="intro">Comparing two checks of the same folder — what got fixed, what is new, and how the grade changed — arrives in a later version of code-guardian.</p>
+  <p class="intro">What got fixed, what is new and what the grade did, between two checks. The counts and the grades are the scan's own.</p>
+  <div id="compare-error" class="alert" role="alert" hidden></div>
+  <div id="compare-status" class="card status-line" role="status" hidden></div>
+  <section id="compare-result" class="compare-result" aria-live="polite" hidden>
+    <p class="eyebrow" id="compare-what"></p>
+    <p class="diff-sentence" id="compare-sentence"></p>
+    <p class="hint" id="compare-scan-status" hidden></p>
+    <table class="score-change card">
+      <caption>Score change</caption>
+      <thead><tr><th scope="col">Score</th><th scope="col">Before</th><th scope="col">After</th><th scope="col">Change</th></tr></thead>
+      <tbody id="compare-scores"></tbody>
+    </table>
+    <details class="group diff-group" id="group-fixed" open>
+      <summary class="group-title"><span class="diff-name">Fixed</span><span class="count" id="count-fixed"></span></summary>
+      <p class="group-note">In the before check, gone from the after check.</p>
+      <ul class="diff-list" id="list-fixed"></ul>
+    </details>
+    <details class="group diff-group" id="group-new" open>
+      <summary class="group-title"><span class="diff-name">New</span><span class="count" id="count-new"></span></summary>
+      <p class="group-note">Not in the before check. A new High finding is marked “New High”: read those first.</p>
+      <ul class="diff-list" id="list-new"></ul>
+    </details>
+    <details class="group diff-group" id="group-unchanged">
+      <summary class="group-title"><span class="diff-name">Still there</span><span class="count" id="count-unchanged"></span></summary>
+      <p class="group-note">In both checks. Findings are matched by what they are and where; a line that only moved counts as the same finding.</p>
+      <ul class="diff-list" id="list-unchanged"></ul>
+    </details>
+  </section>
+  <form id="pick-form" class="card compare-pick" autocomplete="off">
+    <h2>Two checks from this session</h2>
+    <div class="pick-row">
+      <div>
+        <label for="pick-before">Before</label>
+        <select id="pick-before"></select>
+      </div>
+      <div>
+        <label for="pick-after">After</label>
+        <select id="pick-after"></select>
+      </div>
+    </div>
+    <p class="hint" id="pick-hint">Fix something, press “Check again”, then come back here: the last two checks of this folder are picked for you.</p>
+    <button type="submit" class="primary" id="pick-compare">Compare these two</button>
+  </form>
+  <form id="files-form" class="card compare-pick" autocomplete="off">
+    <h2>Or two saved files</h2>
+    <p class="hint">Files saved with <span class="mono">code-guardian scan FOLDER --json &gt; before.json</span>. They are read here and compared by this computer; nothing is uploaded anywhere.</p>
+    <div class="pick-row">
+      <div>
+        <label for="file-before">Before file</label>
+        <input type="file" id="file-before" accept=".json,application/json">
+      </div>
+      <div>
+        <label for="file-after">After file</label>
+        <input type="file" id="file-after" accept=".json,application/json">
+      </div>
+    </div>
+    <button type="submit" class="ghost" id="files-compare" disabled>Compare the two files</button>
+  </form>
 </section>
 </div>
 </div>

@@ -6,7 +6,7 @@ import re
 from conftest import ROOT
 
 UI = ROOT / "code_guardian" / "ui"
-ALLOWED = {"/api/scan", "/api/scans", "/api/file", "/api/explain", "/app.js", "/app.css", "/"}
+ALLOWED = {"/api/scan", "/api/scans", "/api/file", "/api/explain", "/api/diff", "/app.js", "/app.css", "/"}
 PREFIX = "/api/"  # the guard in call(), not a URL
 
 
@@ -22,7 +22,7 @@ def test_every_url_in_the_page_is_the_local_api_or_its_own_files():
     js = _js()
     paths = {s.split("?")[0] for s in _strings(js) if s.startswith("/") and not s.startswith("//")} - {PREFIX}
     assert paths and paths <= ALLOWED, paths - ALLOWED
-    assert paths >= {"/api/scan", "/api/scans", "/api/file", "/api/explain"}, paths
+    assert paths >= {"/api/scan", "/api/scans", "/api/file", "/api/explain", "/api/diff"}, paths
     html = (UI / "index.html").read_text(encoding="utf-8")
     refs = set(re.findall(r'\b(?:src|href|action)="([^"]*)"', html))
     assert refs <= ALLOWED, refs - ALLOWED
@@ -207,3 +207,117 @@ def test_code_screen_clamps_and_explains_in_plain_words(tmp_path, monkeypatch):
         assert page.query_selector("#explain-body button") is None
     finally:
         close()
+
+
+# ---- the Compare screen (P76 S5) ----------------------------------------------------------------------------------
+
+AWS_ID = "AKIA" + "Q7XZ" * 4  # built at runtime: the package's self-scan reads literals
+WITH_KEY = 'import os\n\nKEY = "%s"\n\n\ndef run(cmd):\n    os.system(cmd)\n' % AWS_ID
+WITHOUT_KEY = 'import os\n\n\ndef run(cmd):\n    os.system(cmd)\n'
+
+
+def test_compare_screen_markup_and_wiring():
+    html = (UI / "index.html").read_text(encoding="utf-8")
+    m = re.search(r'<section id="screen-compare".*?\n</section>', html, re.S)
+    assert m, "the Compare screen"
+    screen = m.group(0)
+    assert "later version" not in screen
+    for needed in ('id="pick-before"', 'id="pick-after"', 'id="compare-sentence"', 'id="list-fixed"', 'id="list-new"',
+                   'id="list-unchanged"', ">Fixed<", ">New<", ">Still there<"):
+        assert needed in screen, needed
+    assert len(re.findall(r'<input type="file" id="file-(?:before|after)" accept="\.json,application/json">', screen)) == 2
+    js = _js()
+    assert "FileReader" in js and "readAsText" in js and "New High" in js
+
+
+def _browser(sync):
+    import os
+    import pytest
+    pw = sync.sync_playwright().start()
+    exe = os.environ.get("CG_CHROMIUM")
+    try:
+        return pw, pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
+    except Exception as exc:  # no browser on this machine
+        pw.stop()
+        pytest.skip("no Chromium: %s" % type(exc).__name__)
+
+
+def test_check_again_then_compare_shows_what_was_fixed(tmp_path):
+    import threading
+
+    import pytest
+    sync = pytest.importorskip("playwright.sync_api")
+    from code_guardian import ui
+    project = tmp_path / "proj"
+    project.mkdir()
+    (project / "app.py").write_text(WITH_KEY, encoding="utf-8")
+    server = ui.make_server(port=0)
+    t = threading.Thread(target=server.serve_forever, daemon=True)
+    t.start()
+    pw, browser = _browser(sync)
+    try:
+        page = browser.new_page(viewport={"width": 390, "height": 844})
+        page.goto("http://127.0.0.1:%d/#t=%s" % (server.server_address[1], server.token))
+        page.fill("#path", str(project))
+        page.click("#scan-button")
+        page.wait_for_selector("#screen-result:not([hidden])", timeout=60000)
+        page.click("#tabs button[data-screen=compare]")
+        assert "same check" in page.inner_text("#pick-hint") and page.is_disabled("#pick-compare")
+        rail_before = page.inner_text("#rail-grade")
+        (project / "app.py").write_text(WITHOUT_KEY, encoding="utf-8")
+        page.click("#check-again")
+        page.wait_for_selector("#compare-result:not([hidden])", timeout=60000)
+        assert page.inner_text("#compare-sentence").startswith("1 fixed, 0 new, grade ")
+        fixed = page.inner_text("#list-fixed")
+        assert "High" in fixed and "app.py at line 3" in fixed
+        assert page.inner_text("#list-new") == "None."
+        assert page.inner_text("#rail-grade") != rail_before  # the rail shows the newer check
+        assert page.evaluate("document.documentElement.scrollWidth") <= 390
+    finally:
+        browser.close()
+        pw.stop()
+        server.shutdown()
+        server.server_close()
+        t.join(10)
+
+
+def test_two_saved_files_compare_and_a_new_high_stands_out(tmp_path):
+    import threading
+
+    import pytest
+    sync = pytest.importorskip("playwright.sync_api")
+    from code_guardian import report, ui
+    project = tmp_path / "proj"
+    project.mkdir()
+    saved = []
+    for name, src in (("old.json", WITHOUT_KEY), ("new.json", WITH_KEY)):
+        (project / "app.py").write_text(src, encoding="utf-8")
+        (tmp_path / name).write_text(json.dumps(report.scan(str(project))), encoding="utf-8")
+        saved.append(str(tmp_path / name))
+    server = ui.make_server(port=0)
+    t = threading.Thread(target=server.serve_forever, daemon=True)
+    t.start()
+    pw, browser = _browser(sync)
+    try:
+        page = browser.new_page(viewport={"width": 390, "height": 844})
+        page.goto("http://127.0.0.1:%d/#t=%s" % (server.server_address[1], server.token))
+        page.click("#screen-open button[data-screen=compare]")
+        assert page.is_hidden("#pick-form") and page.is_disabled("#files-compare")
+        page.set_input_files("#file-before", saved[0])
+        page.set_input_files("#file-after", saved[1])
+        page.click("#files-compare")
+        page.wait_for_selector("#compare-result:not([hidden])", timeout=30000)
+        assert page.inner_text("#compare-sentence").startswith("0 fixed, 1 new, grade ")
+        item = page.text_content("#list-new .diff-item.new-high")
+        assert "New High" in item and "High" in item  # a word, not colour alone
+        page.set_input_files("#file-before", saved[0])
+        page.set_input_files("#file-after", str(project / "app.py"))
+        page.click("#files-compare")
+        page.wait_for_selector("#compare-error:not([hidden])")
+        assert "The after file is not a report saved with code-guardian scan --json" in page.inner_text("#compare-error")
+    finally:
+        browser.close()
+        pw.stop()
+        server.shutdown()
+        server.server_close()
+        t.join(10)

@@ -6,7 +6,7 @@ so the projects are copied into a neutral folder (default /tmp/demo) and only th
 
     python tools/ui_screenshots.py [--out docs/screenshots] [--root /tmp/demo]
 
-Writes {open,result,fixfirst,findings,code}_{390x844,1280x800}.png. result_390x844 is a JavaScript-only project, so
+Writes {open,result,fixfirst,findings,code,diff}_{390x844,1280x800}.png. result_390x844 is a JavaScript-only project, so
 its first screen shows the PARTIAL banner, the grey "No known risks found" and the "partial check" flag; every other
 screen is a copy of tests/fixtures/risky_repo, whose Fix first screen shows the scan's notes above the list and whose
 Code screen shows one inline note opened. Fails if any screen scrolls sideways.
@@ -14,6 +14,10 @@ Code screen shows one inline note opened. Fails if any screen scrolls sideways.
 The Code screens also show a selection, the filled start and end fields and an answer in the explanation panel. The
 answer comes from a stub model started here, a tiny HTTP server on the loopback address that returns one fixed
 sample reply, so no real model is ever involved and the picture says plainly that it is a sample.
+
+The diff screens are before / after (P76 S5): a small project (my-app) with a key-shaped line is checked, the line is
+removed, "Check again" runs, and the Compare tab shows what changed. The key-shaped value is built at runtime from two
+pieces, so no file in this repository holds one.
 """
 import argparse
 import http.server
@@ -37,6 +41,11 @@ JS_FILES = {
                     "  \"license\": \"MIT\"\n}\n",
     "README.md": "# my-js-app\n\nA tiny web server.\n",
 }
+APP_KEY = "AKIA" + "Q7XZ" * 4  # built at runtime: the package's self-scan reads literals
+APP_AFTER = ("import os\nimport subprocess\n\n\ndef run(cmd):\n    os.system(cmd)\n\n\n"
+             "def build(target):\n    return subprocess.run(\"make \" + target, shell=True)\n")
+APP_BEFORE = APP_AFTER.replace("import subprocess\n", "import subprocess\n\nKEY = \"%s\"\n" % APP_KEY, 1)
+APP_README = "# my-app\n\nA small helper that runs build commands.\n"
 CODE_LINK = "risky/runner.py line 7"
 SAMPLE_ANSWER = ("Sample answer from a test model: these lines start another program and wait for it to finish. "
                  "This is a fixed sample reply, not a real analysis.")
@@ -62,17 +71,20 @@ def start_stub_model():
 
 
 def make_projects(root):
-    """Fresh copies under root: my-project (the risky fixture) and my-js-app. Only these two folders are replaced."""
+    """Fresh copies under root: my-project (the risky fixture), my-js-app and my-app. Only these folders are
+    replaced."""
     root.mkdir(parents=True, exist_ok=True)
-    risky, js = root / "my-project", root / "my-js-app"
-    for d in (risky, js):
+    risky, js, app = root / "my-project", root / "my-js-app", root / "my-app"
+    for d in (risky, js, app):
         if d.exists():
             shutil.rmtree(d)
     shutil.copytree(ROOT / "tests" / "fixtures" / "risky_repo", risky)
     js.mkdir()
     for name, text in JS_FILES.items():
         (js / name).write_text(text, encoding="utf-8")
-    return risky, js
+    app.mkdir()
+    (app / "README.md").write_text(APP_README, encoding="utf-8")
+    return risky, js, app
 
 
 def no_side_scroll(page, name):
@@ -97,7 +109,21 @@ def shoot(page, out, name):
     print("wrote %s (%d bytes)" % (name, (out / name).stat().st_size))
 
 
-def capture(browser, out, risky, js, width, height, scale):
+def compare(page, out, app, size):
+    """Check my-app with its key-shaped line, remove the line, Check again, then open Compare."""
+    (app / "app.py").write_text(APP_BEFORE, encoding="utf-8")
+    page.click("#new-check")
+    check(page, app)
+    (app / "app.py").write_text(APP_AFTER, encoding="utf-8")
+    page.click("#check-again")
+    page.wait_for_selector("#check-again:not([disabled])", timeout=60000)
+    page.wait_for_selector("#rail-when:has-text('checked at')", timeout=10000)
+    page.click("#tabs button[data-screen=compare]")
+    page.wait_for_selector("#compare-result:not([hidden])", timeout=30000)
+    shoot(page, out, "diff_%s.png" % size)
+
+
+def capture(browser, out, risky, js, app, width, height, scale):
     server = ui.make_server(port=0)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -138,6 +164,7 @@ def capture(browser, out, risky, js, width, height, scale):
         page.wait_for_selector("#explain-body .explain-body-text")
         page.evaluate("document.getElementById('code').scrollTop = 0")
         shoot(page, out, "code_%s.png" % size)
+        compare(page, out, app, size)
         page.click("#new-check")
         page.wait_for_selector("#recent li")
         shoot(page, out, "open_%s.png" % size)
@@ -162,7 +189,7 @@ def main(argv=None):
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    risky, js = make_projects(Path(args.root))
+    risky, js, app = make_projects(Path(args.root))
     exe = os.environ.get("CG_CHROMIUM")
     model, url = start_stub_model()
     os.environ["CODE_GUARDIAN_LLM_URL"] = url
@@ -171,7 +198,7 @@ def main(argv=None):
         browser = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
         try:
             for width, height, scale in SIZES:
-                capture(browser, out, risky, js, width, height, scale)
+                capture(browser, out, risky, js, app, width, height, scale)
         finally:
             browser.close()
             model.shutdown()

@@ -19,6 +19,8 @@ Public contract:
     fix_first(report, top=10) -> [{"rank", "title", "level", "count", "gain", "grade_after", "first_location",
                                    "how"}]
     fix_first_notes(report, top=10) -> [str]        # verify.plan(...)["notes"], unchanged
+    fix_first_lead(report) -> str | None            # one plain sentence shown above those notes
+    diff_sentence(d) -> str                         # d: verify.diff(...); "1 fixed, 0 new, grade D \u2192 B"
 
 CLI:
     python -m code_guardian.plain --selftest        # counted checks; rc 0 only if all pass
@@ -353,8 +355,11 @@ def _overall_sentence(rep, scores):
         return "Overall is not graded: %s." % tail
     rows = [r for name in score.DIMENSIONS for r in _rows(rep, name)]
     value = scores.get("overall")
-    return "Overall %s (%s/100): %s (%s)%s%s." % (scores.get("grade"), value, _band(value), _behind(rows),
-                                                  _cap_clause(scores), _incomplete_clause(rep))
+    cap = _cap_clause(scores)
+    # When the cap reason already says the scan is PARTIAL, the clause would say it a second time.
+    incomplete = "" if "PARTIAL" in cap else _incomplete_clause(rep)
+    return "Overall %s (%s/100): %s (%s)%s%s." % (scores.get("grade"), value, _band(value), _behind(rows), cap,
+                                                  incomplete)
 
 
 def _cap_clause(scores):
@@ -469,6 +474,41 @@ def fix_first(rep, top=10):
 def fix_first_notes(rep, top=10):
     """The plan's notes, unchanged: they carry the "a Safe FAIL caps the grade" sentence among others."""
     return verify.plan(rep, top=top)["notes"]
+
+
+FLOOR_NAME = {"safe": "Safety", "works": "Works", "complete": "Completeness"}
+
+
+def fix_first_lead(rep):
+    """One plain sentence for above the plan's notes, or None. The scanner's floor note ("Safe is at 0/100 with 174
+    points deducted ...") is exact but hard to read; this says the same thing in plain words, for the dimensions
+    where that note applies (the same test verify.plan uses, read from the report's own deductions)."""
+    if rep.get("status") == "INVALID":
+        return None
+    floored = []
+    for name in score.DIMENSIONS:
+        dim = (rep.get("dimensions") or {}).get(name) or {}
+        excess = int(dim.get("deducted") or 0) - 100
+        rows = dim.get("checks") or []
+        if excess > 0 and rows and max(int(r.get("deduction") or 0) for r in rows) <= excess:
+            floored.append(FLOOR_NAME[name])
+    if not floored:
+        return None
+    return ("%s problems do not raise the grade until most of them are fixed, so they can show +0 here. Fix them "
+            "first anyway." % " and ".join(floored))
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# C7 / C9: before and after
+
+
+def diff_sentence(d):
+    """One sentence for a verify.diff result: how many findings went away, how many are new, and what the grade did.
+    The counts and the grades are the diff's own."""
+    counts = d.get("counts") or {}
+    grade = d.get("grade") or {}
+    return "%d fixed, %d new, grade %s \u2192 %s" % (int(counts.get("fixed") or 0), int(counts.get("new") or 0),
+                                                     grade.get("before") or "none", grade.get("after") or "none")
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -598,6 +638,12 @@ def selftest():
          and plan_items[0]["first_location"] == verify.plan(mixed, top=1)["items"][0]["locations"][0]),
         ("fix_first_notes_pass_through", fix_first_notes(mixed) == verify.plan(mixed, top=10)["notes"]),
         ("never_mutates", high == before),
+        ("diff_sentence", diff_sentence(verify.diff(high, medium)).startswith("2 fixed, 1 new, grade %s \u2192 %s"
+                                                                         % (high["scores"]["grade"],
+                                                                            medium["scores"]["grade"]))),
+        ("fix_first_lead_only_when_floored", fix_first_lead(high) is None and fix_first_lead(invalid) is None),
+        ("partial_said_once_in_overall", score_sentence("overall", no_python).count("PARTIAL")
+         + score_sentence("overall", no_python).count(_PARTIAL_CLAUSE) == 1),
     ]
     return summarize("plain", checks)
 
