@@ -75,7 +75,8 @@ def _parser():
     i.add_argument("--force", action="store_true", help="overwrite an existing goal file")
     u = sub.add_parser("ui", help="open the scan in your browser: a local page on 127.0.0.1, nothing leaves this machine")
     u.add_argument("path", nargs="?", help="scan this folder (or one file) before the page opens")
-    u.add_argument("--port", type=int, default=0, metavar="N", help="port to listen on (default: any free port)")
+    u.add_argument("--port", type=int, default=None, metavar="N",
+                   help="port to listen on (default: 8765, or the next free port up to 8775, then any free port)")
     u.add_argument("--no-browser", action="store_true", help="print the link but do not open a browser")
     u.add_argument("--selftest", action="store_true", help="run the ui module's own checks and exit")
     return p
@@ -161,7 +162,7 @@ def main(argv=None):
             from . import ui
             if args.selftest:
                 return ui.selftest()
-            if not 0 <= args.port <= 65535:
+            if args.port is not None and not 0 <= args.port <= 65535:
                 raise report.UsageError("--port must be between 0 and 65535")
             return ui.run(args.path, args.port, not args.no_browser)
     except (report.UsageError, goal.GoalError) as exc:
