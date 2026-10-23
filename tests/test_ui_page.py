@@ -9,8 +9,8 @@ import pytest
 from conftest import ROOT
 
 UI = ROOT / "code_guardian" / "ui"
-ALLOWED = {"/api/scan", "/api/scans", "/api/files", "/api/file", "/api/explain", "/api/diff", "/api/browse", "/app.js",
-           "/app.css", "/"}
+ALLOWED = {"/api/scan", "/api/scans", "/api/files", "/api/file", "/api/explain", "/api/diff", "/api/browse",
+           "/api/open", "/app.js", "/app.css", "/"}
 PREFIX = "/api/"  # the guard in call(), not a URL
 LUMINARI = "https://github.com/LuminariSoftwares"  # the one outside address the page names: a plain link, never fetched
 

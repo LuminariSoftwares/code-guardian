@@ -86,6 +86,12 @@
     <ul id="recent"></ul>
     <p id="recent-empty" class="hint">Nothing yet. Checks you run appear here until you close code-guardian in the terminal.</p>
   </section>
+  <form id="saved-form" class="card open-saved" autocomplete="off">
+    <h2>Open a saved check</h2>
+    <p class="hint">A file saved with <span class="mono">code-guardian scan FOLDER --json &gt; check.json</span>. It is read here and shown as it was: no folder is read, and nothing is uploaded anywhere.</p>
+    <label for="open-saved">Saved check file</label>
+    <input type="file" id="open-saved" accept=".json,application/json">
+  </form>
   <p class="open-compare"><button type="button" class="ghost" data-screen="compare">Compare two saved files</button></p>
 </section>
 
@@ -124,7 +130,7 @@
       <div><dt>Fix first</dt><dd id="rail-fix"></dd></div>
     </dl>
     <div class="rail-again">
-      <button type="button" class="ghost icon-btn" id="check-again" data-must-show title="Check again" aria-label="Check again"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12 A8 8 0 1 1 17.66 6.34 M20 4 V9 H15"/></svg><span class="again-label">Check again</span></button>
+      <button type="button" class="ghost icon-btn" id="check-again" data-must-show title="Reads the files again now" aria-label="Check again"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12 A8 8 0 1 1 17.66 6.34 M20 4 V9 H15"/></svg><span class="again-label">Check again</span></button>
       <p class="rail-when" id="rail-when" role="status"></p>
     </div>
   </div>
@@ -132,6 +138,7 @@
 
 <div class="frame-body">
 <p class="scanned" id="scanned" hidden>Folder: <span class="mono" id="scanned-path"></span> <span id="scanned-when"></span></p>
+<div id="again-error" class="alert" role="alert" hidden></div>
 
 <!-- Result: how worried to be, first. -->
 <section id="screen-result" class="screen" hidden>
@@ -163,7 +170,7 @@
     </dl>
   </details>
   <div class="next">
-    <button type="button" class="ghost" id="check-again-summary">Check again</button>
+    <button type="button" class="ghost" id="check-again-summary" title="Reads the files again now">Check again</button>
     <button type="button" class="ghost" data-screen="fixfirst">What to fix first</button>
     <button type="button" class="ghost" data-screen="findings">All findings</button>
   </div>
@@ -191,6 +198,7 @@
 <!-- Code: every file the check saw, each honestly labelled, and the lines of the one picked. -->
 <section id="screen-code" class="screen" hidden>
   <h1>Code</h1>
+  <p class="saved-note" id="saved-note" role="note">This is a saved check. The files are not open here; check the folder to see them.</p>
   <div class="code-layout">
     <details class="files-drawer" id="files-drawer" open>
       <summary><h2 id="files-title">Files</h2><span class="sr-only" id="files-picked"></span></summary>

@@ -1,7 +1,10 @@
 "use strict";
 // code-guardian ui: the page. It talks only to the local server's API (/api/scan, /api/scans, /api/files, /api/file,
-// /api/explain, /api/diff, /api/browse) with the
-// token from the link's fragment (#t=...). It never computes a score or a sentence: every number and every sentence
+// /api/explain, /api/diff, /api/browse, /api/open) with the
+// token from the link's fragment (#t=...). Only POST /api/scan reads a folder, and the page calls it from four
+// places: the Open form, the Browse result and the two "Check again" buttons (a folder named on the command line was
+// checked by the server before the page opened). Loading the page, picking an earlier check and opening a saved check
+// only ask the server for what it already holds (GET /api/scan?id=, POST /api/open). It never computes a score or a sentence: every number and every sentence
 // on the page comes from the report and its plain-language layer. Text from the report is always set as text, never
 // as markup. The only things it keeps in the browser are the person's own choices: the settings (theme, text size, the
 // Luminari name) under localStorage["cg.settings"] and whether the summary column is open or a slim rail under
@@ -15,6 +18,9 @@
   var API_EXPLAIN = "/api/explain";
   var API_DIFF = "/api/diff";
   var API_BROWSE = "/api/browse";
+  var API_OPEN = "/api/open";
+  var AGAIN_TITLE = "Reads the files again now";
+  var MAX_SAVED = 1024 * 1024;  // the server refuses a request body over 1 MB
   var NO_DIALOG = "Your Python cannot open a folder window here; paste the path instead.";
   var BUSY = "A folder window is already open on the computer running code-guardian. Pick a folder there, or close it.";
   var KEPT = 20;  // checks the server holds for comparing; the oldest goes first
@@ -47,8 +53,9 @@
 
   var state = {
     token: readToken(),
-    results: {},      // scan id -> {id, report, plain}, the scans this page ran
-    order: [],        // those ids, oldest first
+    results: {},      // scan id -> {id, report, plain, saved, asked, when}, the checks this page holds
+    order: [],        // those ids, oldest first (by the server's own order)
+    rank: {},         // scan id -> its place in the server's list, from the last /api/scans
     picked: -1,       // state.order.length when the Compare pickers were last filled
     compared: "",     // "before\nafter" of the last pair compared on its own
     current: null,    // the result on screen
@@ -337,6 +344,7 @@
     $("scanned").hidden = !inResult;
     $("summary-rail").hidden = !inResult;
     $("new-check").hidden = !inResult;
+    if (!inResult) againError("");
     $("main").className = (inResult ? "with-rail" : "") + (screen === "code" ? " wide" : "");
     if (inResult) syncRail();
     var tabs = $("tabs").querySelectorAll("button");
@@ -391,8 +399,9 @@
     var out = [];
     for (var i = entries.length - 1; i >= 0; i--) {
       var e = entries[i];
-      if (seen[e.path]) continue;
-      seen[e.path] = true;
+      var key = (e.saved ? "saved\n" : "") + e.path;   // a saved check never hides a live one of the same folder
+      if (seen[key]) continue;
+      seen[key] = true;
       out.push(e);
     }
     return out;
@@ -401,6 +410,7 @@
   function renderRecent(entries) {
     var list = $("recent");
     clear(list);
+    entries.forEach(function (e, i) { state.rank[e.id] = i; });
     var rows = latestPerPath(entries);
     $("recent-empty").hidden = rows.length > 0;
     rows.forEach(function (e) {
@@ -410,18 +420,12 @@
       b.appendChild(el("span", "mono", e.path));
       var meta;
       if (e.state === "scanning") meta = "Checking now…";
+      else if (e.saved) meta = "Saved check · " + (e.grade ? "Grade " + e.grade + " · " + e.overall + " out of 100" : "No grade") + " · opened " + clock(e.when);
       else if (e.grade) meta = "Grade " + e.grade + " · " + e.overall + " out of 100" + (e.status && e.status !== "COMPLETE" ? " · " + e.status : "") + " · " + clock(e.when);
       else meta = "No grade" + (e.status ? " · " + e.status : "") + " · " + clock(e.when);
       b.appendChild(el("span", "meta", meta));
       b.disabled = e.state === "scanning" || state.scanning;
-      b.addEventListener("click", function () {
-        if (state.results[e.id]) {
-          setResult(state.results[e.id]);
-          show("result");
-        } else {
-          startScan(e.path);
-        }
-      });
+      b.addEventListener("click", function () { openStored(e); });
       li.appendChild(b);
       list.appendChild(li);
     });
@@ -492,6 +496,79 @@
     if (hint.textContent.indexOf(NO_DIALOG) < 0) hint.textContent = hint.textContent + " " + NO_DIALOG;
   }
 
+  // ---- re-open: a check the server already holds, or a saved one; no folder is read -----------------------------
+
+  // A check is held once by the page, in the server's own order, so Compare reads before and after the right way round.
+  function hold(result) {
+    state.results[result.id] = result;
+    if (state.order.indexOf(result.id) >= 0) return;
+    var at = state.order.length;
+    var mine = state.rank[result.id];
+    if (mine !== undefined) {
+      for (var i = 0; i < state.order.length; i++) {
+        var other = state.rank[state.order[i]];
+        if (other !== undefined && other > mine) { at = i; break; }
+      }
+    }
+    state.order.splice(at, 0, result.id);
+  }
+
+  // Show the stored check of a list entry: the page's own copy if it has one, else GET /api/scan?id=. Never a scan.
+  function openStored(entry) {
+    if (state.scanning || state.again) return;
+    showOpenError("");
+    var held = state.results[entry.id];
+    if (held) {
+      setResult(held);
+      show("result");
+      return Promise.resolve(held);
+    }
+    return call(API_SCAN + "?id=" + encodeURIComponent(entry.id)).then(function (result) {
+      result.when = entry.when;
+      result.asked = entry.path;   // what "Check again" asks for: the folder as it was named
+      hold(result);
+      setResult(result);
+      show("result");
+      return result;
+    }, function (err) {
+      if (err.status === 0 || (err.status === 403 && err.body.error === "token")) return handleApiError(err);
+      showOpenError(err.status === 404
+        ? "code-guardian no longer holds that check (it keeps the last " + KEPT + "). Press Check this folder to read the folder again."
+        : "That check could not be opened (" + (err.body.error || err.status) + ").");
+      if (state.screen !== "open") show("open");
+      refreshRecent();
+    });
+  }
+
+  // "Open a saved check": the text of a scan --json file goes to POST /api/open; the file is read here, not uploaded to
+  // anywhere but this computer's own server, and no folder is read.
+  function openSavedFile(file) {
+    if (!file || state.scanning || state.again) return;
+    showOpenError("");
+    if (file.size > MAX_SAVED) {
+      showOpenError("That file is too large to open here (1 MB). In a terminal, run: code-guardian diff before.json after.json");
+      return;
+    }
+    return readText(file).then(function (text) {
+      return call(API_OPEN, { method: "POST", body: { json: text } });
+    }, function () {
+      throw new ApiError(-1, { error: "read" });
+    }).then(function (result) {
+      result.asked = result.report.path;
+      hold(result);
+      setResult(result);
+      show("result");
+      refreshRecent();
+    }, function (err) {
+      if (err.status === 0 || (err.status === 403 && err.body.error === "token")) return handleApiError(err);
+      var detail = err.body.detail ? " (" + err.body.detail + ")" : "";
+      if (err.status === -1) showOpenError("That file could not be read. Pick it again.");
+      else if (err.status === 413) showOpenError("That file is too large to open here (1 MB). In a terminal, run: code-guardian diff before.json after.json");
+      else if (err.body.error === "json") showOpenError("That is not a report saved with code-guardian scan --json" + detail + ".");
+      else showOpenError("That file could not be opened (" + (err.body.error || err.status) + ").");
+    });
+  }
+
   // ---- scanning ------------------------------------------------------------------------------------------------
 
   function setScanning(path, on) {
@@ -552,8 +629,7 @@
   function scan(path) {
     return call(API_SCAN, { method: "POST", body: { path: path, goal_file: null } }).then(function (result) {
       result.asked = path;
-      state.results[result.id] = result;
-      state.order.push(result.id);
+      hold(result);
       return result;
     });
   }
@@ -561,6 +637,7 @@
   function scanErrorText(err) {
     var detail = err.body.detail ? String(err.body.detail) : "";
     if (err.body.error === "path") return "That folder was not found. Check the path and try again. (" + detail + ")";
+    if (err.body.error === "refused") return detail;
     if (err.body.error === "goal") return "The project's goal file could not be read: " + detail;
     if (err.body.error === "scan") return "The check stopped with an error (" + detail + "). Nothing was changed in the folder.";
     return "The check could not start (" + (err.body.error || err.status) + ").";
@@ -570,10 +647,12 @@
   // the rail are redrawn from the new response; an open file is opened again from the new scan.
   function checkAgain() {
     if (!state.current || state.again || state.scanning) return;
-    var path = state.current.asked || state.current.report.path;
+    var was = state.current;
+    var path = was.asked || was.report.path;
     var screen = state.screen;
     var file = screen === "code" ? state.file : null;
     var line = file ? parseInt($("jump-line").value, 10) || null : null;
+    againError("");
     setAgain(true, "Checking the folder again…");
     return scan(path).then(function (result) {
       setAgain(false, "");
@@ -581,12 +660,26 @@
       show(screen, false);
       if (file) openCode(file, line);
     }, function (err) {
-      if (err.status === 0 || (err.status === 403 && err.body.error === "token")) {
-        setAgain(false, "");
-        return handleApiError(err);
-      }
-      setAgain(false, "Could not check again: " + scanErrorText(err));
+      setAgain(false, "");
+      if (state.current === was) paintWhen(was);
+      if (err.status === 0 || (err.status === 403 && err.body.error === "token")) return handleApiError(err);
+      againError(againErrorText(was, err));
     });
+  }
+
+  // A saved check names a folder on the computer that made it; this one may not have it. Say so, and say nothing was read.
+  function againErrorText(was, err) {
+    if (was.saved && err.status === 400 && err.body.error === "path") {
+      return "This saved check came from the folder " + was.report.path + ", which is not on this computer, so there is " +
+        "nothing to read again. Nothing was read. Use New check to pick a folder here.";
+    }
+    return "Could not check again: " + scanErrorText(err);
+  }
+
+  function againError(text) {
+    var box = $("again-error");
+    box.textContent = text;
+    box.hidden = !text;
   }
 
   function setAgain(on, text) {
@@ -595,9 +688,9 @@
       var text = on ? "Checking…" : "Check again";
       var label = $(id).querySelector(".again-label");   // the rail's button keeps its icon; its label may be hidden
       $(id).disabled = on;
+      $(id).title = on ? text : AGAIN_TITLE;
       if (label) {
         label.textContent = text;
-        $(id).title = text;
         $(id).setAttribute("aria-label", text);
       } else {
         $(id).textContent = text;
@@ -614,23 +707,28 @@
     var rep = result.report;
     var plain = result.plain;
     $("scanned-path").textContent = rep.path;
-    var entry = null;
-    $("scanned-when").textContent = "";
-    $("rail-when").textContent = "";
-    call(API_SCANS).then(function (entries) {
-      for (var i = 0; i < entries.length; i++) if (entries[i].id === result.id) entry = entries[i];
-      if (entry) result.when = entry.when;
-      if (entry && state.current === result) {
-        $("scanned-when").textContent = "· checked at " + clock(entry.when);
-        $("rail-when").textContent = "checked at " + clock(entry.when);
-      }
-    }, function () { /* the time is a nicety */ });
+    againError("");
+    paintWhen(result);
+    if (!result.saved && !result.when) {   // a check this page just ran: its time is in the server's list
+      call(API_SCANS).then(function (entries) {
+        for (var i = 0; i < entries.length; i++) if (entries[i].id === result.id) result.when = entries[i].when;
+        if (state.current === result) paintWhen(result);
+      }, function () { /* the time is a nicety */ });
+    }
     renderRail(rep, plain);
     renderSummary(rep, plain);
     renderFixFirst(rep, plain);
     renderFindings(rep, plain);
     resetViewer();
     loadFiles(result);
+  }
+
+  // When the check on screen was made, or where a saved one came from. Nothing here is a timer; it is only written.
+  function paintWhen(result) {
+    var saved = !!result.saved;
+    var when = !saved && result.when ? clock(result.when) : "";
+    $("scanned-when").textContent = saved ? "· saved check, the folder was not read" : when ? "· checked at " + when : "";
+    $("rail-when").textContent = saved ? "Saved check from " + result.report.path : when ? "Checked at " + when : "";
   }
 
   function renderSummary(rep, plain) {
@@ -881,12 +979,30 @@
     return f.risk === "Not read" ? f.why_not_read : f.risk === "Partly checked" ? f.why_partly : "";
   }
 
+  // A saved check has no folder behind it: the Code screen says so (the rule is in app.css) and the file controls stop.
+  function savedMode(on) {
+    if (on) $("screen-code").setAttribute("data-saved", "true");
+    else $("screen-code").removeAttribute("data-saved");
+    $("file-filter").disabled = on;
+    $("file-find").disabled = on;
+  }
+
   function loadFiles(result) {
     state.listing = null;
     var list = $("file-list");
     clear(list);
     $("files-capped").hidden = true;
     $("files-note").textContent = "";
+    savedMode(!!result.saved);
+    if (result.saved) {
+      list.appendChild(el("li", "hint", "No files are listed for a saved check."));
+      return Promise.resolve();
+    }
+    if (result.files) {   // GET /api/scan?id= already carries the list
+      state.listing = result.files;
+      renderFileFilter(result, result.files);
+      return Promise.resolve();
+    }
     list.appendChild(el("li", "hint", "Listing the files…"));
     return call(API_FILES + "?id=" + encodeURIComponent(result.id)).then(function (body) {
       if (state.current !== result) return;
@@ -989,10 +1105,12 @@
     state.pick = null;
     $("files-drawer").open = true;
     syncDrawer(false);
-    $("file-name").textContent = "Pick a file";
+    var saved = !!(state.current && state.current.saved);
+    $("file-name").textContent = saved ? "No file open" : "Pick a file";
     var pre = $("code");
     clear(pre);
-    pre.appendChild(el("span", "code-empty", "Pick a file from the list, or tap a location on a finding."));
+    pre.appendChild(el("span", "code-empty", saved ? "No file is open: this is a saved check."
+      : "Pick a file from the list, or tap a location on a finding."));
     clearRange();
   }
 
@@ -1007,6 +1125,7 @@
   function openCode(rel, line) {
     if (!state.current) return;
     if (state.screen !== "code") show("code");
+    if (state.current.saved) return;   // no folder behind it: the Code screen says so
     var id = state.current.id;
     var key = id + "\n" + rel;
     markCurrentFile(rel);
@@ -1318,7 +1437,7 @@
     var r = state.results[id];
     var scores = r.report.scores || {};
     var n = state.order.indexOf(id) + 1;
-    return "Check " + n + " · " + (scores.grade ? "grade " + scores.grade : "no grade") +
+    return "Check " + n + (r.saved ? " (saved)" : "") + " · " + (scores.grade ? "grade " + scores.grade : "no grade") +
       (r.when ? " · " + clock(r.when) : "") + " · " + r.report.path;
   }
 
@@ -1500,6 +1619,11 @@
     $("path").addEventListener("input", function () { showRefused(""); });
     $("new-check").addEventListener("click", function () { show("open"); $("path").focus(); });
     $("check-again").addEventListener("click", checkAgain);
+    $("open-saved").addEventListener("change", function (ev) {
+      var file = ev.target.files[0];
+      ev.target.value = "";   // the same file can be picked again
+      openSavedFile(file);
+    });
     $("rail-toggle").addEventListener("click", toggleRail);
     $("files-drawer").querySelector("summary").addEventListener("click", function (ev) {
       if (WIDE.matches) ev.preventDefault();   // the column does not close
@@ -1545,10 +1669,10 @@
     show("open", false);
     refreshRecent().then(function (entries) {
       if (!entries) return;
-      // A folder named on the command line was checked before the page opened; the API keeps the list, not the
-      // report, so the page checks the newest one again to show it.
+      // A folder named on the command line was checked before the page opened. The server holds that result, so the
+      // newest finished check is opened from memory; no folder is read.
       var done = entries.filter(function (e) { return e.state === "done"; });
-      if (done.length && !state.current) startScan(done[done.length - 1].path);
+      if (done.length && !state.current) openStored(done[done.length - 1]);
     });
   }
 
