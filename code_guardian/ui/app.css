@@ -1,5 +1,7 @@
-/* code-guardian ui. Dark only. Every colour on the page is one of these tokens; nothing below names a colour.
-   tools/contrast_check.py checks every pair the page draws (text >= 4.5:1, large labels >= 3:1). */
+/* code-guardian ui. Dark is the default; light is a choice made in Settings and is never detected from the system.
+   Every colour on the page is a token in one of the two blocks below; nothing else names a colour. Both blocks
+   carry the same names. tools/contrast_check.py checks every pair the page draws in each palette
+   (text >= 4.5:1, large labels >= 3:1). */
 :root {
   --bg: #0e1116;
   --surface: #171b22;
@@ -16,19 +18,46 @@
   --on-accent: #0e1116;
   --focus: #8cb4ff;
   --hl: #2a3446;
+  --brand-1: #6f7b91;
+  --brand-2: #9aa5b8;
+  --brand-3: #c2cad8;
   color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #eef1f5;
+  --border: #c3cad6;
+  --text: #14181f;
+  --muted: #4f5968;
+  --high: #a8231a;
+  --medium: #7a5300;
+  --low: #0b57b8;
+  --ok: #126b47;
+  --none: #525a66;
+  --accent: #1f4fc2;
+  --on-accent: #ffffff;
+  --focus: #1f4fc2;
+  --hl: #dfe8ff;
+  --brand-1: #6f7b91;
+  --brand-2: #4a566b;
+  --brand-3: #2f3a4d;
+  color-scheme: light;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
 
-html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html { font-size: 100%; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+html[data-size="larger"] { font-size: 112.5%; }
+html[data-size="largest"] { font-size: 125%; }
 
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  font-size: 16px;
+  font-size: 1rem;
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
@@ -53,9 +82,10 @@ code, pre, .mono {
 
 .top {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.25rem 0.75rem;
   padding: 0.5rem 16px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
@@ -63,16 +93,58 @@ code, pre, .mono {
   top: 0;
   z-index: 2;
 }
+.brandbox { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; line-height: 1.2; }
 .brand { font-weight: 700; letter-spacing: 0.01em; }
 .brand-sub { color: var(--muted); font-weight: 400; }
+.top-actions { display: flex; align-items: center; gap: 0.5rem; }
+
+/* The Luminari name. The mark's slot is the empty <svg id="luminari-mark">; it takes no room until a mark is drawn
+   in it, and the mark is coloured through these classes, never with colours of its own. */
+.luminari {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 1.5rem;
+  color: var(--brand-3);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+}
+.luminari:hover, .luminari:focus-visible { text-decoration: underline; text-underline-offset: 3px; }
+.luminari svg { flex: none; width: 1.125rem; height: 1.125rem; }
+.luminari svg:empty { display: none; }
+.mark-1 { fill: var(--brand-1); }
+.mark-2 { fill: var(--brand-2); }
+.mark-3 { fill: var(--brand-3); }
+
+/* The gear is a plain icon on a phone, where there is no room for a word; its label is still read aloud. */
+.gear { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; min-width: 44px; }
+.gear svg {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linejoin: round;
+}
+.gear-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
 
 main { padding: 1rem 16px 3rem; max-width: 760px; margin: 0 auto; }
 main.with-rail { max-width: 1040px; }
 main.wide { max-width: 1240px; }
 
 .tabs {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   margin: 0 0 1rem;
   padding: 4px;
@@ -81,8 +153,9 @@ main.wide { max-width: 1240px; }
   border-radius: 12px;
 }
 .tabs button {
+  flex: 1 1 3.5rem;
   min-height: 44px;
-  padding: 0.25rem;
+  padding: 0.25rem 0.125rem;
   border: 0;
   border-radius: 8px;
   background: transparent;
@@ -209,6 +282,47 @@ input[type="file"]::file-selector-button {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+
+/* ---- settings: a sheet from the bottom on a phone, a panel under the header on a wide window --------------- */
+
+.sheet { position: fixed; inset: 0; z-index: 10; display: flex; align-items: flex-end; justify-content: center; }
+.sheet::before { content: ""; position: absolute; inset: 0; background: var(--bg); opacity: 0.6; }
+.sheet-panel {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  max-height: 88vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1rem 16px 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: 16px 16px 0 0;
+}
+.sheet-panel:focus { outline: none; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.25rem; }
+.sheet-head h2 { margin: 0; }
+fieldset { min-width: 0; margin: 0 0 1rem; padding: 0; border: 0; }
+legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
+.choices { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.choice {
+  flex: 1 1 8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 48px;
+  margin: 0;
+  padding: 0.25rem 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-weight: 400;
+  cursor: pointer;
+}
+.choice span { overflow-wrap: normal; }
+.choice input { flex: none; width: 1.25rem; height: 1.25rem; margin: 0; accent-color: var(--accent); }
+.choice:has(input:checked) { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); font-weight: 600; }
 
 /* ---- open ----------------------------------------------------------------------------------------------------- */
 
@@ -578,8 +692,20 @@ input[type="file"]::file-selector-button {
 
 /* ---- wider windows -------------------------------------------------------------------------------------------- */
 
+@media (min-width: 600px) {
+  .gear-label { position: static; width: auto; height: auto; overflow: visible; clip: auto; }
+}
+
 @media (min-width: 900px) {
   .top { padding: 0.5rem 24px; }
+  .sheet { align-items: flex-start; justify-content: flex-end; }
+  .sheet-panel {
+    width: 360px;
+    max-height: calc(100vh - 5.5rem);
+    margin: 4.5rem 24px 0 0;
+    border-bottom: 1px solid var(--border);
+    border-radius: 12px;
+  }
   main { padding: 1.5rem 24px 3rem; }
   .tabs { max-width: 760px; }
   main.with-rail .frame {

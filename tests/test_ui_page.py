@@ -1,13 +1,17 @@
 """The page's own rules (P76 S3): it reaches only the local API and its own three files, it takes the token from the
-link's fragment and nowhere else, and without a token it tells the reader to open the printed link."""
+link's fragment and nowhere else, and without a token it tells the reader to open the printed link. P78 S1 adds the
+Settings panel: what it stores, where, and that it applies before the page is drawn."""
+import contextlib
 import json
 import re
 
+import pytest
 from conftest import ROOT
 
 UI = ROOT / "code_guardian" / "ui"
 ALLOWED = {"/api/scan", "/api/scans", "/api/file", "/api/explain", "/api/diff", "/app.js", "/app.css", "/"}
 PREFIX = "/api/"  # the guard in call(), not a URL
+LUMINARI = "https://github.com/LuminariSoftwares"  # the one outside address the page names: a plain link, never fetched
 
 
 def _js():
@@ -24,9 +28,11 @@ def test_every_url_in_the_page_is_the_local_api_or_its_own_files():
     assert paths and paths <= ALLOWED, paths - ALLOWED
     assert paths >= {"/api/scan", "/api/scans", "/api/file", "/api/explain", "/api/diff"}, paths
     html = (UI / "index.html").read_text(encoding="utf-8")
-    refs = set(re.findall(r'\b(?:src|href|action)="([^"]*)"', html))
+    link = re.search(r'<a\b[^>]*\bid="luminari"[^>]*>', html)
+    assert html.count(LUMINARI) == 1 and link and 'href="%s"' % LUMINARI in link.group(0), "the Luminari link, once"
+    refs = set(re.findall(r'\b(?:src|href|action)="([^"]*)"', html)) - {LUMINARI}
     assert refs <= ALLOWED, refs - ALLOWED
-    for text in (js, html):
+    for text in (js, html.replace(LUMINARI, "")):
         assert not re.search(r"https?:|//[a-z0-9]|\bws:|wss:", text, re.I)
 
 
@@ -40,8 +46,15 @@ def test_every_request_goes_through_one_api_function():
 
 def test_the_token_is_read_only_from_the_fragment():
     js = _js()
-    for banned in ("location.search", "localStorage", "sessionStorage", "document.cookie", "indexedDB", "URLSearchParams"):
+    for banned in ("location.search", "sessionStorage", "document.cookie", "indexedDB", "URLSearchParams"):
         assert banned not in js, banned
+    # the person's own settings are the one thing the page keeps in the browser: one key, read and written in two
+    # small functions, and never the token
+    assert 'var STORE_KEY = "cg.settings";' in js
+    stores = re.findall(r"localStorage\.(\w+)\(([^)]*)\)", js)
+    assert sorted(method for method, _ in stores) == ["getItem", "setItem"], stores
+    assert all(args.split(",")[0] == "STORE_KEY" for _, args in stores), stores
+    assert not re.search(r"setItem\([^)]*token", js, re.I)
     assert re.search(r"window\.location\.hash", js)
     reads = re.findall(r"function readToken\(\) \{(.*?)\n  \}", js, re.S)
     assert len(reads) == 1 and "location.hash" in reads[0]
@@ -321,3 +334,230 @@ def test_two_saved_files_compare_and_a_new_high_stands_out(tmp_path):
         server.shutdown()
         server.server_close()
         t.join(10)
+
+
+# ---- Settings (P78 S1): the panel, what it keeps, and that it applies before the page is drawn ---------------------
+
+STORE = "cg.settings"
+RESULT_SCREENS = ("result", "fixfirst", "findings", "code", "compare")
+
+
+@contextlib.contextmanager
+def _page(width=390, height=844, init=None, token=True):
+    """(page, url) on a fresh server in Chromium; skips when Playwright or Chromium is missing. init is a script that
+    runs in the page before the page's own."""
+    import threading
+
+    sync = pytest.importorskip("playwright.sync_api")
+    from code_guardian import ui
+    pw, browser = _browser(sync)
+    server = ui.make_server(port=0)
+    t = threading.Thread(target=server.serve_forever, daemon=True)
+    t.start()
+    try:
+        context = browser.new_context(viewport={"width": width, "height": height})
+        if init:
+            context.add_init_script(init)
+        yield context.new_page(), "http://127.0.0.1:%d/%s" % (server.server_address[1], "#t=" + server.token if token else "")
+    finally:
+        browser.close()
+        pw.stop()
+        server.shutdown()
+        server.server_close()
+        t.join(10)
+
+
+def _pick(page, name, value):
+    page.click("#settings-button")
+    page.check('input[name="%s"][value="%s"]' % (name, value))
+    page.keyboard.press("Escape")
+
+
+def _applied(page):
+    """(theme, size, brand) as the page shows them."""
+    return tuple(page.evaluate("""() => [document.documentElement.dataset.theme, document.documentElement.dataset.size,
+                                          document.getElementById('luminari').hidden ? 'off' : 'on']"""))
+
+
+def test_escape_closes_the_settings_panel():
+    with _page() as (page, url):
+        page.goto(url)
+        assert page.is_hidden("#settings")
+        page.click("#settings-button")
+        assert page.is_visible("#settings") and page.get_attribute("#settings-button", "aria-expanded") == "true"
+        page.keyboard.press("Escape")
+        assert page.is_hidden("#settings") and page.get_attribute("#settings-button", "aria-expanded") == "false"
+        assert page.evaluate("document.activeElement.id") == "settings-button"
+
+
+@pytest.mark.parametrize("size", [(390, 844), (1280, 800)], ids=["phone", "wide"])
+def test_a_tap_outside_or_on_close_closes_the_settings_panel_and_a_tap_inside_does_not(size):
+    with _page(*size) as (page, url):
+        page.goto(url)
+        page.click("#settings-button")
+        page.click("#settings-title")  # inside the panel
+        page.click('input[name="size"][value="larger"]')
+        assert page.is_visible("#settings")
+        page.click("#settings-close")
+        assert page.is_hidden("#settings")
+        page.click("#settings-button")
+        page.mouse.click(10, 10)  # outside the panel: the dimmed page
+        assert page.is_hidden("#settings")
+        assert page.get_attribute("#settings-button", "aria-expanded") == "false"
+
+
+def test_tab_stays_inside_the_open_settings_panel():
+    with _page() as (page, url):
+        page.goto(url)
+        page.click("#settings-button")
+        for key in ["Tab"] * 12 + ["Shift+Tab"] * 12:
+            page.keyboard.press(key)
+            assert page.evaluate("document.getElementById('settings').contains(document.activeElement)"), key
+
+
+def test_the_gear_and_the_name_are_on_the_screen_with_no_token():
+    with _page(token=False) as (page, url):
+        page.goto(url)
+        page.wait_for_selector("#screen-notoken:not([hidden])")
+        assert page.is_visible("#luminari") and page.is_visible("#settings-button")
+        assert page.is_hidden("#luminari-mark"), "an empty mark slot takes no room"
+        page.click("#settings-button")
+        assert page.is_visible("#settings")
+        page.check('input[name="theme"][value="light"]')
+        assert _applied(page)[0] == "light"
+
+
+# The probe runs before the page's own scripts: it saves a light theme, notes when <html> becomes light and when the
+# browser first paints. (document.documentElement does not exist yet, so it watches the whole document.)
+FLASH_PROBE = """
+(() => {
+  localStorage.setItem('cg.settings', JSON.stringify({theme: 'light', size: 'normal', brand: 'on'}));
+  const log = window.__cg = {theme: null, paint: null};
+  new MutationObserver(() => {
+    if (log.theme === null && document.documentElement.dataset.theme === 'light') log.theme = performance.now();
+  }).observe(document, {attributes: true, subtree: true, attributeFilter: ['data-theme']});
+  new PerformanceObserver(list => {
+    for (const e of list.getEntries()) if (e.name === 'first-paint' && log.paint === null) log.paint = e.startTime;
+  }).observe({type: 'paint', buffered: true});
+})();
+"""
+
+
+def test_a_saved_light_theme_is_applied_before_the_first_paint():
+    html = (UI / "index.html").read_text(encoding="utf-8")
+    tag = re.search(r'<script\b[^>]*\bsrc="/app\.js"[^>]*>', html).group(0)
+    assert re.search(r"\bdefer\b", tag) and 'blocking="render"' in tag, \
+        "a deferred script alone can run after the first paint (3 in 60 loads in Chromium); blocking=render cannot"
+    with _page(init=FLASH_PROBE) as (page, url):
+        page.goto(url)
+        for load in range(6):
+            if load:
+                page.reload()
+            page.wait_for_selector("#screen-open:not([hidden])")
+            log = page.evaluate("window.__cg")
+            if log["paint"] is None:
+                pytest.skip("this Chromium reports no paint timing")
+            assert log["theme"] is not None and log["theme"] <= log["paint"], \
+                "the page was drawn dark before the saved light theme was applied: %r" % log
+
+
+def test_the_color_scheme_meta_follows_the_theme():
+    with _page() as (page, url):
+        page.goto(url)
+        meta = lambda: page.get_attribute('meta[name="color-scheme"]', "content")  # noqa: E731
+        assert meta() == "dark"
+        _pick(page, "theme", "light")
+        assert meta() == "light"
+        page.reload()
+        assert meta() == "light"
+        _pick(page, "theme", "dark")
+        assert meta() == "dark"
+
+
+@pytest.mark.parametrize("raw, want", [
+    ('{"theme":"light","size":"largest","brand":"off"}', ("light", "largest", "off")),
+    ('{"theme":"light","size":"huge","brand":3}', ("light", "normal", "on")),  # a value it does not know is the default
+    ('{"theme":"neon"}', ("dark", "normal", "on")),
+    ('{"theme":"light"', ("dark", "normal", "on")),  # not JSON
+    ("null", ("dark", "normal", "on")),
+    ('["light"]', ("dark", "normal", "on")),
+    ('"light"', ("dark", "normal", "on")),
+    ("", ("dark", "normal", "on")),
+])
+def test_the_saved_settings_are_read_back_and_anything_else_is_the_default(raw, want):
+    with _page() as (page, url):
+        page.goto(url)
+        page.evaluate("v => localStorage.setItem('%s', v)" % STORE, raw)
+        page.reload()
+        assert _applied(page) == want
+        page.click("#settings-button")  # the radios show what is in force
+        for name, value in zip(("theme", "size", "brand"), want):
+            assert page.is_checked('input[name="%s"][value="%s"]' % (name, value)), (name, value)
+
+
+def test_every_change_is_written_under_one_key_and_nothing_else_is_stored():
+    with _page() as (page, url):
+        page.goto(url)
+        assert page.evaluate("localStorage.length") == 0, "nothing is written until a choice is made"
+        _pick(page, "size", "largest")
+        _pick(page, "brand", "off")
+        assert page.evaluate("Object.keys(localStorage)") == [STORE]
+        assert json.loads(page.evaluate("localStorage.getItem('%s')" % STORE)) == \
+            {"theme": "dark", "size": "largest", "brand": "off"}
+        assert url.split("#t=")[1] not in page.evaluate("JSON.stringify(localStorage)"), "the token is never stored"
+
+
+@pytest.mark.parametrize("size", ["larger", "largest"])
+def test_larger_text_still_fits_a_phone_on_every_screen(tmp_path, size):
+    project = tmp_path / "proj"
+    project.mkdir()
+    (project / "app.py").write_text(WITH_KEY, encoding="utf-8")
+    fits = "document.documentElement.scrollWidth"
+    with _page() as (page, url):
+        page.goto(url)
+        _pick(page, "size", size)
+        assert page.evaluate(fits) <= 390
+        page.click("#settings-button")
+        assert page.evaluate(fits) <= 390, "the open panel"
+        page.keyboard.press("Escape")
+        page.fill("#path", str(project))
+        page.click("#scan-button")
+        page.wait_for_selector("#screen-result:not([hidden])", timeout=60000)
+        for screen in RESULT_SCREENS:
+            page.click("#tabs button[data-screen=%s]" % screen)
+            assert page.evaluate(fits) <= 390, (size, screen)
+
+
+def test_a_restart_gets_the_same_default_port_so_the_browser_keeps_its_settings():
+    """The server that closes a connection first is left with that port in TIME_WAIT; on Linux and macOS a restart
+    cannot bind it again unless the listener sets SO_REUSEADDR, and lands on the next port, where every setting
+    is lost. Reading to the server's close makes the server the side that closes first."""
+    import socket
+    import threading
+
+    from code_guardian import ui
+
+    def serve_one_request():
+        server = ui.make_server()
+        thread = threading.Thread(target=server.serve_forever)
+        thread.start()
+        port = server.server_address[1]
+        try:
+            conn = socket.create_connection(("127.0.0.1", port), timeout=10)
+            conn.sendall(("GET / HTTP/1.1\r\nHost: 127.0.0.1:%d\r\n\r\n" % port).encode("ascii"))
+            try:
+                while conn.recv(65536):
+                    pass
+            except ConnectionError:  # a reset also means the server closed first
+                pass
+            conn.close()
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(10)
+        return port
+
+    first = serve_one_request()
+    if first not in ui.DEFAULT_PORTS:
+        pytest.skip("every default port is busy on this machine")
+    assert [serve_one_request() for _ in range(3)] == [first] * 3

@@ -3,7 +3,8 @@
 // /api/diff) with the
 // token from the link's fragment (#t=...). It never computes a score or a sentence: every number and every sentence
 // on the page comes from the report and its plain-language layer. Text from the report is always set as text, never
-// as markup.
+// as markup. The one thing it keeps in the browser is the person's own settings (theme, text size, the Luminari name)
+// under localStorage["cg.settings"]; the token is never stored.
 
 (function () {
   var API_SCAN = "/api/scan";
@@ -29,6 +30,15 @@
   var SCREENS = ["notoken", "open", "result", "fixfirst", "findings", "code", "compare"];
   var RESULT_SCREENS = ["result", "fixfirst", "findings", "code", "compare"];
 
+  // One entry per setting: adding a setting is an entry here and a <fieldset data-setting="..."> in index.html.
+  // Theme and size become attributes of <html>; brand shows or hides #luminari.
+  var STORE_KEY = "cg.settings";
+  var SETTINGS = {
+    theme: {default: "dark", values: ["dark", "light"]},
+    size: {default: "normal", values: ["normal", "larger", "largest"]},
+    brand: {default: "on", values: ["on", "off"]}
+  };
+
   var state = {
     token: readToken(),
     results: {},      // scan id -> {id, report, plain}, the scans this page ran
@@ -44,6 +54,106 @@
     range: null,      // {lo, hi}: the lines picked in the viewer, 1-based and inclusive
     ask: 0            // counts questions and resets; an answer for an older count is dropped
   };
+
+  // ---- settings: the person's choices, kept in this browser only ------------------------------------------------
+
+  // The saved text, or null when the browser has none or refuses to give it (private window, blocked site data).
+  function readStore() {
+    try { return window.localStorage.getItem(STORE_KEY); } catch (e) { return null; }
+  }
+
+  function writeStore(text) {
+    try { window.localStorage.setItem(STORE_KEY, text); } catch (e) { /* refused: the choice still holds until the page closes */ }
+  }
+
+  // Every setting, each one a known value: a missing, unreadable or hand-edited store gives the defaults.
+  function loadSettings() {
+    var saved = null;
+    var raw = readStore();
+    if (raw) {
+      try { saved = JSON.parse(raw); } catch (e) { saved = null; }
+    }
+    if (!saved || typeof saved !== "object") saved = {};
+    var out = {};
+    Object.keys(SETTINGS).forEach(function (key) {
+      out[key] = SETTINGS[key].values.indexOf(saved[key]) >= 0 ? saved[key] : SETTINGS[key].default;
+    });
+    return out;
+  }
+
+  // Draws the settings on the page. Runs before the first screen is drawn, so a saved light theme never flashes dark.
+  function applySettings(s) {
+    var root = document.documentElement;
+    root.dataset.theme = s.theme;
+    root.dataset.size = s.size;
+    var meta = document.querySelector('meta[name="color-scheme"]');
+    if (meta) meta.setAttribute("content", s.theme);
+    var name = document.getElementById("luminari");
+    if (name) name.hidden = s.brand === "off";
+    var radios = document.querySelectorAll('#settings input[type="radio"]');
+    for (var i = 0; i < radios.length; i++) radios[i].checked = s[radios[i].name] === radios[i].value;
+  }
+
+  var settings = loadSettings();
+  applySettings(settings);
+
+  function openSettings() {
+    applySettings(settings);
+    $("settings").hidden = false;
+    $("settings-button").setAttribute("aria-expanded", "true");
+    $("settings").querySelector(".sheet-panel").focus();
+  }
+
+  function closeSettings() {
+    if ($("settings").hidden) return;
+    $("settings").hidden = true;
+    $("settings-button").setAttribute("aria-expanded", "false");
+    $("settings-button").focus();
+  }
+
+  // Tab stays inside the open sheet: the controls a Tab can reach, one radio per group.
+  function trapTab(ev) {
+    var items = Array.prototype.filter.call($("settings").querySelectorAll("button, input"), function (item) {
+      return item.type !== "radio" || item.checked;
+    });
+    var first = items[0];
+    var last = items[items.length - 1];
+    var here = document.activeElement;
+    if (ev.shiftKey && (here === first || here === $("settings").querySelector(".sheet-panel"))) {
+      last.focus();
+      ev.preventDefault();
+    } else if (!ev.shiftKey && here === last) {
+      first.focus();
+      ev.preventDefault();
+    }
+  }
+
+  function wireSettings() {
+    $("settings-button").addEventListener("click", function () {
+      if ($("settings").hidden) openSettings(); else closeSettings();
+    });
+    $("settings-close").addEventListener("click", closeSettings);
+    $("settings").addEventListener("change", function (ev) {
+      var input = ev.target;
+      if (!input || input.type !== "radio" || !Object.prototype.hasOwnProperty.call(SETTINGS, input.name)) return;
+      if (SETTINGS[input.name].values.indexOf(input.value) < 0) return;
+      settings[input.name] = input.value;
+      applySettings(settings);
+      writeStore(JSON.stringify(settings));
+    });
+    document.addEventListener("keydown", function (ev) {
+      if ($("settings").hidden) return;
+      if (ev.key === "Escape") closeSettings();
+      else if (ev.key === "Tab") trapTab(ev);
+    });
+    // A tap anywhere outside the panel (the dimmed page, the header) closes it.
+    document.addEventListener("click", function (ev) {
+      if ($("settings").hidden) return;
+      var t = ev.target;
+      if (t && t.closest && (t.closest(".sheet-panel") || t.closest("#settings-button"))) return;
+      closeSettings();
+    });
+  }
 
   // ---- the token: only ever from the fragment ------------------------------------------------------------------
 
@@ -1117,6 +1227,7 @@
   // ---- wiring --------------------------------------------------------------------------------------------------
 
   function wire() {
+    wireSettings();
     $("scan-form").addEventListener("submit", function (ev) {
       ev.preventDefault();
       startScan($("path").value);

@@ -1,17 +1,59 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark" data-size="normal">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
 <title>code-guardian</title>
 <link rel="stylesheet" href="/app.css">
+<script src="/app.js" defer blocking="render"></script>
 </head>
 <body>
 <header class="top">
-  <span class="brand">code-guardian <span class="brand-sub">check</span></span>
-  <button type="button" class="ghost" id="new-check" hidden>New check</button>
+  <div class="brandbox">
+    <a id="luminari" class="luminari" href="https://github.com/LuminariSoftwares" rel="noopener noreferrer"><svg id="luminari-mark" viewBox="0 0 64 64" aria-hidden="true"></svg><span>Luminari</span></a>
+    <span class="brand">code-guardian <span class="brand-sub">check</span></span>
+  </div>
+  <div class="top-actions">
+    <button type="button" class="ghost" id="new-check" hidden>New check</button>
+    <button type="button" class="ghost gear" id="settings-button" title="Settings" aria-haspopup="dialog" aria-expanded="false" aria-controls="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.39 10.23 L21.91 10.67 L21.91 13.33 L19.39 13.77 L18.48 15.97 L19.95 18.07 L18.07 19.95 L15.97 18.48 L13.77 19.39 L13.33 21.91 L10.67 21.91 L10.23 19.39 L8.03 18.48 L5.93 19.95 L4.05 18.07 L5.52 15.97 L4.61 13.77 L2.09 13.33 L2.09 10.67 L4.61 10.23 L5.52 8.03 L4.05 5.93 L5.93 4.05 L8.03 5.52 L10.23 4.61 L10.67 2.09 L13.33 2.09 L13.77 4.61 L15.97 5.52 L18.07 4.05 L19.95 5.93 L18.48 8.03 Z"/><circle cx="12" cy="12" r="3.2"/></svg><span class="gear-label">Settings</span></button>
+  </div>
 </header>
+
+<!-- Settings: saved in this browser (localStorage), applied by app.js before the page is drawn. Adding a setting later
+     is one entry in SETTINGS in app.js and one fieldset here. -->
+<section id="settings" class="sheet" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
+  <div class="sheet-panel" tabindex="-1">
+    <div class="sheet-head">
+      <h2 id="settings-title">Settings</h2>
+      <button type="button" class="ghost" id="settings-close">Close</button>
+    </div>
+    <p class="hint">Saved in this browser only. Nothing is sent anywhere.</p>
+    <fieldset data-setting="theme">
+      <legend>Theme</legend>
+      <div class="choices">
+        <label class="choice"><input type="radio" name="theme" value="dark"><span>Dark</span></label>
+        <label class="choice"><input type="radio" name="theme" value="light"><span>Light</span></label>
+      </div>
+    </fieldset>
+    <fieldset data-setting="size">
+      <legend>Text size</legend>
+      <div class="choices">
+        <label class="choice"><input type="radio" name="size" value="normal"><span>Normal</span></label>
+        <label class="choice"><input type="radio" name="size" value="larger"><span>Larger</span></label>
+        <label class="choice"><input type="radio" name="size" value="largest"><span>Largest</span></label>
+      </div>
+    </fieldset>
+    <fieldset data-setting="brand">
+      <legend>The Luminari name at the top</legend>
+      <div class="choices">
+        <label class="choice"><input type="radio" name="brand" value="on"><span>Show</span></label>
+        <label class="choice"><input type="radio" name="brand" value="off"><span>Hide</span></label>
+      </div>
+    </fieldset>
+    <p id="settings-more" class="hint">More options will appear here in later versions.</p>
+  </div>
+</section>
 
 <main id="main">
 
@@ -245,6 +287,5 @@
 </div>
 
 </main>
-<script src="/app.js"></script>
 </body>
 </html>
