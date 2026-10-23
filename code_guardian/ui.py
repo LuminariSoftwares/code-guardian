@@ -56,8 +56,8 @@ DIALOG_TIMEOUT = 600  # seconds a folder window may stay open; no answer by then
 DIALOG_DETAIL = {3: "this Python has no tkinter", 4: "no display to open a window on"}
 
 # The folder window, run as `python -I -c DIALOG_SOURCE START` (ADR 0009): tkinter wants the main thread of its own
-# process, so the server's threads never import it. Exit 0 and the folder on stdout, 1 cancelled, 3 no tkinter,
-# 4 no display, 5 the folder's name cannot be written to the pipe in this console's encoding.
+# process, so the server's threads never import it. Exit 0 and the folder on stdout as UTF-8 whatever the console's
+# code page is (browse() decodes UTF-8), 1 cancelled, 3 no tkinter, 4 no display.
 DIALOG_SOURCE = """\
 import sys
 try:
@@ -77,10 +77,8 @@ root.focus_force()
 chosen = tkinter.filedialog.askdirectory(parent=root, initialdir=sys.argv[1], mustexist=True,
                                          title="Pick the folder to check")
 chosen = chosen if isinstance(chosen, str) else ""
-try:
-    print(chosen)
-except UnicodeEncodeError:
-    sys.exit(5)
+sys.stdout.reconfigure(encoding="utf-8")
+print(chosen)
 sys.exit(0 if chosen else 1)
 """
 
@@ -214,7 +212,8 @@ class Server(http.server.ThreadingHTTPServer):
         try:
             try:
                 done = self.dialog_runner([sys.executable, "-I", "-c", DIALOG_SOURCE, start or os.path.expanduser("~")],
-                                          capture_output=True, text=True, timeout=DIALOG_TIMEOUT)
+                                          capture_output=True, text=True, encoding="utf-8",
+                                          timeout=DIALOG_TIMEOUT)
             except subprocess.TimeoutExpired:
                 return 200, {"path": None, "cancelled": True}
         finally:
