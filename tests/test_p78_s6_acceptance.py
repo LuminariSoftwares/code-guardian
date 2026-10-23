@@ -2,6 +2,10 @@
 
 Written by the overseer BEFORE the build session. The build session must add this file to the PR byte-for-byte and
 must not edit it; a PR that changes it fails the section. This file is pure ASCII on purpose.
+
+Amended by the overseer after PR #39 (P78 deviation 20): the plan's C9 paragraph promised Tailscale Serve and an SSH
+tunnel with mismatched ports, and the page's Host guard refuses both (it answers only 127.0.0.1 / localhost with its
+own port). The paragraph below says what is true today.
 """
 import re
 from pathlib import Path
@@ -12,10 +16,12 @@ UI = ROOT / "code_guardian" / "ui"
 
 FROM_A_PHONE = (
     "code-guardian ui only ever listens on 127.0.0.1 of the computer it runs on; it never opens a port to your "
-    "network. To look at it from a phone, forward that port through something you already trust -- an SSH tunnel "
-    "(`ssh -L 8765:127.0.0.1:<port> you@that-computer`) or Tailscale Serve pointed at `127.0.0.1:<port>` -- and "
-    "open the printed link on the phone. The Browse button opens its folder window on the computer running "
-    "code-guardian, not on the phone."
+    "network, and the page only answers when the address in the browser is 127.0.0.1 or localhost with the port "
+    "code-guardian printed. To look at it from a phone, use an SSH tunnel you already trust with the same port number "
+    "on both ends (`ssh -L <port>:127.0.0.1:<port> you@that-computer`, where <port> is the one in the printed link, "
+    "usually 8765), then open the printed link on the phone. Tailscale Serve and other proxies that pass on their own "
+    "address are refused for now. The Browse button opens its folder window on the computer running code-guardian, "
+    "not on the phone."
 )
 SECTIONS = ("Settings", "Sizes", "Every file", "Browse and the folders it refuses", "Re-open vs Check again",
             "From a phone")
