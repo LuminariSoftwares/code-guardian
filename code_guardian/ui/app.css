@@ -710,6 +710,25 @@ legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
 /* ---- before and after --------------------------------------------------------------------------------------- */
 
 .open-compare { margin-top: 1rem; }
+.open-saved { margin-top: 1rem; }
+.open-saved h2 { font-size: 1.0625rem; margin-bottom: 0.75rem; }
+.open-saved .hint { margin-bottom: 0.75rem; }
+#again-error { margin-bottom: 1rem; }
+
+/* ---- a saved check (P78 S5): no folder is behind it, so the Code screen says so and the file controls rest ---- */
+
+.saved-note {
+  display: none;
+  margin: 0 0 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-left: 6px solid var(--muted);
+  border-radius: 10px;
+  background: var(--surface);
+}
+#screen-code[data-saved] .saved-note { display: block; }
+#screen-code[data-saved] .files-tools :disabled { color: var(--muted); cursor: not-allowed; }
+#screen-code[data-saved] .viewer-bar .jump { display: none; }
 .compare-pick h2 { font-size: 1.0625rem; margin-bottom: 0.75rem; }
 .pick-row { display: grid; gap: 0.75rem; margin-bottom: 0.75rem; }
 .pick-row > div { min-width: 0; }
@@ -816,7 +835,7 @@ legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
 .harm-dot { width: 0.75rem; height: 0.75rem; border: 2px solid currentColor; border-radius: 50%; background: currentColor; }
 .rail-again { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.75rem; }
 .rail-again .ghost { padding: 0.25rem 0.875rem; white-space: nowrap; }
-.rail-when { margin: 0; color: var(--muted); font-size: 0.75rem; }
+.rail-when { margin: 0; color: var(--muted); font-size: 0.75rem; overflow-wrap: break-word; }
 .rail-when:empty { display: none; }
 
 /* ---- side window: 600 px and up ------------------------------------------------------------------------------- */
@@ -924,7 +943,7 @@ legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
   .frame[data-rail="mini"] .li { display: inline; font-weight: 800; }
   .frame[data-rail="mini"] .rail-again { margin: 0; align-items: center; }
   .frame[data-rail="mini"] .rail-again .ghost { width: 2.75rem; padding: 0.25rem; }
-  .frame[data-rail="mini"] .rail-when { font-size: 0.6875rem; text-align: center; }
+  .frame[data-rail="mini"] .rail-when { font-size: 0.6875rem; text-align: center; overflow-wrap: normal; overflow: hidden; max-width: 100%; }
 
   .scan-form .row { grid-template-columns: minmax(0, 1fr) auto auto; align-items: end; }
   .scan-form .row input { grid-column: auto; }
