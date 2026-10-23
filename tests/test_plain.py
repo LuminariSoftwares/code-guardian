@@ -124,7 +124,9 @@ def test_score_sentence_refuses_an_unknown_dimension():
 
 def test_an_incomplete_scan_says_so_once_on_the_overall_sentence():
     r = rep([], status="PARTIAL", reasons=["x"])
-    assert "did not cover the whole project" in plain.score_sentence("overall", r)
+    overall = plain.score_sentence("overall", r)
+    # said by the cap reason, so the clause is left out (P76 S5): once either way
+    assert overall.count("PARTIAL") + overall.count("did not cover the whole project") == 1, overall
     for d in ("safe", "works", "complete"):
         assert "did not cover the whole project" not in plain.score_sentence(d, r), d
     assert "did not cover the whole project" not in plain.score_sentence("overall", rep([]))
@@ -403,3 +405,44 @@ def test_item_6_adr_scopes_the_token_to_api_requests():
     body = (ROOT / "docs" / "adr" / "0007-plain-language-layer-never-scores.md").read_text(encoding="utf-8")
     assert "every request must carry the session token" not in body
     assert "/api/*" in body and "Host" in body and "Origin" in body
+
+
+# ---- P76 S5: before / after, and two copy items from the S3b review -----------------------------------------------
+
+def test_diff_sentence_reads_the_counts_and_both_grades():
+    before = rep([f("secret.key", "FAIL", "app.py:2"), f("exec.shell", "WARN", "app.py:9")])
+    after = rep([f("exec.shell", "WARN", "app.py:9"), f("net.egress", "WARN", "app.py:4")])
+    d = verify.diff(before, after)
+    s = plain.diff_sentence(d)
+    assert s == "1 fixed, 1 new, grade %s → %s" % (before["scores"]["grade"], after["scores"]["grade"])
+    invalid = rep([], status="INVALID", reasons=["nothing to judge"])
+    assert plain.diff_sentence(verify.diff(invalid, before)).endswith("grade none → %s" % before["scores"]["grade"])
+    assert not plain.VERDICT_PHRASES.search(s) and " -- " not in s
+
+
+def test_overall_on_a_partial_scan_says_partial_once(tmp_path):
+    (tmp_path / "index.js").write_text("console.log('hi')\n", encoding="utf-8")
+    (tmp_path / "package.json").write_text('{"name": "x", "version": "1.0.0"}', encoding="utf-8")
+    r = report.scan(str(tmp_path))
+    assert r["status"] == "PARTIAL" and "PARTIAL" in r["scores"]["cap_reason"]
+    s = plain.score_sentence("overall", r)
+    assert s.count("PARTIAL") == 1 and "did not cover the whole project" not in s, s
+    # a report without a cap reason (hand-made, or from an older version) still gets the clause, once
+    bare = copy.deepcopy(r)
+    bare["scores"]["cap_reason"] = None
+    assert plain.score_sentence("overall", bare).count("did not cover the whole project") == 1
+
+
+def test_fix_first_lead_comes_with_the_floor_note_and_only_then():
+    r = report.scan(str(ROOT / "tests" / "fixtures" / "risky_repo"))
+    kept = copy.deepcopy(r)
+    lead = plain.fix_first_lead(r)
+    assert any("0/100" in n for n in plain.fix_first_notes(r))
+    assert lead == ("Safety problems do not raise the grade until most of them are fixed, so they can show +0 here. "
+                    "Fix them first anyway.")
+    assert not plain.VERDICT_PHRASES.search(lead) and " -- " not in lead
+    assert r == kept
+    for name in ("clean_repo", "works_broken", "supply_repo"):
+        other = report.scan(str(ROOT / "tests" / "fixtures" / name))
+        assert (plain.fix_first_lead(other) is None) == (not any("0/100" in n for n in plain.fix_first_notes(other)))
+    assert plain.fix_first_lead(rep([], status="INVALID", reasons=["nothing to judge"])) is None

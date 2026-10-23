@@ -187,3 +187,54 @@ def test_explain_reads_the_model_settings_per_request(server, scanned, stub, mon
     monkeypatch.setenv("CODE_GUARDIAN_LLM_URL", model.url)
     monkeypatch.setenv("CODE_GUARDIAN_LLM_MODEL", "m")
     assert explain_call(server, id=scanned, rel="a.py", start=1, end=1)[1]["text"] == "ok"
+
+
+# ---- POST /api/diff (P76 S5): the refusals and the memory; the happy paths are in test_p76_s5_acceptance.py ---------
+
+def diff_call(server, body):
+    status, raw = call(server, "POST", "/api/diff", json.dumps(body).encode())
+    return status, json.loads(raw)
+
+
+def scan_id(server, path):
+    status, raw = call(server, "POST", "/api/scan", json.dumps({"path": str(path), "goal_file": None}).encode())
+    assert status == 200
+    return json.loads(raw)["id"]
+
+
+def test_diff_keeps_only_the_last_reports(server, monkeypatch):
+    monkeypatch.setattr(ui, "REPORTS_KEPT", 2)
+    ids = [scan_id(server, CLEAN) for _ in range(3)]
+    assert diff_call(server, {"before": ids[0], "after": ids[2]})[0] == 404
+    status, d = diff_call(server, {"before": ids[1], "after": ids[2]})
+    assert status == 200 and d["counts"]["fixed"] == d["counts"]["new"] == 0
+    assert d["sentence"].startswith("0 fixed, 0 new, grade ")
+
+
+def test_diff_never_reads_a_path_given_as_saved_text(server, tmp_path):
+    saved = tmp_path / "saved.json"
+    saved.write_text(json.dumps(ui.report.scan(str(CLEAN))), encoding="utf-8")
+    status, d = diff_call(server, {"before_json": str(saved), "after_json": str(saved)})
+    assert (status, d["error"], d["side"]) == (400, "report", "before")
+
+
+def test_diff_refuses_half_pairs_and_non_reports(server):
+    good = json.dumps(ui.report.scan(str(CLEAN)))
+    assert diff_call(server, {"before": "x"})[0] == 400
+    assert diff_call(server, {"before_json": good})[0] == 400
+    assert diff_call(server, {"before": 1, "after": 2})[0] == 400
+    status, d = diff_call(server, {"before_json": good, "after_json": "[1, 2]"})
+    assert (status, d["error"], d["side"]) == (400, "report", "after")
+    old = json.loads(good)
+    for f in old["findings"]:
+        f.pop("fingerprint", None)
+    status, d = diff_call(server, {"before_json": json.dumps(old), "after_json": good})
+    assert (status, d["error"]) == (400, "report") and "fingerprint" in d["detail"]
+    assert call(server, "POST", "/api/diff", b"{nope")[0] == 400
+
+
+def test_scan_carries_the_fix_first_lead(server):
+    status, raw = call(server, "POST", "/api/scan", json.dumps({"path": str(ROOT / "tests" / "fixtures" / "risky_repo"),
+                                                                "goal_file": None}).encode())
+    plain_layer = json.loads(raw)["plain"]
+    assert status == 200 and plain_layer["fix_first_lead"].startswith("Safety problems do not raise the grade")

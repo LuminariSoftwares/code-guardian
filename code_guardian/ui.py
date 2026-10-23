@@ -13,6 +13,7 @@ The server calls report.scan() and builds every sentence with plain.py; it never
 
 import atexit
 import codecs
+import collections
 import http.client
 import http.server
 import json
@@ -27,7 +28,7 @@ import time
 import webbrowser
 from urllib.parse import parse_qsl
 
-from . import explain, goal, plain, report
+from . import explain, goal, plain, report, verify
 from .finding import summarize
 from .scanners import redact_report
 
@@ -42,6 +43,7 @@ ASSETS = {"/": ("index.html", "text/html; charset=utf-8"), "/app.css": ("app.css
 DIMENSIONS = ("safe", "works", "complete", "overall")
 EXPLAIN_MAX_LINES = 200
 EXPLAIN_SETUP = "set CODE_GUARDIAN_LLM_URL and CODE_GUARDIAN_LLM_MODEL, then restart code-guardian ui"
+REPORTS_KEPT = 20  # finished reports held for /api/diff; the oldest goes first
 
 _live = set()
 _live_lock = threading.Lock()
@@ -80,6 +82,7 @@ class Server(http.server.ThreadingHTTPServer):
         self.token = secrets.token_urlsafe(24)
         self.scans = []  # entries, oldest first: id, path, when, state, grade, overall, status
         self.roots = {}  # scan id -> the directory /api/file may read under
+        self.reports = collections.OrderedDict()  # scan id -> its (redacted) report, the last REPORTS_KEPT
         self.temp_dirs = []
         self.lock = threading.Lock()
         super().__init__((HOST, port), Handler)
@@ -140,6 +143,9 @@ class Server(http.server.ThreadingHTTPServer):
             self.roots[entry["id"]] = os.path.realpath(root)
             entry.update(state="done", grade=rep["scores"]["grade"], overall=rep["scores"]["overall"],
                          status=rep["status"])
+            self.reports[entry["id"]] = rep
+            while len(self.reports) > REPORTS_KEPT:
+                self.reports.popitem(last=False)
         return {"id": entry["id"], "report": rep, "plain": plain_of(rep)}
 
     def _forget(self, entry, made):
@@ -149,6 +155,10 @@ class Server(http.server.ThreadingHTTPServer):
                 self.temp_dirs.remove(made)
         if made:
             shutil.rmtree(made, ignore_errors=True)
+
+    def report_of(self, scan_id):
+        with self.lock:
+            return self.reports.get(scan_id)
 
     def listing(self):
         with self.lock:
@@ -190,7 +200,8 @@ def plain_of(rep):
             "checked": plain.checked_lines(rep),
             "cards": [plain.finding_card(f, rep) for f in rep["findings"]],
             "fix_first": plain.fix_first(rep),
-            "fix_first_notes": plain.fix_first_notes(rep)}
+            "fix_first_notes": plain.fix_first_notes(rep),
+            "fix_first_lead": plain.fix_first_lead(rep)}
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -258,6 +269,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._scan(body)
         if self.command == "POST" and path == "/api/explain":
             return self._explain(body)
+        if self.command == "POST" and path == "/api/diff":
+            return self._diff(body)
         if self.command == "GET" and path == "/api/scans":
             return self._json(200, self.server.listing())
         if self.command == "GET" and path == "/api/file":
@@ -284,6 +297,43 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._json(400, {"error": exc.error, "detail": exc.detail})
         except Exception as exc:  # the scanner crashed: say so, never the traceback
             return self._json(500, {"error": "scan", "detail": type(exc).__name__})
+
+    def _diff(self, body):
+        """Two checks of this session by id, or the text of two saved `scan --json` files: verify.diff's result as it
+        is, plus plain.diff_sentence of it. A saved file is parsed here and never treated as a path."""
+        try:
+            req = json.loads(body.decode("utf-8"))
+        except ValueError:
+            return self._json(400, {"error": "json"})
+        if not isinstance(req, dict):
+            return self._json(400, {"error": "json"})
+        if isinstance(req.get("before"), str) and isinstance(req.get("after"), str):
+            pair = [self.server.report_of(req["before"]), self.server.report_of(req["after"])]
+            if None in pair:
+                return self._json(404, {"error": "scan", "detail": "code-guardian does not hold that check; it keeps "
+                                        "the last %d" % REPORTS_KEPT})
+        elif isinstance(req.get("before_json"), str) and isinstance(req.get("after_json"), str):
+            pair = []
+            for side in ("before_json", "after_json"):
+                try:
+                    data = json.loads(req[side])
+                    if not isinstance(data, dict):  # load_report would take a bare string for a file path
+                        raise ValueError("not a code-guardian scan report (from scan --json)")
+                    pair.append(redact_report(verify.load_report(data)))
+                except (ValueError, RecursionError) as exc:
+                    detail = "not JSON" if isinstance(exc, (json.JSONDecodeError, RecursionError)) else str(exc)
+                    return self._json(400, {"error": "report", "side": side[:-5], "detail": detail})
+        else:
+            return self._json(400, {"error": "diff", "detail": "give before and after (two check ids) or before_json "
+                                    "and after_json (two saved scan --json files)"})
+        try:
+            d = verify.diff(pair[0], pair[1])
+        except ValueError as exc:  # a report without fingerprints, from a version older than 0.3
+            return self._json(400, {"error": "report", "detail": str(exc)})
+        except (KeyError, TypeError, AttributeError):  # a report whose findings are not the shape scan --json writes
+            return self._json(400, {"error": "report", "detail": "not a code-guardian scan report (from scan --json)"})
+        d["sentence"] = plain.diff_sentence(d)
+        return self._json(200, d)
 
     def _explain(self, body):
         """Ask the person's own model about the lines they chose: those lines and nothing else leave this machine.
@@ -396,6 +446,10 @@ def selftest():
                                         headers=token)
         quoted_status, _, quoted = post('"%s"' % proj, headers=token)
         one_status, _, one = post(os.path.join(proj, "a.py"), headers=token)
+        diff_status, _, diffed = _call(server, "POST", "/api/diff", {"before": sid, "after": (quoted or {}).get("id")},
+                                       headers=token)
+        gone_status, _, _ = _call(server, "POST", "/api/diff", {"before": sid, "after": "gone"}, headers=token)
+        text_status, _, _ = _call(server, "POST", "/api/diff", {"before_json": "{", "after_json": "{}"}, headers=token)
         one_dir = (one or {}).get("report", {}).get("path", "")
         one_names = sorted(os.listdir(one_dir)) if os.path.isdir(one_dir) else None
         bad_status, _, bad = post(os.path.join(tmp, "missing"), headers=token)
@@ -432,6 +486,9 @@ def selftest():
         ("quoted_path", quoted_status == 200 and quoted["report"]["scores"] == scanned["report"]["scores"]),
         ("single_file_temp_copy", one_status == 200 and one_names == ["a.py"] and os.path.realpath(one_dir) != os.path.realpath(proj)),
         ("bad_path_400", bad_status == 400 and (bad or {}).get("error") == "path"),
+        ("diff_two_scans", diff_status == 200 and (diffed or {}).get("counts", {}).get("fixed") == 0
+         and diffed["sentence"] == plain.diff_sentence({k: v for k, v in diffed.items() if k != "sentence"})),
+        ("diff_unknown_404_bad_text_400", (gone_status, text_status) == (404, 400)),
         ("invalid_json_400", json_status == 400),
         ("temp_copy_removed_on_close", bool(one_dir) and not os.path.exists(one_dir)),
     ]
