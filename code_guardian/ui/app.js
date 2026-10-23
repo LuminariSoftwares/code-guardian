@@ -3,8 +3,9 @@
 // /api/diff) with the
 // token from the link's fragment (#t=...). It never computes a score or a sentence: every number and every sentence
 // on the page comes from the report and its plain-language layer. Text from the report is always set as text, never
-// as markup. The one thing it keeps in the browser is the person's own settings (theme, text size, the Luminari name)
-// under localStorage["cg.settings"]; the token is never stored.
+// as markup. The only things it keeps in the browser are the person's own choices: the settings (theme, text size, the
+// Luminari name) under localStorage["cg.settings"] and whether the summary column is open or a slim rail under
+// localStorage["cg.rail"]; the token is never stored.
 
 (function () {
   var API_SCAN = "/api/scan";
@@ -51,6 +52,7 @@
     files: {},        // "id\nrel" -> /api/file body
     scanning: false,
     again: false,     // a "Check again" is running
+    pick: null,       // rel of the file picked in the file list; names the drawer below 900 px
     range: null,      // {lo, hi}: the lines picked in the viewer, 1-based and inclusive
     ask: 0            // counts questions and resets; an answer for an older count is dropped
   };
@@ -153,6 +155,62 @@
       if (t && t.closest && (t.closest(".sheet-panel") || t.closest("#settings-button"))) return;
       closeSettings();
     });
+  }
+
+  // ---- the summary rail: a strip below 900 px, a column from 900 px that the toggle shrinks to a mini rail ----------
+
+  var RAIL_KEY = "cg.rail";
+  var WIDE = window.matchMedia("(min-width: 900px)");   // the same widths as the tiers in app.css
+  var MID = window.matchMedia("(min-width: 600px)");
+  var railPref = readRail();   // "open" or "mini": the column's state, kept in this browser
+  var stripPref = null;        // the strip's state once tapped; until then the tier decides (closed on a phone)
+
+  function readRail() {
+    try { return window.localStorage.getItem(RAIL_KEY) === "mini" ? "mini" : "open"; } catch (e) { return "open"; }
+  }
+
+  function writeRail(value) {
+    try { window.localStorage.setItem(RAIL_KEY, value); } catch (e) { /* refused: the choice still holds until the page closes */ }
+  }
+
+  function railMode() {
+    return WIDE.matches ? (railPref === "mini" ? "mini" : "column") : "strip";
+  }
+
+  function railOpen(mode) {
+    if (mode === "strip") return stripPref === null ? MID.matches : stripPref;
+    return mode === "column";
+  }
+
+  // Keeps what the rail shows, aria-expanded and the toggle's label in step with the window and the saved choice.
+  function syncRail() {
+    var mode = railMode();
+    var open = railOpen(mode);
+    var mini = mode === "mini";
+    var label = open ? "Hide summary" : "Show summary";
+    var toggle = $("rail-toggle");
+    $("frame").setAttribute("data-rail", mode);
+    toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    toggle.setAttribute("aria-label", label);
+    toggle.title = label;
+    toggle.querySelector(".rail-toggle-text").textContent = label;
+    // Collapsed with the hidden attribute: the strip's details on a phone; in the mini rail the harm word, which the
+    // labelled dot replaces, and Safe / Fix first.
+    $("rail-details").hidden = mode === "strip" && !open;
+    $("rail-harm-label").hidden = mini;
+    $("rail-harm-mini").hidden = !mini;
+    $("rail-facts").hidden = mini;
+  }
+
+  function toggleRail() {
+    var mode = railMode();
+    if (mode === "strip") {
+      stripPref = !railOpen(mode);
+    } else {
+      railPref = mode === "column" ? "mini" : "open";
+      writeRail(railPref);
+    }
+    syncRail();
   }
 
   // ---- the token: only ever from the fragment ------------------------------------------------------------------
@@ -274,11 +332,13 @@
     $("summary-rail").hidden = !inResult;
     $("new-check").hidden = !inResult;
     $("main").className = (inResult ? "with-rail" : "") + (screen === "code" ? " wide" : "");
+    if (inResult) syncRail();
     var tabs = $("tabs").querySelectorAll("button");
     for (var i = 0; i < tabs.length; i++) {
       if (tabs[i].getAttribute("data-screen") === screen) tabs[i].setAttribute("aria-current", "page");
       else tabs[i].removeAttribute("aria-current");
     }
+    if (inResult) revealTab();
     if (push !== false && state.screen && state.screen !== screen) {
       try { window.history.pushState({ screen: screen }, "", window.location.href); } catch (e) { /* not needed */ }
     }
@@ -286,6 +346,17 @@
     if (screen === "open") refreshRecent();
     if (screen === "compare") enterCompare();
     window.scrollTo(0, 0);
+  }
+
+  // On a phone the tabs scroll sideways inside their own row; the tab you are on is brought into view.
+  function revealTab() {
+    var row = $("tabs");
+    var now = row.querySelector('[aria-current="page"]');
+    if (!now || row.scrollWidth <= row.clientWidth) return;
+    var r = row.getBoundingClientRect();
+    var b = now.getBoundingClientRect();
+    if (b.left < r.left) row.scrollLeft -= r.left - b.left + 8;
+    else if (b.right > r.right) row.scrollLeft += b.right - r.right + 8;
   }
 
   function noToken(why) {
@@ -466,8 +537,16 @@
   function setAgain(on, text) {
     state.again = on;
     ["check-again", "check-again-summary"].forEach(function (id) {
+      var text = on ? "Checking…" : "Check again";
+      var label = $(id).querySelector(".again-label");   // the rail's button keeps its icon; its label may be hidden
       $(id).disabled = on;
-      $(id).textContent = on ? "Checking…" : "Check again";
+      if (label) {
+        label.textContent = text;
+        $(id).title = text;
+        $(id).setAttribute("aria-label", text);
+      } else {
+        $(id).textContent = text;
+      }
     });
     if (text || on) $("rail-when").textContent = text;
   }
@@ -554,10 +633,21 @@
   // The rail: grade, how worried to be, Safe, how many fixes and findings. Every number is read from the response.
   function renderRail(rep, plain) {
     var scores = rep.scores || {};
-    $("rail-grade").textContent = scores.grade ? scores.grade + " (" + outOf(scores.overall) + ")" : "No grade";
+    var grade = $("rail-grade");
+    clear(grade);
+    if (scores.grade) {
+      grade.appendChild(el("span", "g-letter", scores.grade));
+      grade.appendChild(document.createTextNode(" "));
+      grade.appendChild(el("span", "g-score", "(" + outOf(scores.overall) + ")"));
+    } else {
+      grade.appendChild(el("span", "g-letter g-none", "No grade"));
+    }
     var harm = plain.harm || {};
+    var word = harm.level || "Could not check";
     $("rail-harm").className = "rail-harm " + harmClass(harm);
-    $("rail-harm-word").textContent = harm.level || "Could not check";
+    $("rail-harm-word").textContent = word;
+    $("rail-harm-mini").setAttribute("aria-label", word);
+    $("rail-harm-mini").firstChild.textContent = word.charAt(0);
     $("rail-partial").hidden = !harm.partial;
     $("rail-safe").textContent = scores.safe === null || scores.safe === undefined ? "not scored" : outOf(scores.safe);
     var fixes = (plain.fix_first || []).length;
@@ -727,7 +817,23 @@
     });
   }
 
+  // Below 900 px the file list is a drawer: open until a file is picked, then closed with that file's name in its
+  // summary. From 900 px it is a column that stays open and its summary is only the heading.
+  function syncDrawer(tierChanged) {
+    var drawer = $("files-drawer");
+    var summary = drawer.querySelector("summary");
+    var wide = WIDE.matches;
+    if (wide) drawer.open = true;
+    else if (tierChanged) drawer.open = !state.pick;
+    summary.textContent = !wide && state.pick ? state.pick : "Files with findings";
+    if (wide) summary.setAttribute("tabindex", "-1");
+    else summary.removeAttribute("tabindex");
+  }
+
   function resetViewer() {
+    state.pick = null;
+    $("files-drawer").open = true;
+    syncDrawer(false);
     $("file-name").textContent = "Pick a file";
     var pre = $("code");
     clear(pre);
@@ -749,6 +855,9 @@
     var id = state.current.id;
     var key = id + "\n" + rel;
     markCurrentFile(rel);
+    state.pick = rel;
+    if (!WIDE.matches) $("files-drawer").open = false;
+    syncDrawer(false);
     $("file-name").textContent = rel;
     var got = state.files[key] ? Promise.resolve(state.files[key]) : call(fileUrl(id, rel)).then(function (body) {
       state.files[key] = body;
@@ -1234,6 +1343,13 @@
     });
     $("new-check").addEventListener("click", function () { show("open"); $("path").focus(); });
     $("check-again").addEventListener("click", checkAgain);
+    $("rail-toggle").addEventListener("click", toggleRail);
+    $("files-drawer").querySelector("summary").addEventListener("click", function (ev) {
+      if (WIDE.matches) ev.preventDefault();   // the column does not close
+    });
+    [WIDE, MID].forEach(function (query) {
+      query.addEventListener("change", function () { syncRail(); syncDrawer(true); });
+    });
     $("check-again-summary").addEventListener("click", checkAgain);
     var jumps = document.querySelectorAll("[data-screen]");
     for (var i = 0; i < jumps.length; i++) {

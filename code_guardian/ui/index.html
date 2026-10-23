@@ -15,8 +15,8 @@
     <span class="brand">code-guardian <span class="brand-sub">check</span></span>
   </div>
   <div class="top-actions">
-    <button type="button" class="ghost" id="new-check" hidden>New check</button>
-    <button type="button" class="ghost gear" id="settings-button" title="Settings" aria-haspopup="dialog" aria-expanded="false" aria-controls="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.39 10.23 L21.91 10.67 L21.91 13.33 L19.39 13.77 L18.48 15.97 L19.95 18.07 L18.07 19.95 L15.97 18.48 L13.77 19.39 L13.33 21.91 L10.67 21.91 L10.23 19.39 L8.03 18.48 L5.93 19.95 L4.05 18.07 L5.52 15.97 L4.61 13.77 L2.09 13.33 L2.09 10.67 L4.61 10.23 L5.52 8.03 L4.05 5.93 L5.93 4.05 L8.03 5.52 L10.23 4.61 L10.67 2.09 L13.33 2.09 L13.77 4.61 L15.97 5.52 L18.07 4.05 L19.95 5.93 L18.48 8.03 Z"/><circle cx="12" cy="12" r="3.2"/></svg><span class="gear-label">Settings</span></button>
+    <button type="button" class="ghost icon-btn" id="new-check" aria-label="New check" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5 V19 M5 12 H19"/></svg><span class="btn-label">New check</span></button>
+    <button type="button" class="ghost icon-btn gear" id="settings-button" data-must-show title="Settings" aria-haspopup="dialog" aria-expanded="false" aria-controls="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.39 10.23 L21.91 10.67 L21.91 13.33 L19.39 13.77 L18.48 15.97 L19.95 18.07 L18.07 19.95 L15.97 18.48 L13.77 19.39 L13.33 21.91 L10.67 21.91 L10.23 19.39 L8.03 18.48 L5.93 19.95 L4.05 18.07 L5.52 15.97 L4.61 13.77 L2.09 13.33 L2.09 10.67 L4.61 10.23 L5.52 8.03 L4.05 5.93 L5.93 4.05 L8.03 5.52 L10.23 4.61 L10.67 2.09 L13.33 2.09 L13.77 4.61 L15.97 5.52 L18.07 4.05 L19.95 5.93 L18.48 8.03 Z"/><circle cx="12" cy="12" r="3.2"/></svg><span class="btn-label">Settings</span></button>
   </div>
 </header>
 
@@ -87,38 +87,43 @@
 </section>
 
 <!-- One result: the tabs, the summary rail and the scanned folder are shared by the result screens below. -->
-<div class="frame" id="frame">
+<div class="frame" id="frame" data-rail="strip">
 <nav class="tabs" id="tabs" aria-label="Result" hidden>
-  <button type="button" data-screen="result">Summary</button>
-  <button type="button" data-screen="fixfirst">Fix first</button>
-  <button type="button" data-screen="findings">Findings</button>
-  <button type="button" data-screen="code">Code</button>
-  <button type="button" data-screen="compare">Compare</button>
+  <button type="button" data-screen="result" data-must-show>Summary</button>
+  <button type="button" data-screen="fixfirst" data-must-show>Fix first</button>
+  <button type="button" data-screen="findings" data-must-show>Findings</button>
+  <button type="button" data-screen="code" data-must-show>Code</button>
+  <button type="button" data-screen="compare" data-must-show>Compare</button>
 </nav>
 
-<!-- The same numbers on every tab, from the scan response; beside the screen on a wide window, a strip on a phone. -->
+<!-- The same numbers on every tab, from the scan response. Below 900 px a strip under the tabs (one line; the details
+     open on a tap); from 900 px a column beside the screen that the toggle shrinks to a slim icon rail. app.js keeps
+     data-rail ("strip", "column" or "mini") and aria-expanded in step with the window. -->
 <aside id="summary-rail" class="rail" aria-label="This check at a glance" hidden>
-  <div class="rail-head">
-    <p class="rail-grade"><span class="rail-key">Grade</span> <span id="rail-grade"></span></p>
-    <div class="rail-harm" id="rail-harm">
-      <p class="harm-label"><span class="harm-icon" aria-hidden="true"></span><span id="rail-harm-word"></span></p>
-      <span class="flag" id="rail-partial" hidden>partial check</span>
-    </div>
+  <div class="rail-line">
+    <button type="button" id="rail-toggle" class="rail-toggle" aria-expanded="true" aria-controls="rail-details" aria-label="Hide summary" title="Hide summary"><span class="rail-toggle-text">Hide summary</span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6 L15 12 L9 18"/></svg></button>
+    <p class="rail-grade"><span class="rail-key">Grade</span> <span id="rail-grade" data-must-show></span></p>
+    <dl class="rail-stats rail-counts">
+      <div><dt class="High"><span class="lw">High</span><span class="li" aria-hidden="true">H</span></dt><dd id="rail-high" data-must-show></dd></div>
+      <div><dt class="Medium"><span class="lw">Medium</span><span class="li" aria-hidden="true">M</span></dt><dd id="rail-medium" data-must-show></dd></div>
+      <div><dt class="Low"><span class="lw">Low</span><span class="li" aria-hidden="true">L</span></dt><dd id="rail-low" data-must-show></dd></div>
+      <div class="rail-q"><dt class="Quality"><span class="lw">Quality</span><span class="li" aria-hidden="true">Q</span></dt><dd id="rail-quality" data-must-show></dd></div>
+    </dl>
   </div>
-  <dl class="rail-stats">
-    <div><dt>Safe</dt><dd id="rail-safe"></dd></div>
-    <div><dt>Fix first</dt><dd id="rail-fix"></dd></div>
-  </dl>
-  <p class="rail-sub">Findings</p>
-  <dl class="rail-stats rail-counts">
-    <div><dt class="High">High</dt><dd id="rail-high"></dd></div>
-    <div><dt class="Medium">Medium</dt><dd id="rail-medium"></dd></div>
-    <div><dt class="Low">Low</dt><dd id="rail-low"></dd></div>
-    <div><dt class="Quality">Quality</dt><dd id="rail-quality"></dd></div>
-  </dl>
-  <div class="rail-again">
-    <button type="button" class="ghost" id="check-again">Check again</button>
-    <p class="rail-when" id="rail-when" role="status"></p>
+  <div class="rail-details" id="rail-details">
+    <div class="rail-harm" id="rail-harm">
+      <p class="harm-label" id="rail-harm-label"><span class="harm-icon" aria-hidden="true"></span><span id="rail-harm-word" data-must-show></span></p>
+      <span class="harm-mini" id="rail-harm-mini" role="img" aria-label="" hidden><span class="harm-initial" aria-hidden="true"></span><span class="harm-dot" aria-hidden="true"></span></span>
+      <span class="flag" id="rail-partial" data-must-show hidden>partial check</span>
+    </div>
+    <dl class="rail-stats rail-facts" id="rail-facts">
+      <div><dt>Safe</dt><dd id="rail-safe"></dd></div>
+      <div><dt>Fix first</dt><dd id="rail-fix"></dd></div>
+    </dl>
+    <div class="rail-again">
+      <button type="button" class="ghost icon-btn" id="check-again" data-must-show title="Check again" aria-label="Check again"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12 A8 8 0 1 1 17.66 6.34 M20 4 V9 H15"/></svg><span class="again-label">Check again</span></button>
+      <p class="rail-when" id="rail-when" role="status"></p>
+    </div>
   </div>
 </aside>
 
@@ -184,14 +189,16 @@
 <section id="screen-code" class="screen" hidden>
   <h1>Code</h1>
   <div class="code-layout">
-    <nav class="files" aria-labelledby="files-title">
-      <h2 id="files-title">Files with findings</h2>
-      <ul id="file-list"></ul>
-      <p class="files-note">Only the files a finding points to are listed.</p>
-    </nav>
+    <details class="files-drawer" id="files-drawer" open>
+      <summary id="files-title">Files with findings</summary>
+      <nav class="files" aria-labelledby="files-title">
+        <ul id="file-list"></ul>
+        <p class="files-note">Only the files a finding points to are listed.</p>
+      </nav>
+    </details>
     <div class="viewer">
       <div class="viewer-bar">
-        <span class="file-name mono" id="file-name">Pick a file</span>
+        <span class="file-name mono" id="file-name" data-must-show>Pick a file</span>
         <form class="jump" id="jump-form">
           <label for="jump-line">Go to line</label>
           <input type="number" id="jump-line" min="1" inputmode="numeric">
@@ -199,6 +206,9 @@
         </form>
       </div>
       <pre class="code" id="code" tabindex="0" aria-label="File contents"><span class="code-empty">Pick a file from the list, or tap a location on a finding.</span></pre>
+    </div>
+    <!-- Below 1280 px this sits under the viewer; from 1280 px it is a column beside it. -->
+    <aside class="code-aside" id="code-aside" aria-label="Questions about these lines">
       <div class="explain-bar card">
         <p id="selection-note" class="hint">Select some lines above, or type a start and end line, to ask what they do.</p>
         <form class="range" id="range-form" autocomplete="off">
@@ -217,7 +227,11 @@
         <h3>AI explanation — may be wrong; does not change any score</h3>
         <div id="explain-body"></div>
       </section>
-    </div>
+      <details class="note-help card" id="note-help">
+        <summary>What the notes in the code mean</summary>
+        <p class="hint">A note under a line says what a check found there. Tap it to read why it matters and what to do. The level word at its start is the same as on the Findings screen.</p>
+      </details>
+    </aside>
   </div>
 </section>
 

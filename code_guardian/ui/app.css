@@ -118,9 +118,10 @@ code, pre, .mono {
 .mark-2 { fill: var(--brand-2); }
 .mark-3 { fill: var(--brand-3); }
 
-/* The gear is a plain icon on a phone, where there is no room for a word; its label is still read aloud. */
-.gear { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; min-width: 44px; }
-.gear svg {
+/* The gear and "New check" are plain icons on a phone, where there is no room for a word; each button still carries
+   its label for a screen reader (aria-label). From 600 px the word is back beside the icon. */
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; min-width: 2.75rem; }
+.icon-btn svg {
   flex: none;
   width: 1.25rem;
   height: 1.25rem;
@@ -128,34 +129,46 @@ code, pre, .mono {
   stroke: currentColor;
   stroke-width: 1.75;
   stroke-linejoin: round;
+  stroke-linecap: round;
 }
-.gear-label {
+
+/* Visually hidden, still read aloud: a label that a plain icon replaces. */
+.btn-label,
+[data-rail="strip"] .rail-toggle-text,
+[data-rail="mini"] .rail-toggle-text,
+[data-rail="mini"] .again-label,
+[data-rail="mini"] .rail-key,
+[data-rail="mini"] .g-score,
+[data-rail="mini"] .lw {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  width: 0.0625rem;
+  height: 0.0625rem;
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
 
-main { padding: 1rem 16px 3rem; max-width: 760px; margin: 0 auto; }
-main.with-rail { max-width: 1040px; }
-main.wide { max-width: 1240px; }
+main { padding: 1rem 16px 3rem; max-width: 48rem; margin: 0 auto; }
+main.with-rail { max-width: 72ch; }
 
 .tabs {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px;
   margin: 0 0 1rem;
   padding: 4px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
 }
 .tabs button {
-  flex: 1 1 3.5rem;
-  min-height: 44px;
-  padding: 0.25rem 0.125rem;
+  flex: 1 0 auto;
+  min-height: 2.75rem;
+  padding: 0.25rem 0.625rem;
+  white-space: nowrap;
   border: 0;
   border-radius: 8px;
   background: transparent;
@@ -167,6 +180,7 @@ main.wide { max-width: 1240px; }
   word-break: normal;
   cursor: pointer;
 }
+.tabs button:focus-visible { outline-offset: -3px; }
 .tabs button[aria-current="page"] { background: var(--surface-2); color: var(--text); font-weight: 600; }
 
 .scanned { color: var(--muted); font-size: 0.875rem; margin-bottom: 1rem; }
@@ -177,7 +191,7 @@ main.wide { max-width: 1240px; }
 button, .button { font: inherit; }
 
 .primary {
-  min-height: 48px;
+  min-height: 3rem;
   padding: 0.5rem 1.25rem;
   border: 0;
   border-radius: 10px;
@@ -189,7 +203,7 @@ button, .button { font: inherit; }
 .primary[disabled] { cursor: progress; }
 
 .ghost {
-  min-height: 44px;
+  min-height: 2.75rem;
   padding: 0.25rem 0.875rem;
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -202,7 +216,7 @@ button, .button { font: inherit; }
 .link {
   display: inline-flex;
   align-items: center;
-  min-height: 44px;
+  min-height: 2.75rem;
   padding: 0.25rem 0;
   border: 0;
   background: none;
@@ -219,7 +233,7 @@ label { display: block; font-weight: 600; margin-bottom: 0.375rem; }
 
 input[type="text"], input[type="number"], select {
   width: 100%;
-  min-height: 48px;
+  min-height: 3rem;
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--muted);
   border-radius: 10px;
@@ -230,14 +244,14 @@ input[type="text"], input[type="number"], select {
 input.mono { font-size: 1rem; }
 input[type="file"] {
   width: 100%;
-  min-height: 48px;
+  min-height: 3rem;
   padding: 0.5rem 0;
   color: var(--text);
   font: inherit;
   font-size: 0.9375rem;
 }
 input[type="file"]::file-selector-button {
-  min-height: 40px;
+  min-height: 2.5rem;
   margin-right: 0.75rem;
   padding: 0.25rem 0.875rem;
   border: 1px solid var(--border);
@@ -290,7 +304,7 @@ input[type="file"]::file-selector-button {
 .sheet-panel {
   position: relative;
   width: 100%;
-  max-width: 480px;
+  max-width: 30rem;
   max-height: 88vh;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -311,7 +325,7 @@ legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
   display: flex;
   align-items: center;
   gap: 0.625rem;
-  min-height: 48px;
+  min-height: 3rem;
   margin: 0;
   padding: 0.25rem 0.875rem;
   border: 1px solid var(--border);
@@ -334,7 +348,7 @@ legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
 .recent-item {
   display: block;
   width: 100%;
-  min-height: 56px;
+  min-height: 3.5rem;
   margin-bottom: 0.5rem;
   padding: 0.625rem 0.875rem;
   border: 1px solid var(--border);
@@ -397,16 +411,16 @@ legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
   background: currentColor;
 }
 .harm.lvl-High { border-left-color: var(--high); }
-.lvl-High .harm-label { color: var(--high); }
+.lvl-High .harm-label, .lvl-High .harm-mini { color: var(--high); }
 .harm.lvl-Medium { border-left-color: var(--medium); }
-.lvl-Medium .harm-label { color: var(--medium); }
+.lvl-Medium .harm-label, .lvl-Medium .harm-mini { color: var(--medium); }
 .harm.lvl-Low { border-left-color: var(--low); }
-.lvl-Low .harm-label { color: var(--low); }
+.lvl-Low .harm-label, .lvl-Low .harm-mini { color: var(--low); }
 .harm.harm-none { border-left-color: var(--none); }
-.harm-none .harm-label { color: var(--none); }
-.harm-none .harm-icon { background: transparent; }
-.lvl-Unknown .harm-label { color: var(--text); }
-.lvl-Unknown .harm-icon { display: none; }
+.harm-none .harm-label, .harm-none .harm-mini { color: var(--none); }
+.harm-none .harm-icon, .harm-none .harm-dot { background: transparent; }
+.lvl-Unknown .harm-label, .lvl-Unknown .harm-mini { color: var(--text); }
+.lvl-Unknown .harm-icon, .lvl-Unknown .harm-dot { display: none; }
 
 .grade-line { font-size: 1.25rem; font-weight: 700; margin: 0 0 0.75rem; }
 .grade-line .grade-letter { font-size: 1.75rem; }
@@ -422,7 +436,7 @@ legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
 
 .section-title { margin-top: 1.5rem; }
 
-.legend summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--accent); }
+.legend summary { min-height: 2.75rem; display: flex; align-items: center; cursor: pointer; color: var(--accent); }
 .legend dl { margin: 0.5rem 0 0; }
 .legend dt { font-weight: 700; margin-top: 0.5rem; }
 .legend dd { margin: 0; color: var(--muted); }
@@ -467,7 +481,7 @@ legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
 .fix-meta .chip, .card-meta .chip { margin-right: 0.375rem; }
 .how { margin: 0.25rem 0 0; }
 .how strong { color: var(--text); }
-.where-none { display: inline-block; min-height: 44px; padding: 0.625rem 0 0; color: var(--muted); }
+.where-none { display: inline-block; min-height: 2.75rem; padding: 0.625rem 0 0; color: var(--muted); }
 
 .fix-notes {
   border: 1px solid var(--medium);
@@ -490,7 +504,7 @@ legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  min-height: 48px;
+  min-height: 3rem;
   padding: 0 0.75rem;
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -508,7 +522,7 @@ legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
 .group-note { color: var(--muted); font-size: 0.9375rem; }
 .card h3 { margin-bottom: 0.25rem; }
 .why { margin: 0.5rem 0; }
-.tech summary { min-height: 44px; display: flex; align-items: center; color: var(--muted); cursor: pointer; font-size: 0.875rem; }
+.tech summary { min-height: 2.75rem; display: flex; align-items: center; color: var(--muted); cursor: pointer; font-size: 0.875rem; }
 .tech dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 0.75rem; font-size: 0.875rem; }
 .tech dt { color: var(--muted); }
 .tech dd { margin: 0; min-width: 0; overflow-wrap: anywhere; word-break: break-all; }
@@ -516,6 +530,28 @@ legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
 /* ---- code ----------------------------------------------------------------------------------------------------- */
 
 .code-layout { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); }
+
+/* Below 900 px the file list is a drawer above the viewer: open until a file is picked, then closed with the
+   picked file's name in its summary. From 900 px it is a column and the summary is just its heading. */
+.files-drawer { min-width: 0; }
+.files-drawer > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 3rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  list-style: none;
+  cursor: pointer;
+}
+.files-drawer > summary::-webkit-details-marker { display: none; }
+.files-drawer > summary::after { content: "Change file"; margin-left: auto; color: var(--accent); font-size: 0.9375rem; font-weight: 600; white-space: nowrap; }
+.files-drawer[open] > summary { margin-bottom: 0.5rem; }
+.files-drawer[open] > summary::after { content: "Hide"; }
 .files {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -530,7 +566,7 @@ legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
   justify-content: space-between;
   gap: 0.5rem;
   width: 100%;
-  min-height: 44px;
+  min-height: 2.75rem;
   padding: 0.5rem 0.625rem;
   border: 0;
   border-radius: 8px;
@@ -551,7 +587,7 @@ legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
 .file-name { font-weight: 700; overflow-wrap: anywhere; min-width: 0; flex: 1 1 12rem; }
 .jump { display: flex; align-items: center; gap: 0.5rem; }
 .jump label { margin: 0; font-weight: 400; color: var(--muted); font-size: 0.875rem; white-space: nowrap; }
-.jump input { width: 5.5rem; min-height: 44px; padding: 0.25rem 0.625rem; }
+.jump input { width: 5.5rem; min-height: 2.75rem; padding: 0.25rem 0.625rem; }
 
 .code {
   margin: 0;
@@ -585,7 +621,7 @@ legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
   align-items: baseline;
   gap: 0 0.375rem;
   width: 100%;
-  min-height: 36px;
+  min-height: 2.75rem;
   padding: 0.375rem 0.5rem;
   border: 0;
   background: transparent;
@@ -605,17 +641,19 @@ legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
 .line-note.Quality { border-left-color: var(--accent); }
 .code-empty { color: var(--muted); padding: 1rem; }
 
-.explain-bar { margin-top: 0.75rem; }
+.code-aside { display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; }
+.code-aside > .card { margin: 0; }
+.note-help summary { min-height: 2.75rem; display: flex; align-items: center; color: var(--accent); cursor: pointer; }
+.note-help p { margin: 0.25rem 0 0; }
 .explain-bar .row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; }
 .range { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; margin: 0 0 0.5rem; }
 .range label { margin: 0; font-weight: 400; color: var(--muted); font-size: 0.875rem; white-space: nowrap; }
-.range input { width: 5.5rem; min-height: 44px; padding: 0.25rem 0.625rem; }
+.range input { width: 5.5rem; min-height: 2.75rem; padding: 0.25rem 0.625rem; }
 .line.picked { background: var(--hl); }
 .line.picked .ln { color: var(--text); }
 .explain-body-text { white-space: pre-wrap; margin: 0 0 0.75rem; }
 #explain-body .row { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; }
 .sent-to { color: var(--muted); font-size: 0.875rem; margin: 0.5rem 0 0; }
-.explain-panel { margin-top: 1rem; }
 .explain-panel h3 { color: var(--medium); }
 
 /* ---- before and after --------------------------------------------------------------------------------------- */
@@ -653,95 +691,207 @@ legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
 .diff-item.new-high { border-color: var(--high); border-left-width: 6px; }
 .new-high-word { color: var(--high); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.8125rem; }
 
-/* ---- summary rail: a strip under the tabs on a phone, a column beside the screen on a wide window ------------- */
+
+/* ---- summary rail: a strip under the tabs below 900 px; a column beside the screen from 900 px, which the toggle
+   shrinks to a slim icon rail. app.js keeps data-rail on .frame ("strip", "column" or "mini") in step with the window. ---- */
 
 .rail {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas: "head again" "stats stats" "counts counts";
-  align-items: center;
-  gap: 0.25rem 0.75rem;
   margin: 0 0 0.75rem;
-  padding: 0.5rem 0.75rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
   font-size: 0.875rem;
   line-height: 1.3;
 }
-.rail-head { grid-area: head; display: flex; flex-wrap: wrap; align-items: center; gap: 0.125rem 0.75rem; min-width: 0; }
-.rail-grade { margin: 0; font-weight: 800; font-size: 1rem; }
+
+/* The strip: one calm line, "Grade F (33/100) · High 2 Medium 1 Low 0 · Quality 4 ▸". The toggle is stretched over the
+   whole line, so a tap anywhere on it opens the details; it is still one real button for the keyboard. */
+.rail-line {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.125rem 0.625rem;
+  min-height: 2.75rem;
+  padding: 0.25rem 2.75rem 0.25rem 0.75rem;
+}
+.rail-toggle {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0 0.75rem;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+.rail-toggle:focus-visible { outline-offset: -3px; }
+.chev { flex: none; width: 1.25rem; height: 1.25rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.frame[data-rail="strip"] .rail-toggle[aria-expanded="true"] .chev { transform: rotate(90deg); }
+.rail-grade { margin: 0; font-weight: 800; font-size: 1rem; white-space: nowrap; }
 .rail-key { color: var(--muted); font-weight: 400; font-size: 0.875rem; }
-.rail-harm { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; }
-.rail-harm .harm-label { margin: 0; font-weight: 800; font-size: 1rem; }
-.rail-harm .flag { font-size: 0.75rem; padding: 0 0.5rem; }
-.rail-stats { display: flex; flex-wrap: wrap; gap: 0.125rem 0.875rem; margin: 0; grid-area: stats; }
+.rail-stats { display: flex; flex-wrap: wrap; gap: 0.125rem 0.875rem; margin: 0; }
 .rail-stats > div { display: flex; gap: 0.3rem; }
 .rail-stats dt { color: var(--muted); }
 .rail-stats dd { margin: 0; font-weight: 700; }
-.rail-counts { grid-area: counts; }
+.rail-counts { gap: 0.125rem 0.625rem; min-width: 0; }
 .rail-counts dt.High { color: var(--high); }
 .rail-counts dt.Medium { color: var(--medium); }
 .rail-counts dt.Low { color: var(--low); }
 .rail-counts dt.Quality { color: var(--accent); }
-.rail-sub { display: none; }
-.rail-again { grid-area: again; display: flex; flex-direction: column; align-items: flex-end; gap: 0.125rem; }
-.rail-again .ghost { min-height: 44px; padding: 0.25rem 0.75rem; white-space: nowrap; }
-.rail-when { margin: 0; color: var(--muted); font-size: 0.75rem; text-align: right; }
+.li { display: none; }
+.frame[data-rail="strip"] .rail-grade { margin-right: 0.375rem; }
+.frame[data-rail="strip"] .rail-q::before { content: "·"; content: "·" / ""; margin-right: 0.375rem; color: var(--muted); }
+
+.rail-details { display: grid; gap: 0.625rem; padding: 0.625rem 0.75rem 0.75rem; border-top: 1px solid var(--border); }
+.rail-harm { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.5rem; }
+.rail-harm .harm-label { margin: 0; font-weight: 800; font-size: 1rem; }
+.rail-harm .flag { font-size: 0.75rem; padding: 0 0.5rem; }
+.harm-mini {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.25rem;
+  border: 2px solid currentColor;
+  border-radius: 10px;
+}
+.harm-initial { font-size: 1.25rem; font-weight: 800; line-height: 1; }
+.harm-dot { width: 0.75rem; height: 0.75rem; border: 2px solid currentColor; border-radius: 50%; background: currentColor; }
+.rail-again { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.75rem; }
+.rail-again .ghost { padding: 0.25rem 0.875rem; white-space: nowrap; }
+.rail-when { margin: 0; color: var(--muted); font-size: 0.75rem; }
 .rail-when:empty { display: none; }
 
-/* ---- wider windows -------------------------------------------------------------------------------------------- */
+/* ---- side window: 600 px and up ------------------------------------------------------------------------------- */
 
 @media (min-width: 600px) {
-  .gear-label { position: static; width: auto; height: auto; overflow: visible; clip: auto; }
+  .btn-label { position: static; width: auto; height: auto; overflow: visible; clip: auto; }
 }
+
+/* ---- full: 900 px and up -------------------------------------------------------------------------------------- */
 
 @media (min-width: 900px) {
   .top { padding: 0.5rem 24px; }
   .sheet { align-items: flex-start; justify-content: flex-end; }
   .sheet-panel {
-    width: 360px;
+    width: 22.5rem;
     max-height: calc(100vh - 5.5rem);
     margin: 4.5rem 24px 0 0;
     border-bottom: 1px solid var(--border);
     border-radius: 12px;
   }
   main { padding: 1.5rem 24px 3rem; }
-  .tabs { max-width: 760px; }
+  main.with-rail { max-width: 92rem; }
+  main.with-rail.wide { max-width: 120rem; }
+  .frame-body { max-width: 70rem; }
+  main.wide .frame-body { max-width: none; }
+  .tabs { max-width: 70rem; }
+  .tabs button { font-size: 0.9375rem; }
+
   main.with-rail .frame {
     display: grid;
-    grid-template-columns: 232px minmax(0, 1fr);
+    grid-template-columns: clamp(13rem, 18vw, 16rem) minmax(0, 1fr);
     grid-template-areas: "rail tabs" "rail body";
     grid-template-rows: auto 1fr;
     column-gap: 24px;
     align-items: start;
   }
+  main.with-rail .frame[data-rail="mini"] { grid-template-columns: 3.5rem minmax(0, 1fr); }
   main.with-rail .tabs { grid-area: tabs; }
   main.with-rail .frame-body { grid-area: body; min-width: 0; }
+
+  /* The column: the toggle, the grade, how worried to be, Safe and Fix first, the counts, Check again. */
   .rail {
     grid-area: rail;
-    display: block;
     position: sticky;
     top: 4.5rem;
+    display: flex;
+    flex-direction: column;
     margin: 0;
     padding: 1rem;
+    max-height: calc(100vh - 5.5rem);
+    overflow-y: auto;
     font-size: 0.9375rem;
   }
-  .rail-head { display: block; }
-  .rail-grade { font-size: 1.5rem; margin-bottom: 0.5rem; }
+  .rail-line, .rail-details { display: contents; }
+  .rail-toggle {
+    position: static;
+    order: 0;
+    justify-content: space-between;
+    width: 100%;
+    min-height: 2.75rem;
+    margin-bottom: 0.75rem;
+    padding: 0.25rem 0.5rem 0.25rem 0.875rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface-2);
+    color: var(--text);
+  }
+  .frame[data-rail="column"] .chev { transform: rotate(180deg); }
+  .rail-grade { order: 1; font-size: 1.5rem; margin-bottom: 0.5rem; }
   .rail-key { display: block; font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.06em; }
-  .rail-harm { margin-bottom: 0.75rem; }
+  .rail-harm { order: 2; margin-bottom: 0.75rem; }
   .rail-harm .harm-label { font-size: 1.25rem; line-height: 1.2; }
-  .rail-stats { display: block; }
-  .rail-stats > div { justify-content: space-between; padding: 0.3rem 0; border-top: 1px solid var(--border); }
-  .rail-sub { display: block; margin: 0.75rem 0 0.125rem; color: var(--muted); font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.06em; }
-  .rail-again { align-items: stretch; margin-top: 1rem; }
+  .rail-facts { order: 3; display: block; }
+  .rail-counts { order: 4; display: block; }
+  .rail-again { order: 5; flex-direction: column; align-items: stretch; margin-top: 1rem; }
   .rail-again .ghost { width: 100%; }
-  .rail-when { text-align: left; margin-top: 0.25rem; }
-  .tabs button { font-size: 0.9375rem; }
+  .rail-stats > div { justify-content: space-between; padding: 0.3rem 0; border-top: 1px solid var(--border); }
+  .rail-counts::before {
+    content: "Findings";
+    display: block;
+    margin: 0.75rem 0 0.125rem;
+    color: var(--muted);
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  /* The mini rail: the grade letter, the harm initial and a colour dot, the four counts and Check again as icons. */
+  .frame[data-rail="mini"] .rail { align-items: center; gap: 0.625rem; padding: 0.5rem 0.25rem; text-align: center; }
+  .frame[data-rail="mini"] .rail-toggle { width: 2.75rem; margin: 0; padding: 0; justify-content: center; }
+  .frame[data-rail="mini"] .rail-grade { margin: 0; font-size: 2rem; line-height: 1; }
+  .frame[data-rail="mini"] .g-none { font-size: 0.8125rem; line-height: 1.2; }
+  .frame[data-rail="mini"] .rail-harm { flex-direction: column; margin: 0 0 0.25rem; gap: 0.375rem; }
+  .frame[data-rail="mini"] .rail-harm .flag { font-size: 0.75rem; padding: 0.125rem 0.25rem; border-radius: 8px; text-align: center; white-space: normal; }
+  .frame[data-rail="mini"] .rail-counts { display: flex; flex-direction: column; gap: 0.375rem; width: 100%; }
+  .frame[data-rail="mini"] .rail-counts::before { content: none; }
+  .frame[data-rail="mini"] .rail-counts > div {
+    justify-content: center;
+    padding: 0.125rem 0.25rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-2);
+  }
+  .frame[data-rail="mini"] .li { display: inline; font-weight: 800; }
+  .frame[data-rail="mini"] .rail-again { margin: 0; align-items: center; }
+  .frame[data-rail="mini"] .rail-again .ghost { width: 2.75rem; padding: 0.25rem; }
+  .frame[data-rail="mini"] .rail-when { font-size: 0.6875rem; text-align: center; }
+
   .scan-form .row { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
   .pick-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .code-layout { grid-template-columns: 260px minmax(0, 1fr); align-items: start; }
-  .files { max-height: calc(100vh - 12rem); position: sticky; top: 4.5rem; }
+
+  /* Code: the file list is a column beside the viewer; its summary is only the heading. */
+  .code-layout { grid-template-columns: clamp(14rem, 20vw, 18rem) minmax(0, 1fr); align-items: start; }
+  .files-drawer { grid-column: 1; grid-row: 1 / span 2; position: sticky; top: 4.5rem; }
+  .viewer { grid-column: 2; grid-row: 1; }
+  .code-aside { grid-column: 2; grid-row: 2; }
+  .files-drawer > summary { min-height: 0; padding: 0; border: 0; background: none; font-size: 1.25rem; cursor: default; pointer-events: none; }
+  .files-drawer > summary::after, .files-drawer[open] > summary::after { content: none; }
+  .files { max-height: calc(100vh - 12rem); }
   .code { max-height: calc(100vh - 16rem); }
+}
+
+/* ---- wide: 1280 px and up ------------------------------------------------------------------------------------- */
+
+@media (min-width: 1280px) {
+  .code-layout { grid-template-columns: clamp(14rem, 20vw, 18rem) minmax(0, 1fr) clamp(18rem, 24vw, 22rem); }
+  .files-drawer { grid-row: 1; }
+  .code-aside { grid-column: 3; grid-row: 1; }
 }
