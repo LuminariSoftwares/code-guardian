@@ -32,6 +32,7 @@ entry_points = [
   "code_guardian.history:__main__",
   "code_guardian.leftovers:__main__",
   "code_guardian.plain:__main__",
+  "code_guardian.refuse:__main__",
   "code_guardian.ui:__main__",
 ]
 
