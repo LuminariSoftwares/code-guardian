@@ -157,12 +157,18 @@
       </div>
       <pre class="code" id="code" tabindex="0" aria-label="File contents"><span class="code-empty">Pick a file from the list, or tap a location on a finding.</span></pre>
       <div class="explain-bar card">
-        <p id="selection-note" class="hint">Select some lines above to ask what they do.</p>
+        <p id="selection-note" class="hint">Select some lines above, or type a start and end line, to ask what they do.</p>
+        <form class="range" id="range-form" autocomplete="off">
+          <label for="line-start">From line</label>
+          <input type="number" id="line-start" min="1" inputmode="numeric">
+          <label for="line-end">to line</label>
+          <input type="number" id="line-end" min="1" inputmode="numeric">
+        </form>
+        <p class="hint" id="range-msg" role="status" hidden></p>
         <div class="row">
           <button type="button" class="ghost" id="explain" disabled>Explain these lines</button>
         </div>
-        <p class="sent-to" id="sent-to">Sent to: nothing. No AI is connected in this version.</p>
-        <p class="later">Explaining lines arrives in a later version of code-guardian.</p>
+        <p class="sent-to" id="sent-to">Sent to: nothing yet. Only the lines you pick are ever sent, and only after you confirm.</p>
       </div>
       <section class="explain-panel card" id="explain-panel" hidden>
         <h3>AI explanation — may be wrong; does not change any score</h3>

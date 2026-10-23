@@ -27,7 +27,7 @@ import time
 import webbrowser
 from urllib.parse import parse_qsl
 
-from . import goal, plain, report
+from . import explain, goal, plain, report
 from .finding import summarize
 from .scanners import redact_report
 
@@ -40,6 +40,8 @@ UI_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")
 ASSETS = {"/": ("index.html", "text/html; charset=utf-8"), "/app.css": ("app.css", "text/css; charset=utf-8"),
           "/app.js": ("app.js", "text/javascript; charset=utf-8")}
 DIMENSIONS = ("safe", "works", "complete", "overall")
+EXPLAIN_MAX_LINES = 200
+EXPLAIN_SETUP = "set CODE_GUARDIAN_LLM_URL and CODE_GUARDIAN_LLM_MODEL, then restart code-guardian ui"
 
 _live = set()
 _live_lock = threading.Lock()
@@ -254,6 +256,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self._json(404, {"error": "route"})
         if self.command == "POST" and path == "/api/scan":
             return self._scan(body)
+        if self.command == "POST" and path == "/api/explain":
+            return self._explain(body)
         if self.command == "GET" and path == "/api/scans":
             return self._json(200, self.server.listing())
         if self.command == "GET" and path == "/api/file":
@@ -280,6 +284,41 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._json(400, {"error": exc.error, "detail": exc.detail})
         except Exception as exc:  # the scanner crashed: say so, never the traceback
             return self._json(500, {"error": "scan", "detail": type(exc).__name__})
+
+    def _explain(self, body):
+        """Ask the person's own model about the lines they chose: those lines and nothing else leave this machine.
+        With "dry_run": true it only says where they would go."""
+        try:
+            req = json.loads(body.decode("utf-8"))
+        except ValueError:
+            return self._json(400, {"error": "json"})
+        if not isinstance(req, dict):
+            return self._json(400, {"error": "json"})
+        scan_id, rel, start, end = (req.get(k) for k in ("id", "rel", "start", "end"))
+        if not isinstance(scan_id, str) or not isinstance(rel, str):
+            return self._json(400, {"error": "json"})
+        if any(isinstance(n, bool) or not isinstance(n, int) for n in (start, end)):
+            return self._json(400, {"error": "range", "detail": "start and end must be whole line numbers"})
+        if start < 1 or end < start or end - start + 1 > EXPLAIN_MAX_LINES:
+            return self._json(400, {"error": "range", "detail": "pick between 1 and %d lines, starting at line 1 "
+                                    "or later" % EXPLAIN_MAX_LINES})
+        status, out = self.server.read_file(scan_id, rel)
+        if status != 200:
+            return self._json(status, out)
+        if end > len(out["lines"]):
+            return self._json(400, {"error": "range", "detail": "%s has %d lines" % (rel, len(out["lines"]))})
+        url = (os.environ.get("CODE_GUARDIAN_LLM_URL") or "").strip()
+        model = (os.environ.get("CODE_GUARDIAN_LLM_MODEL") or "").strip()
+        if not url or not model:
+            return self._json(200, {"text": None, "note": EXPLAIN_SETUP, "sent": None})
+        try:
+            sent = {"host": explain.hostport(explain.endpoint(url)[1]), "model": model, "lines": end - start + 1}
+        except ValueError as exc:  # the URL is refused, so nothing can be sent
+            return self._json(200, {"text": None, "note": "explain skipped: %s" % exc, "sent": None})
+        if req.get("dry_run") is True:  # the page asks where the lines would go before it sends them
+            return self._json(200, {"text": None, "note": None, "sent": sent})
+        text, note = explain.excerpt(rel, out["lines"], start, end)
+        return self._json(200, {"text": text, "note": note, "sent": sent})
 
     do_GET = do_POST = do_HEAD = do_OPTIONS = do_PUT = do_DELETE = do_PATCH = _handle
 

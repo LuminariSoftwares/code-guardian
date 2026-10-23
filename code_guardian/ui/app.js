@@ -8,6 +8,9 @@
   var API_SCAN = "/api/scan";
   var API_SCANS = "/api/scans";
   var API_FILE = "/api/file";
+  var API_EXPLAIN = "/api/explain";
+  var MAX_EXPLAIN = 200;  // lines per question; the server refuses more
+  var PICK_HINT = "Select some lines above, or type a start and end line, to ask what they do.";
   var POLL_MS = 800;
 
   var LEVEL_WORD = { FAIL: "High", WARN: "Medium", INFO: "Low" };
@@ -31,7 +34,9 @@
     file: null,       // rel of the file in the viewer
     files: {},        // "id\nrel" -> /api/file body
     scanning: false,
-    again: false      // a "Check again" is running
+    again: false,     // a "Check again" is running
+    range: null,      // {lo, hi}: the lines picked in the viewer, 1-based and inclusive
+    ask: 0            // counts questions and resets; an answer for an older count is dropped
   };
 
   // ---- the token: only ever from the fragment ------------------------------------------------------------------
@@ -601,8 +606,7 @@
     var pre = $("code");
     clear(pre);
     pre.appendChild(el("span", "code-empty", "Pick a file from the list, or tap a location on a finding."));
-    $("selection-note").textContent = "Select some lines above to ask what they do.";
-    $("explain-panel").hidden = true;
+    clearRange();
   }
 
   function markCurrentFile(rel) {
@@ -660,7 +664,7 @@
     if (!(body.lines || []).length) frag.appendChild(el("span", "code-empty", "This file is empty."));
     pre.appendChild(frag);
     $("jump-line").max = String((body.lines || []).length || 1);
-    $("selection-note").textContent = "Select some lines above to ask what they do.";
+    clearRange();
   }
 
   // A note under a flagged line: the level and the check's title; tapping it opens the card's why and what to do.
@@ -725,21 +729,185 @@
     return null;
   }
 
+  // ---- the lines picked for "Explain these lines" -----------------------------------------------------------------
+
+  function fileLength() {
+    var body = state.current && state.file ? state.files[state.current.id + "\n" + state.file] : null;
+    return body ? (body.lines || []).length : 0;
+  }
+
+  function closePanel() {
+    state.ask += 1;
+    $("explain-panel").hidden = true;
+    clear($("explain-body"));
+  }
+
+  function paintRange() {
+    var rows = $("code").querySelectorAll(".line.picked");
+    for (var i = 0; i < rows.length; i++) rows[i].classList.remove("picked");
+    var r = state.range;
+    if (r) {
+      for (var n = r.lo; n <= r.hi; n++) {
+        var row = $("L" + n);
+        if (row) row.classList.add("picked");
+      }
+    }
+    $("explain").disabled = !r;
+    $("selection-note").textContent = r
+      ? (r.lo === r.hi ? "Line " + r.lo : "Lines " + r.lo + "–" + r.hi) + " of " + state.file + " (" + plural(r.hi - r.lo + 1, "line") + ")."
+      : PICK_HINT;
+  }
+
+  function say(text) {
+    var box = $("range-msg");
+    box.textContent = text || "";
+    box.hidden = !text;
+  }
+
+  function clearRange() {
+    state.range = null;
+    $("line-start").value = "";
+    $("line-end").value = "";
+    $("line-start").max = $("line-end").max = String(fileLength() || 1);
+    say("");
+    closePanel();
+    paintRange();
+  }
+
+  // Pick lines lo..hi: clamped to the file and to MAX_EXPLAIN lines, with a plain message when it had to move. The
+  // fields always show what will be used.
+  function pickRange(lo, hi) {
+    var n = fileLength();
+    var msg = "";
+    if (!n) return;
+    if (lo < 1) { lo = 1; msg = "The first line is 1."; }
+    if (lo > n) { lo = n; hi = Math.max(hi, lo); msg = "This file has " + plural(n, "line") + "."; }
+    if (hi > n) { hi = n; msg = "This file has " + plural(n, "line") + "."; }
+    if (hi < lo) { say("The end line cannot come before the start line."); state.range = null; paintRange(); closePanel(); return; }
+    if (hi - lo + 1 > MAX_EXPLAIN) { hi = lo + MAX_EXPLAIN - 1; msg = "Up to " + MAX_EXPLAIN + " lines at a time, so the end line was moved to " + hi + "."; }
+    var changed = !state.range || state.range.lo !== lo || state.range.hi !== hi;
+    state.range = { lo: lo, hi: hi };
+    $("line-start").value = String(lo);
+    $("line-end").value = String(hi);
+    say(msg);
+    paintRange();
+    if (changed) closePanel();
+  }
+
+  function onFields() {
+    if (!state.file) return;
+    var lo = parseInt($("line-start").value, 10);
+    var hi = parseInt($("line-end").value, 10);
+    if (isNaN(lo) || isNaN(hi)) {
+      state.range = null;
+      say($("line-start").value || $("line-end").value ? "Type both a start line and an end line." : "");
+      paintRange();
+      closePanel();
+      return;
+    }
+    pickRange(lo, hi);
+  }
+
   function onSelection() {
     if (state.screen !== "code" || !state.file) return;
     var sel = window.getSelection();
     var pre = $("code");
-    if (!sel || sel.isCollapsed || !pre.contains(sel.anchorNode) || !pre.contains(sel.focusNode)) {
-      $("selection-note").textContent = "Select some lines above to ask what they do.";
-      return;
-    }
+    // Anything outside the code (a click in a field or on a button) leaves the picked lines as they are.
+    if (!sel || sel.isCollapsed || !pre.contains(sel.anchorNode) || !pre.contains(sel.focusNode)) return;
     var a = lineOf(sel.anchorNode);
     var b = lineOf(sel.focusNode);
     if (!a || !b) return;
-    var lo = Math.min(a, b);
-    var hi = Math.max(a, b);
-    $("selection-note").textContent = (lo === hi ? "Line " + lo : "Lines " + lo + "–" + hi) + " of " + state.file +
-      " selected (" + plural(hi - lo + 1, "line") + ").";
+    pickRange(Math.min(a, b), Math.max(a, b));
+  }
+
+  // ---- ask the person's own model ------------------------------------------------------------------------------
+
+  function panelOpen() {
+    $("explain-panel").hidden = false;
+    var body = $("explain-body");
+    clear(body);
+    return body;
+  }
+
+  function panelNote(text, alert) {
+    var p = el("p", alert ? "alert" : "hint", text);
+    if (alert) p.setAttribute("role", "alert");
+    $("explain-body").appendChild(p);
+  }
+
+  function explainError(err) {
+    if (err && err.status === 0) return "code-guardian is not answering. Is it still running in the terminal?";
+    if (err && err.status === 403 && err.body.error === "token") return "This link is from an earlier run of code-guardian.";
+    if (err && err.body && err.body.detail) return err.body.detail;
+    return "The lines could not be sent to your model.";
+  }
+
+  function askBody(dry) {
+    return { id: state.current.id, rel: state.file, start: state.range.lo, end: state.range.hi, dry_run: dry || undefined };
+  }
+
+  // Step 1: nothing is sent. Ask the server where the lines would go and say so, with a button to send them.
+  function explainClick() {
+    if (!state.current || !state.file || !state.range) return;
+    var mine = ++state.ask;
+    var shown = state.range;
+    var body = panelOpen();
+    body.appendChild(el("p", "hint", "Checking where these lines would go…"));
+    call(API_EXPLAIN, { method: "POST", body: askBody(true) }).then(function (res) {
+      if (mine !== state.ask) return;
+      body = panelOpen();
+      if (!res.sent) {
+        $("sent-to").textContent = "Sent to: nothing. No model is set up.";
+        panelNote(res.note, false);
+        return;
+      }
+      var n = shown.hi - shown.lo + 1;
+      $("sent-to").textContent = "Sent to: nothing yet.";
+      body.appendChild(el("p", null, (n === 1 ? "This line goes" : "These " + n + " lines go") + " to your model at " +
+        res.sent.host + " (" + res.sent.model + "). Nothing else is sent."));
+      var row = el("div", "row");
+      var send = el("button", "primary", "Send " + (n === 1 ? "this line" : "these lines"));
+      send.type = "button";
+      send.addEventListener("click", function () { sendLines(res.sent); });
+      var cancel = el("button", "ghost", "Cancel");
+      cancel.type = "button";
+      cancel.addEventListener("click", closePanel);
+      row.appendChild(send);
+      row.appendChild(cancel);
+      body.appendChild(row);
+      send.focus();
+    }, function (err) {
+      if (mine !== state.ask) return;
+      panelOpen();
+      panelNote(explainError(err), true);
+    });
+  }
+
+  // Step 2: the person confirmed. Send exactly those lines and show the answer, or the note saying why not.
+  function sendLines(sent) {
+    var mine = ++state.ask;
+    var body = panelOpen();
+    var wait = el("p", "status-line", "asking your model…");
+    wait.setAttribute("role", "status");
+    body.appendChild(wait);
+    $("explain").disabled = true;
+    call(API_EXPLAIN, { method: "POST", body: askBody(false) }).then(function (res) {
+      if (mine !== state.ask) return;
+      body = panelOpen();
+      $("explain").disabled = !state.range;
+      if (res.text) {
+        body.appendChild(el("p", "explain-body-text", res.text));
+        panelNote("Answered by " + sent.model + " at " + sent.host + ". " + plural(sent.lines, "line") + " of " + state.file + " were sent.", false);
+        $("sent-to").textContent = "Sent to: " + sent.host + " (" + sent.model + "), " + plural(sent.lines, "line") + " of " + state.file + ".";
+      } else {
+        panelNote(res.note || "The model did not answer.", true);
+      }
+    }, function (err) {
+      if (mine !== state.ask) return;
+      panelOpen();
+      $("explain").disabled = !state.range;
+      panelNote(explainError(err), true);
+    });
   }
 
   // ---- wiring --------------------------------------------------------------------------------------------------
@@ -762,6 +930,9 @@
       if (state.file && n > 0) jumpTo(n);
     });
     document.addEventListener("selectionchange", onSelection);
+    ["line-start", "line-end"].forEach(function (id) { $(id).addEventListener("input", onFields); });
+    $("range-form").addEventListener("submit", function (ev) { ev.preventDefault(); explainClick(); });
+    $("explain").addEventListener("click", explainClick);
     window.addEventListener("popstate", function (ev) {
       var screen = ev.state && ev.state.screen;
       if (!screen || SCREENS.indexOf(screen) < 0) screen = state.current ? "result" : "open";
