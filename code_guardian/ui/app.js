@@ -676,6 +676,32 @@
     return "Could not check again: " + scanErrorText(err);
   }
 
+  // "Save this check": the report this page already holds, written as a file by the browser itself. The server writes
+  // nothing; the file is what "Open a saved check" and the Compare files accept.
+  function saveName(path, when) {
+    var parts = String(path || "").split(/[\\/]/).filter(function (p) { return p; });
+    var folder = (parts.length ? parts[parts.length - 1] : "").replace(/[^A-Za-z0-9._-]/gu, "-") || "check";
+    var pad = function (n) { return (n < 10 ? "0" : "") + n; };
+    var stamp = when.getFullYear() + "-" + pad(when.getMonth() + 1) + "-" + pad(when.getDate()) + "-" + pad(when.getHours()) + pad(when.getMinutes());
+    return "code-guardian-" + folder + "-" + stamp + ".json";
+  }
+
+  function saveCheck() {
+    if (!state.current) return;
+    var blob = new Blob([JSON.stringify(state.current.report)], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement("a");
+    link.href = url;
+    link.download = saveName(state.current.report.path, new Date());
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.setTimeout(function () { URL.revokeObjectURL(url); }, 1000);   // the download has started by then
+    var note = $("save-note");
+    note.textContent = "Saved to your Downloads folder (or wherever your browser saves files).";
+    note.hidden = false;
+  }
+
   function againError(text) {
     var box = $("again-error");
     box.textContent = text;
@@ -704,6 +730,7 @@
   function setResult(result) {
     state.current = result;
     state.file = null;
+    $("save-note").hidden = true;
     var rep = result.report;
     var plain = result.plain;
     $("scanned-path").textContent = rep.path;
@@ -1619,6 +1646,7 @@
     $("path").addEventListener("input", function () { showRefused(""); });
     $("new-check").addEventListener("click", function () { show("open"); $("path").focus(); });
     $("check-again").addEventListener("click", checkAgain);
+    $("save-check").addEventListener("click", saveCheck);
     $("open-saved").addEventListener("change", function (ev) {
       var file = ev.target.files[0];
       ev.target.value = "";   // the same file can be picked again

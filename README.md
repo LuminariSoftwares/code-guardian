@@ -169,7 +169,8 @@ plain sentence under the field. `code-guardian scan` on the command line is not 
 **Re-open**: opening the page again, or picking an earlier check in the list, shows that check as it was kept in
 memory while `code-guardian ui` runs (the last 20), without reading the folder again; the summary says when it was
 made, in your browser's own time format ("Checked at 02:05 PM" on a US computer). **Check again** reads the files in the folder again now and redraws every screen, and it
-runs only when you press it, never on a timer.
+runs only when you press it, never on a timer. **Save this check** (on the Summary screen) keeps a check as a file in your browser's
+Downloads folder, which **Open a saved check** shows again later and **Compare** can set against a newer one, all without reading the folder.
 
 ### From a phone
 

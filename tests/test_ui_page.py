@@ -767,3 +767,72 @@ def test_the_code_viewer_is_at_least_34rem_wide_at_1280_with_the_summary_open():
         assert aside["l"] >= viewer["r"] - 1 and files["r"] <= viewer["l"] + 1
         assert files["w"] / rem >= 11.9 and aside["w"] / rem >= 14.9, "nothing was hidden to make room"
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+
+# ---- Save this check (P76 S6b): a saved check for people who do not use the command line ---------------------------
+
+def _scanned(page, url, project):
+    page.goto(url)
+    page.fill("#path", str(project))
+    page.click("#scan-button")
+    page.wait_for_selector("#screen-result:not([hidden])", timeout=60000)
+
+
+def _saved_as(page):
+    with page.expect_download() as got:
+        page.click("#save-check")
+    return got.value
+
+
+def test_the_saved_file_name_is_the_folder_and_the_time_with_odd_characters_replaced(tmp_path):
+    project = tmp_path / "my app é日本"
+    project.mkdir()
+    (project / "app.py").write_text(WITH_KEY, encoding="utf-8")
+    with _page(1280, 800) as (page, url):
+        _scanned(page, url, project)
+        dl = _saved_as(page)
+        assert re.fullmatch(r"code-guardian-my-app-{5}\d{4}-\d\d-\d\d-\d{4}\.json", dl.suggested_filename), dl.suggested_filename
+        saved = tmp_path / "out.json"
+        dl.save_as(str(saved))
+        data = json.loads(saved.read_text(encoding="utf-8"))
+        assert data["path"] == str(project) and data["findings"]
+        # A saved check can be saved again, and a folder from a Windows computer is cut at its last backslash.
+        data["path"] = "D:\\work\\my proj\\"
+        saved.write_text(json.dumps(data), encoding="utf-8")
+        page.click("#new-check")
+        page.set_input_files("#open-saved", str(saved))
+        page.wait_for_selector("#rail-when:has-text('Saved check from')")
+        assert re.fullmatch(r"code-guardian-my-proj-\d{4}-\d\d-\d\d-\d{4}\.json", _saved_as(page).suggested_filename)
+
+
+def test_the_command_line_wording_is_folded_and_opens_on_a_tap():
+    html = (UI / "index.html").read_text(encoding="utf-8")
+    assert len(re.findall(r'<details class="cli-note">', html)) == 2, "closed by default: no open attribute"
+    with _page(390, 844) as (page, url):
+        page.goto(url)
+        page.wait_for_selector("#screen-open:not([hidden])")
+        assert page.evaluate("document.querySelector('#saved-form details').open") is False
+        assert not page.is_visible("#saved-form details p")
+        page.click("#saved-form summary")
+        assert page.is_visible("#saved-form details p")
+        page.click("#screen-open button[data-screen=compare]")
+        assert page.evaluate("document.querySelector('#files-form details').open") is False
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+
+def test_the_save_line_appears_after_a_click_and_goes_when_another_check_is_drawn(tmp_path):
+    project = tmp_path / "proj"
+    project.mkdir()
+    (project / "app.py").write_text(WITH_KEY, encoding="utf-8")
+    with _page(390, 844) as (page, url):
+        _scanned(page, url, project)
+        assert page.is_hidden("#save-note")
+        box = _box(page, "#save-check")
+        assert box["l"] >= 0 and box["r"] <= 390, "reachable without scrolling sideways"
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+        _saved_as(page)
+        page.wait_for_selector("#save-note:not([hidden])")
+        assert page.inner_text("#save-note") == "Saved to your Downloads folder (or wherever your browser saves files)."
+        page.click("#check-again-summary")
+        page.wait_for_selector("#check-again-summary:not([disabled])")
+        assert page.is_hidden("#save-note")
