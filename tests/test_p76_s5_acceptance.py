@@ -175,4 +175,4 @@ def test_two_compare_screenshots():
         assert p.stat().st_size > 10 * 1024, p
         pw, ph = _png_size(p)
         assert pw / w in (1, 2, 3) and ph >= h * (pw / w), (p.name, pw, ph)
-    assert len(list(SHOTS.glob("*.png"))) == 12
+    assert len(list(SHOTS.glob("*.png"))) >= 12  # P78 S0: P78 adds more screenshots

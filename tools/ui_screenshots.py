@@ -1,4 +1,4 @@
-"""Capture the screenshots of `code-guardian ui` in docs/screenshots/ (plan P76 S3).
+"""Capture the screenshots of `code-guardian ui` in docs/screenshots/ (plan P76 S3, P78 S1).
 
 Development only: Playwright is not a dependency or an extra of the package, so install it into a scratch
 environment first (pip install playwright, plus a Chromium it can find). The scanned folder is visible on the page,
@@ -6,7 +6,7 @@ so the projects are copied into a neutral folder (default /tmp/demo) and only th
 
     python tools/ui_screenshots.py [--out docs/screenshots] [--root /tmp/demo]
 
-Writes {open,result,fixfirst,findings,code,diff}_{390x844,1280x800}.png. result_390x844 is a JavaScript-only project, so
+Writes {open,result,fixfirst,findings,code,diff,settings,result_light}_{390x844,1280x800}.png. result_390x844 is a JavaScript-only project, so
 its first screen shows the PARTIAL banner, the grey "No known risks found" and the "partial check" flag; every other
 screen is a copy of tests/fixtures/risky_repo, whose Fix first screen shows the scan's notes above the list and whose
 Code screen shows one inline note opened. Fails if any screen scrolls sideways.
@@ -18,6 +18,10 @@ sample reply, so no real model is ever involved and the picture says plainly tha
 The diff screens are before / after (P76 S5): a small project (my-app) with a key-shaped line is checked, the line is
 removed, "Check again" runs, and the Compare tab shows what changed. The key-shaped value is built at runtime from two
 pieces, so no file in this repository holds one.
+
+The settings screens (P78 S1) are the Settings panel open over the Open screen, one screenful as a person sees it (the
+panel is fixed to the window, so a full-page capture would put it at the bottom of a tall page). Then Light is picked
+in that panel and the risky project is checked again: result_light is the Summary in the light palette.
 """
 import argparse
 import http.server
@@ -102,10 +106,10 @@ def check(page, path):
     page.wait_for_selector("#scanned-when:has-text('checked at')", timeout=10000)
 
 
-def shoot(page, out, name):
+def shoot(page, out, name, full_page=True):
     no_side_scroll(page, name)
     page.evaluate("window.scrollTo(0, 0)")
-    page.screenshot(path=str(out / name), full_page=True)
+    page.screenshot(path=str(out / name), full_page=full_page)
     print("wrote %s (%d bytes)" % (name, (out / name).stat().st_size))
 
 
@@ -121,6 +125,18 @@ def compare(page, out, app, size):
     page.click("#tabs button[data-screen=compare]")
     page.wait_for_selector("#compare-result:not([hidden])", timeout=30000)
     shoot(page, out, "diff_%s.png" % size)
+
+
+def settings_and_light(page, out, risky, size):
+    """The Settings panel open, then Light picked in it and a result drawn in the light palette."""
+    page.click("#settings-button")
+    page.wait_for_selector("#settings:not([hidden])")
+    shoot(page, out, "settings_%s.png" % size, full_page=False)
+    page.check('input[name="theme"][value="light"]')
+    page.keyboard.press("Escape")
+    page.wait_for_selector("#settings", state="hidden")
+    check(page, risky)
+    shoot(page, out, "result_light_%s.png" % size)
 
 
 def capture(browser, out, risky, js, app, width, height, scale):
@@ -168,6 +184,7 @@ def capture(browser, out, risky, js, app, width, height, scale):
         page.click("#new-check")
         page.wait_for_selector("#recent li")
         shoot(page, out, "open_%s.png" % size)
+        settings_and_light(page, out, risky, size)
         context.close()
     finally:
         server.shutdown()

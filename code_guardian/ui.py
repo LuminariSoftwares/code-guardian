@@ -4,8 +4,9 @@ Standard library only. The only socket is the loopback listener (127.0.0.1, neve
 passes the Host / Origin guard first and, for /api/*, the per-process token, so a page on another site cannot reach it.
 The server calls report.scan() and builds every sentence with plain.py; it never changes a number.
 
-    make_server(port=0) -> server bound to 127.0.0.1, not yet serving, with .token; server_close() also removes every
-                           per-scan temp directory
+    make_server(port=None) -> server bound to 127.0.0.1, not yet serving, with .token; server_close() also removes
+                              every per-scan temp directory. None tries DEFAULT_PORTS in order, then any free port;
+                              0 is any free port; any other number is that port or an OSError
     run(path, port, open_browser) -> exit code        # the `code-guardian ui` command (C1)
 
     python -m code_guardian.ui --selftest
@@ -34,6 +35,7 @@ from .scanners import redact_report
 
 HOST = "127.0.0.1"
 SCHEME = "http"
+DEFAULT_PORTS = tuple(range(8765, 8776))  # a stable address, so the browser keeps its settings across restarts (ADR 0008)
 CSP = "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'"
 FILE_LIMIT = 2 * 1024 * 1024
 BODY_LIMIT = 1024 * 1024
@@ -77,7 +79,10 @@ atexit.register(_cleanup_all)
 
 
 class Server(http.server.ThreadingHTTPServer):
-    allow_reuse_address = False  # on Windows SO_REUSEADDR would let another process share a fixed --port
+    # POSIX SO_REUSEADDR only lets a restart bind a port whose old connections are in TIME_WAIT; it never lets two
+    # listeners share one. On Windows it would let another process take a fixed --port, so it stays off there.
+    allow_reuse_address = os.name != "nt"
+
     def __init__(self, port=0):
         self.token = secrets.token_urlsafe(24)
         self.scans = []  # entries, oldest first: id, path, when, state, grade, overall, status
@@ -373,12 +378,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
     do_GET = do_POST = do_HEAD = do_OPTIONS = do_PUT = do_DELETE = do_PATCH = _handle
 
 
-def make_server(port=0):
-    """The server, bound to 127.0.0.1 and not yet serving."""
-    return Server(port)
+def make_server(port=None):
+    """The server, bound to 127.0.0.1 and not yet serving. port=None tries DEFAULT_PORTS in order and falls back to
+    any free port; port=0 is any free port; any other number is that port, or an OSError when it is taken."""
+    if port is not None:
+        return Server(port)
+    for candidate in DEFAULT_PORTS:
+        try:
+            return Server(candidate)
+        except OSError:  # taken, or reserved by the OS: try the next
+            continue
+    return Server(0)
 
 
-def run(path=None, port=0, open_browser=True):
+def run(path=None, port=None, open_browser=True):
     """`code-guardian ui`: print the one URL line, then serve until Ctrl-C. Returns the exit code."""
     server = make_server(port)
     try:

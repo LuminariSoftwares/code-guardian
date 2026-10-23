@@ -122,24 +122,35 @@ def test_required_strings_and_dark_only():
     for needed in ("No known risks found", "partial check", "AI explanation"):
         assert needed in html, needed
     everything = html + read("app.css") + read("app.js")
-    assert not re.search(r"\bLight\b", html)
-    assert "theme-toggle" not in everything
+    # P78 (TJ 2026-10-22 ~16:12): a Settings panel may offer light mode; the page must never switch on its own.
     assert not re.search(r"prefers-color-scheme\s*:\s*light", everything, re.I)
     assert re.search(r"color-scheme\s*:\s*dark", read("app.css"))
 
 
 def test_no_network_reference_in_the_page():
+    # P78 S0: the only outside address the page may name is the Luminari link in index.html (a plain link, never
+    # fetched -- the CSP still allows no outside connection, script, style or image).
     for name in ("index.html", "app.css", "app.js"):
         text = read(name).lower()
+        if name == "index.html":
+            assert text.count('href="https://github.com/luminarisoftwares"') <= 1, name
+            text = text.replace('href="https://github.com/luminarisoftwares"', "")
         assert "https://" not in text and "cdn" not in text, name
 
 
 # ---- C9 palette in one place -------------------------------------------------------------------------------------
 
 def test_every_color_is_a_root_token():
+    # P78 S0: exactly two token blocks may hold colours -- ":root {...}" and ':root[data-theme="light"] {...}'.
     css = read("app.css")
-    m = root_block(css)
-    outside = css[:m.start()] + css[m.end():]
+    blocks = list(re.finditer(r':root(\[data-theme="light"\])?\s*\{(.*?)\}', css, re.S))
+    assert 1 <= len(blocks) <= 2 and blocks[0].group(1) is None, "the first :root block is the dark palette"
+    assert len(blocks) == 1 or blocks[1].group(1) is not None, "only one light block is allowed"
+    outside, last = "", 0
+    for b in blocks:
+        outside += css[last:b.start()]
+        last = b.end()
+    outside += css[last:]
     hits = COLOR.findall(outside) + COLOR.findall(read("index.html"))
     assert not hits, "literal colors outside :root: %r" % hits[:10]
     t = tokens(css)
