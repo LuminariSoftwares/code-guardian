@@ -1,4 +1,4 @@
-"""Capture the screenshots of `code-guardian ui` in docs/screenshots/ (plan P76 S3, P78 S1, S2).
+"""Capture the screenshots of `code-guardian ui` in docs/screenshots/ (plan P76 S3, P78 S1, S2, S3).
 
 Development only: Playwright is not a dependency or an extra of the package, so install it into a scratch
 environment first (pip install playwright, plus a Chromium it can find). The scanned folder is visible on the page,
@@ -13,6 +13,10 @@ the first screen shows the PARTIAL banner, the grey "No known risks found" and t
 screen is a copy of tests/fixtures/risky_repo, whose Fix first screen shows the scan's notes above the list and whose
 Code screen shows one inline note opened. Below 600 px the summary is a collapsed strip; the tool opens it before it
 clicks "Check again" and closes it again. Fails if any screen scrolls sideways.
+
+The Code screens show the file list with the "All files" filter chosen, scrolled so that a Partly checked row (the
+risky project's web/setup.js, a language this tool does not analyse yet) is on screen. Below 900 px a pick closes the
+file drawer, so the tool opens it again for the picture.
 
 The Code screens also show a selection, the filled start and end fields and an answer in the explanation panel. The
 answer comes from a stub model started here, a tiny HTTP server on the loopback address that returns one fixed
@@ -116,6 +120,20 @@ def shoot(page, out, name, full_page=True):
     print("wrote %s (%d bytes)" % (name, (out / name).stat().st_size))
 
 
+def show_all_files(page):
+    """The Code screen's list as a reader would see it with every file chosen: "All files", the drawer open (a pick
+    closes it below 900 px) and the list scrolled to the Partly checked row."""
+    if not page.evaluate("document.getElementById('files-drawer').open"):
+        page.click("#files-drawer > summary")
+    page.select_option("#file-filter", "all")
+    row = "#file-list .file-btn[data-rel='web/setup.js']"
+    page.wait_for_selector(row)
+    if "Partly checked" not in page.inner_text(row):
+        raise SystemExit("code screenshot: web/setup.js is not a Partly checked row")
+    page.evaluate("document.querySelector(\"#file-list .file-btn[data-rel='web/setup.js']\")"
+                  ".scrollIntoView({block: 'nearest'})")
+
+
 def compare(page, out, app, size):
     """Check my-app with its key-shaped line, remove the line, Check again, then open Compare."""
     (app / "app.py").write_text(APP_BEFORE, encoding="utf-8")
@@ -192,6 +210,7 @@ def capture(browser, out, risky, js, app, width, height, scale):
         page.click("#explain-body button.primary")
         page.wait_for_selector("#explain-body .explain-body-text")
         page.evaluate("document.getElementById('code').scrollTop = 0")
+        show_all_files(page)
         shoot(page, out, "code_%s.png" % size)
         compare(page, out, app, size)
         page.click("#new-check")

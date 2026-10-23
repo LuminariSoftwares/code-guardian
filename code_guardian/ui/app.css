@@ -157,12 +157,24 @@ main.with-rail { max-width: 72ch; }
   gap: 4px;
   margin: 0 0 1rem;
   padding: 4px;
-  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scrollbar-width: thin;
+  /* A quiet fade on the edge that has more tabs behind it, drawn only while the row can scroll: the two "local"
+     gradients are the row's own colour and ride with the tabs, so they cover the two "scroll" fades once that edge
+     is reached (or when every tab fits). CSS only. */
+  --tabs-edge: var(--border);
+  background:
+    linear-gradient(var(--surface), var(--surface)) left center / 1.6rem 100% no-repeat local,
+    linear-gradient(var(--surface), var(--surface)) right center / 1.6rem 100% no-repeat local,
+    linear-gradient(to right, var(--tabs-edge), transparent) left center / 1.5rem 100% no-repeat scroll,
+    linear-gradient(to left, var(--tabs-edge), transparent) right center / 1.5rem 100% no-repeat scroll,
+    var(--surface);
+}
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+  .tabs { --tabs-edge: color-mix(in srgb, var(--text) 28%, transparent); }
 }
 .tabs button {
   flex: 1 0 auto;
@@ -231,7 +243,7 @@ button, .button { font: inherit; }
 
 label { display: block; font-weight: 600; margin-bottom: 0.375rem; }
 
-input[type="text"], input[type="number"], select {
+input[type="text"], input[type="number"], input[type="search"], select {
   width: 100%;
   min-height: 3rem;
   padding: 0.5rem 0.75rem;
@@ -558,13 +570,20 @@ legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
   border-radius: 12px;
   padding: 0.75rem;
   max-height: 40vh;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
+/* The filter and the find box stay put; only the rows scroll. */
+.files ul { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 0; padding: 0; }
 .files li { list-style: none; }
+.files-tools { display: grid; gap: 0.5rem; margin-bottom: 0.5rem; }
+.files-tools select, .files-tools input { width: 100%; min-height: 2.75rem; }
 .file-btn {
   display: flex;
-  justify-content: space-between;
-  gap: 0.5rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.125rem;
   width: 100%;
   min-height: 2.75rem;
   padding: 0.5rem 0.625rem;
@@ -577,10 +596,37 @@ legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
   text-align: left;
   cursor: pointer;
 }
-.file-btn .mono { overflow-wrap: anywhere; min-width: 0; }
-.file-btn .n { color: var(--muted); white-space: nowrap; }
-.file-btn[aria-current="true"] { background: var(--surface-2); font-weight: 700; }
+.file-rel { overflow-wrap: anywhere; min-width: 0; }
+.file-risk { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 0.5em; font-size: 0.8125rem; font-weight: 700; }
+.file-word { display: inline-flex; align-items: center; gap: 0.4em; white-space: nowrap; }
+.file-n { color: var(--muted); font-weight: 400; }
+.file-why { color: var(--muted); font-size: 0.8125rem; font-weight: 400; overflow-wrap: anywhere; }
+.file-risk.lvl-High { color: var(--high); }
+.file-risk.lvl-Medium { color: var(--medium); }
+.file-risk.lvl-Low { color: var(--low); }
+.file-risk.harm-none { color: var(--none); }
+.file-risk.harm-none .harm-icon { background: transparent; }
+/* Partly checked is a half-filled circle and Not read a dashed ring: neither is the hollow ring of "No known risks
+   found", and the word is always written beside the mark. */
+.file-risk.lvl-Partly { color: var(--text); }
+.file-risk.lvl-Partly .harm-icon { background: linear-gradient(90deg, currentColor 50%, transparent 50%); }
+.file-risk.lvl-NotRead { color: var(--muted); }
+.file-risk.lvl-NotRead .harm-icon { background: transparent; border-style: dashed; }
+.file-btn[aria-current="true"] { background: var(--surface-2); }
+.file-btn[aria-current="true"] .file-rel { font-weight: 700; }
 .files-note { color: var(--muted); font-size: 0.8125rem; margin: 0.5rem 0 0; }
+.files-note:empty { display: none; }
+#files-capped { margin: 0 0 0.5rem; color: var(--text); }
+.files .hint { padding: 0.5rem 0.625rem; }
+.files-drawer > summary h2 { margin: 0; font-size: inherit; line-height: inherit; }
+.sr-only {
+  position: absolute;
+  width: 0.0625rem;
+  height: 0.0625rem;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
 
 .viewer { min-width: 0; }
 .viewer-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; margin-bottom: 0.5rem; }
@@ -646,9 +692,10 @@ legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
 .note-help summary { min-height: 2.75rem; display: flex; align-items: center; color: var(--accent); cursor: pointer; }
 .note-help p { margin: 0.25rem 0 0; }
 .explain-bar .row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; }
-.range { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; margin: 0 0 0.5rem; }
+.range { display: flex; flex-wrap: nowrap; align-items: end; gap: 0.5rem 0.75rem; margin: 0 0 0.5rem; }
+.range-field { display: flex; flex-direction: column; gap: 0.125rem; min-width: 0; }
 .range label { margin: 0; font-weight: 400; color: var(--muted); font-size: 0.875rem; white-space: nowrap; }
-.range input { width: 5.5rem; min-height: 2.75rem; padding: 0.25rem 0.625rem; }
+.range input { width: 5.5rem; max-width: 100%; min-height: 2.75rem; padding: 0.25rem 0.625rem; }
 .line.picked { background: var(--hl); }
 .line.picked .ln { color: var(--text); }
 .explain-body-text { white-space: pre-wrap; margin: 0 0 0.75rem; }
@@ -796,13 +843,14 @@ legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
 
   main.with-rail .frame {
     display: grid;
-    grid-template-columns: clamp(13rem, 18vw, 16rem) minmax(0, 1fr);
+    grid-template-columns: clamp(13rem, 16vw, 16rem) minmax(0, 1fr);
     grid-template-areas: "rail tabs" "rail body";
     grid-template-rows: auto 1fr;
     column-gap: 24px;
     align-items: start;
   }
   main.with-rail .frame[data-rail="mini"] { grid-template-columns: 3.5rem minmax(0, 1fr); }
+  main.with-rail.wide .frame { column-gap: 1rem; }   /* the Code screen needs the room: P78 S3 nit (d) */
   main.with-rail .tabs { grid-area: tabs; }
   main.with-rail .frame-body { grid-area: body; min-width: 0; }
 
@@ -878,7 +926,7 @@ legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
   .pick-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 
   /* Code: the file list is a column beside the viewer; its summary is only the heading. */
-  .code-layout { grid-template-columns: clamp(14rem, 20vw, 18rem) minmax(0, 1fr); align-items: start; }
+  .code-layout { grid-template-columns: clamp(13rem, 18vw, 18rem) minmax(0, 1fr); align-items: start; }
   .files-drawer { grid-column: 1; grid-row: 1 / span 2; position: sticky; top: 4.5rem; }
   .viewer { grid-column: 2; grid-row: 1; }
   .code-aside { grid-column: 2; grid-row: 2; }
@@ -891,7 +939,7 @@ legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
 /* ---- wide: 1280 px and up ------------------------------------------------------------------------------------- */
 
 @media (min-width: 1280px) {
-  .code-layout { grid-template-columns: clamp(14rem, 20vw, 18rem) minmax(0, 1fr) clamp(18rem, 24vw, 22rem); }
+  .code-layout { grid-template-columns: clamp(12rem, 15vw, 18rem) minmax(0, 1fr) clamp(15rem, 18vw, 22rem); gap: 0.75rem; }
   .files-drawer { grid-row: 1; }
   .code-aside { grid-column: 3; grid-row: 1; }
 }

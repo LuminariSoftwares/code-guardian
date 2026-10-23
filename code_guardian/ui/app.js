@@ -1,6 +1,6 @@
 "use strict";
-// code-guardian ui: the page. It talks only to the local server's API (/api/scan, /api/scans, /api/file, /api/explain,
-// /api/diff) with the
+// code-guardian ui: the page. It talks only to the local server's API (/api/scan, /api/scans, /api/files, /api/file,
+// /api/explain, /api/diff) with the
 // token from the link's fragment (#t=...). It never computes a score or a sentence: every number and every sentence
 // on the page comes from the report and its plain-language layer. Text from the report is always set as text, never
 // as markup. The only things it keeps in the browser are the person's own choices: the settings (theme, text size, the
@@ -11,12 +11,14 @@
   var API_SCAN = "/api/scan";
   var API_SCANS = "/api/scans";
   var API_FILE = "/api/file";
+  var API_FILES = "/api/files";
   var API_EXPLAIN = "/api/explain";
   var API_DIFF = "/api/diff";
   var KEPT = 20;  // checks the server holds for comparing; the oldest goes first
   var MAX_EXPLAIN = 200;  // lines per question; the server refuses more
   var PICK_HINT = "Select some lines above, or type a start and end line, to ask what they do.";
   var POLL_MS = 800;
+  var MAX_ROWS = 2000;  // file rows drawn at once; a longer list says so and asks for a narrower search
 
   var LEVEL_WORD = { FAIL: "High", WARN: "Medium", INFO: "Low" };
   var GROUPS = [
@@ -53,6 +55,7 @@
     scanning: false,
     again: false,     // a "Check again" is running
     pick: null,       // rel of the file picked in the file list; names the drawer below 900 px
+    listing: null,    // /api/files body for the check on screen, or null while it loads or if it could not be loaded
     range: null,      // {lo, hi}: the lines picked in the viewer, 1-based and inclusive
     ask: 0            // counts questions and resets; an answer for an older count is dropped
   };
@@ -574,8 +577,8 @@
     renderSummary(rep, plain);
     renderFixFirst(rep, plain);
     renderFindings(rep, plain);
-    renderFileList(rep, plain);
     resetViewer();
+    loadFiles(result);
   }
 
   function renderSummary(rep, plain) {
@@ -777,16 +780,6 @@
 
   // ---- code ----------------------------------------------------------------------------------------------------
 
-  // The API does not list a scan's files, so the viewer lists the files the findings point to.
-  function filesOf(rep, plain) {
-    var counts = {};
-    (plain.cards || []).forEach(function (c) {
-      var loc = parseWhere(c.where);
-      if (loc) counts[loc.rel] = (counts[loc.rel] || 0) + 1;
-    });
-    return Object.keys(counts).sort().map(function (rel) { return { rel: rel, n: counts[rel] }; });
-  }
-
   function notesFor(rel) {
     var rep = state.current.report;
     var byLine = {};
@@ -798,34 +791,144 @@
     return byLine;
   }
 
-  function renderFileList(rep, plain) {
+  // The file list: every file the check saw (GET /api/files), each with the one word the server gave it. The page
+  // only filters and draws those rows; it never decides what a file's word is.
+  var FILTERS = {
+    all: function () { return true; },
+    "with": function (f) { return countsOf(f) > 0; },
+    none: function (f) { return f.risk === "No known risks found"; },
+    partly: function (f) { return f.risk === "Partly checked"; },
+    notread: function (f) { return f.risk === "Not read"; }
+  };
+  var FILTER_LABEL = { all: "All files", "with": "Files with findings", none: "No known risks found",
+                       partly: "Partly checked", notread: "Not read" };
+  var FILTER_COUNT = { all: "all", "with": "with_findings", none: "no_known_risks", partly: "partly_checked",
+                       notread: "not_read" };
+  var RISK_CLASS = { "High": "lvl-High", "Medium": "lvl-Medium", "Low": "lvl-Low", "No known risks found": "harm-none",
+                     "Partly checked": "lvl-Partly", "Not read": "lvl-NotRead" };
+
+  function countsOf(f) {
+    var c = f.findings || {};
+    return (c.High || 0) + (c.Medium || 0) + (c.Low || 0) + (c.Quality || 0);
+  }
+
+  function thousands(n) {
+    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+
+  // "1 High, 2 Quality"; a file with only quality notes says so.
+  function countsText(f) {
+    var c = f.findings || {};
+    var parts = [];
+    ["High", "Medium", "Low", "Quality"].forEach(function (k) { if (c[k]) parts.push(c[k] + " " + k); });
+    if (f.risk === "No known risks found" && c.Quality) return plural(c.Quality, "quality note") + " only";
+    return parts.length ? parts.join(", ") : (f.risk === "No known risks found" ? "no findings" : "");
+  }
+
+  function fileWhy(f) {
+    return f.risk === "Not read" ? f.why_not_read : f.risk === "Partly checked" ? f.why_partly : "";
+  }
+
+  function loadFiles(result) {
+    state.listing = null;
     var list = $("file-list");
     clear(list);
-    var files = filesOf(rep, plain);
-    if (!files.length) list.appendChild(el("li", "hint", "No finding points at a single file."));
-    files.forEach(function (f) {
-      var li = el("li");
-      var b = el("button", "file-btn");
-      b.type = "button";
-      b.setAttribute("data-rel", f.rel);
-      b.appendChild(el("span", "mono", f.rel));
-      b.appendChild(el("span", "n", String(f.n)));
-      b.setAttribute("aria-label", f.rel + ", " + plural(f.n, "finding"));
-      b.addEventListener("click", function () { openCode(f.rel, null); });
-      li.appendChild(b);
-      list.appendChild(li);
+    $("files-capped").hidden = true;
+    $("files-note").textContent = "";
+    list.appendChild(el("li", "hint", "Listing the files…"));
+    return call(API_FILES + "?id=" + encodeURIComponent(result.id)).then(function (body) {
+      if (state.current !== result) return;
+      state.listing = body;
+      renderFileFilter(result, body);
+    }, function (err) {
+      if (state.current !== result) return;
+      if (err.status === 0 || (err.status === 403 && err.body.error === "token")) handleApiError(err);
+      clear(list);
+      list.appendChild(el("li", "hint", err.status === 404
+        ? "This check's file list is no longer held by code-guardian; check the folder again."
+        : "The list of files could not be loaded."));
     });
   }
 
-  // Below 900 px the file list is a drawer: open until a file is picked, then closed with that file's name in its
-  // summary. From 900 px it is a column that stays open and its summary is only the heading.
+  // Sets the five options (with their counts) and the default, then draws. The default is the files with findings
+  // when there are any, else every file.
+  function renderFileFilter(result, body) {
+    var select = $("file-filter");
+    var counts = body.counts || {};
+    for (var i = 0; i < select.options.length; i++) {
+      var opt = select.options[i];
+      opt.textContent = FILTER_LABEL[opt.value] + " (" + thousands(counts[FILTER_COUNT[opt.value]] || 0) + ")";
+    }
+    select.value = counts.with_findings ? "with" : "all";
+    $("file-find").value = "";
+    var whole = 0;
+    (result.plain.cards || []).forEach(function (c) { if (!parseWhere(c.where)) whole += 1; });
+    $("files-note").textContent = whole ? plural(whole, "finding") + (whole === 1 ? " is" : " are") +
+      " about the whole project, not one file. See the Findings screen." : "";
+    drawFileList();
+  }
+
+  function drawFileList() {
+    var list = $("file-list");
+    clear(list);
+    var capped = $("files-capped");
+    capped.hidden = true;
+    if (!state.listing) return;
+    var show = FILTERS[$("file-filter").value] || FILTERS.all;
+    var needle = $("file-find").value.trim().toLowerCase();
+    var rows = state.listing.files.filter(function (f) {
+      return show(f) && (!needle || f.rel.toLowerCase().indexOf(needle) >= 0);
+    });
+    if (!rows.length) {
+      list.appendChild(el("li", "hint", needle ? "No file here matches “" + $("file-find").value.trim() + "”."
+        : "No files in this list."));
+      return;
+    }
+    if (rows.length > MAX_ROWS) {
+      capped.textContent = "Showing the first " + thousands(MAX_ROWS) + " of " + thousands(rows.length) +
+        " \u2014 type to narrow";
+      capped.hidden = false;
+    }
+    var frag = document.createDocumentFragment();
+    rows.slice(0, MAX_ROWS).forEach(function (f) { frag.appendChild(fileRow(f)); });
+    list.appendChild(frag);
+    markCurrentFile(state.pick);
+  }
+
+  function fileRow(f) {
+    var li = el("li");
+    var b = el("button", "file-btn");
+    b.type = "button";
+    b.setAttribute("data-rel", f.rel);
+    b.appendChild(el("span", "mono file-rel", f.rel));
+    var risk = el("span", "file-risk " + (RISK_CLASS[f.risk] || ""));
+    var word = el("span", "file-word");
+    var icon = el("span", "harm-icon");
+    icon.setAttribute("aria-hidden", "true");
+    word.appendChild(icon);
+    word.appendChild(el("span", null, f.risk));
+    risk.appendChild(word);
+    var counts = countsText(f);
+    if (counts) risk.appendChild(el("span", "file-n", counts));
+    b.appendChild(risk);
+    var why = fileWhy(f);
+    if (why) b.appendChild(el("span", "file-why", why));
+    b.setAttribute("aria-label", f.rel + ", " + f.risk + (counts ? ", " + counts : "") + (why ? ". " + why : ""));
+    b.addEventListener("click", function () { openCode(f.rel, null); });
+    li.appendChild(b);
+    return li;
+  }
+
+  // Below 900 px the file list is a drawer: open until a file is picked, then closed. Its summary stays "Files"; the
+  // picked file's name is read out from it (hidden text) and drawn once, in the viewer bar. From 900 px it is a column
+  // that stays open and its summary is only the heading.
   function syncDrawer(tierChanged) {
     var drawer = $("files-drawer");
     var summary = drawer.querySelector("summary");
     var wide = WIDE.matches;
     if (wide) drawer.open = true;
     else if (tierChanged) drawer.open = !state.pick;
-    summary.textContent = !wide && state.pick ? state.pick : "Files with findings";
+    $("files-picked").textContent = !wide && state.pick ? state.pick + ": " : "";
     if (wide) summary.setAttribute("tabindex", "-1");
     else summary.removeAttribute("tabindex");
   }
@@ -844,7 +947,7 @@
   function markCurrentFile(rel) {
     var buttons = $("file-list").querySelectorAll(".file-btn");
     for (var i = 0; i < buttons.length; i++) {
-      if (buttons[i].getAttribute("data-rel") === rel) buttons[i].setAttribute("aria-current", "true");
+      if (rel && buttons[i].getAttribute("data-rel") === rel) buttons[i].setAttribute("aria-current", "true");
       else buttons[i].removeAttribute("aria-current");
     }
   }
@@ -1350,6 +1453,8 @@
     [WIDE, MID].forEach(function (query) {
       query.addEventListener("change", function () { syncRail(); syncDrawer(true); });
     });
+    $("file-filter").addEventListener("change", drawFileList);
+    $("file-find").addEventListener("input", drawFileList);
     $("check-again-summary").addEventListener("click", checkAgain);
     var jumps = document.querySelectorAll("[data-screen]");
     for (var i = 0; i < jumps.length; i++) {

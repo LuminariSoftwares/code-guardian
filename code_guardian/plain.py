@@ -21,6 +21,8 @@ Public contract:
     fix_first_notes(report, top=10) -> [str]        # verify.plan(...)["notes"], unchanged
     fix_first_lead(report) -> str | None            # one plain sentence shown above those notes
     diff_sentence(d) -> str                         # d: verify.diff(...); "1 fixed, 0 new, grade D \u2192 B"
+    file_rows(report, inventory) -> [{"rel", "kind", "why_not_read", "why_partly", "findings", "risk"}]
+    file_counts(rows) -> {"all", "with_findings", "no_known_risks", "partly_checked", "not_read"}
 
 CLI:
     python -m code_guardian.plain --selftest        # counted checks; rc 0 only if all pass
@@ -41,6 +43,9 @@ LOW = "Low"
 NONE_FOUND = "No known risks found"
 COULD_NOT_CHECK = "Could not check"
 LABELS = (HIGH, MEDIUM, LOW, NONE_FOUND, COULD_NOT_CHECK)
+PARTLY_CHECKED = "Partly checked"  # file labels (file_rows); the first four of LABELS are also file labels
+NOT_READ = "Not read"
+FILE_RISKS = (HIGH, MEDIUM, LOW, NONE_FOUND, PARTLY_CHECKED, NOT_READ)
 
 # Words that would promise more than a static scan can know. Single words match as whole words, phrases as written;
 # "Safe" as the name of the score dimension is not one of them.
@@ -512,6 +517,97 @@ def diff_sentence(d):
 
 
 # ---------------------------------------------------------------------------------------------------------------
+# S3 (P78 C4): every file, one honest label each
+
+QUALITY = "Quality"
+FILE_LEVELS = (HIGH, MEDIUM, LOW, QUALITY)
+WHY_PARTLY_UNPARSED = "this file did not parse, so only the checks that need no parse tree ran"
+WHY_PARTLY_LANGUAGE = "%s code is not analysed yet; only key shapes were checked"
+WHY_PARTLY_NO_LANGUAGE = "this is not Python, so only key shapes were checked"
+_AND_MORE = re.compile(r" and \d+ more$")
+
+
+def _unparsed_names(rep):
+    """The files the report says did not parse: a works.syntax finding's file, or a name in a "did not parse" reason
+    (report.status_of lists up to five names, then "and N more")."""
+    names = {f["node"].rpartition(":")[0] or f["node"] for f in _findings(rep)
+             if f.get("code") == "works.syntax" and isinstance(f.get("node"), str)}
+    for reason in _reasons(rep):
+        head, _, listing = reason.partition(": ")
+        if "did not parse" in head:
+            names.update(n.strip() for n in _AND_MORE.sub("", listing).split(", ") if n.strip())
+    return names
+
+
+def _file_of(node, known):
+    """The file a finding's node ("file:line" or a bare file) points at, or None for a project-level node."""
+    if not isinstance(node, str):
+        return None
+    if node in known:
+        return node
+    head, _, tail = node.rpartition(":")
+    return head if tail.isdigit() and head in known else None
+
+
+def file_rows(rep, inventory):
+    """One row per distinct file the scan saw, sorted by rel; the report is read, never changed. inventory is
+    walk.walk()'s result for the same scan. A file is labelled, in this order:
+      Not read        walk put it in skipped (binary, symlink, unreadable, too large), whatever the findings say
+      High/Medium/Low its worst Safe finding (FAIL, WARN, INFO); findings of any other check count as Quality
+      Partly checked  a source file in a language this tool does not analyse, or a Python file that did not parse
+      No known risks found  a Python file that fully parsed, or a manifest
+    A file the tool did not really read is never labelled "No known risks found"."""
+    skipped = dict(inventory.get("skipped") or [])
+    python, manifests = set(inventory.get("python") or []), set(inventory.get("manifests") or [])
+    other = set(inventory.get("other") or [])
+    known = python | manifests | other | set(skipped)
+    counts = {rel: dict.fromkeys(FILE_LEVELS, 0) for rel in known}
+    worst = {}
+    for f in _findings(rep):
+        rel = _file_of(f.get("node"), known)
+        if rel is None:
+            continue
+        if score.dimension_of(f.get("code")) == "safe" and f.get("level") in LEVEL_LABEL:
+            label = LEVEL_LABEL[f["level"]]
+            counts[rel][label] += 1
+            worst[rel] = min(worst.get(rel, label), label, key=FILE_LEVELS.index)
+        else:
+            counts[rel][QUALITY] += 1
+    unparsed = _unparsed_names(rep)
+    rows = []
+    for rel in sorted(known):
+        kind = ("not_read" if rel in skipped else "python" if rel in python
+                else "manifest" if rel in manifests else "other")
+        why_not_read = skipped.get(rel)
+        why_partly = None
+        if kind == "not_read":
+            risk = NOT_READ
+        elif rel in worst:
+            risk = worst[rel]
+        elif kind == "other":
+            risk = PARTLY_CHECKED
+            stem, dot, ext = rel.rsplit("/", 1)[-1].rpartition(".")
+            language = LANGUAGES.get("." + ext.lower()) if dot and stem else None
+            why_partly = WHY_PARTLY_LANGUAGE % language if language else WHY_PARTLY_NO_LANGUAGE
+        elif kind == "python" and rel in unparsed:
+            risk, why_partly = PARTLY_CHECKED, WHY_PARTLY_UNPARSED
+        else:
+            risk = NONE_FOUND
+        rows.append({"rel": rel, "kind": kind, "why_not_read": why_not_read, "why_partly": why_partly,
+                     "findings": counts[rel], "risk": risk})
+    return rows
+
+
+def file_counts(rows):
+    """The five numbers the file filter shows, derived from the rows and nothing else."""
+    return {"all": len(rows),
+            "with_findings": sum(1 for r in rows if any(r["findings"].values())),
+            "no_known_risks": sum(1 for r in rows if r["risk"] == NONE_FOUND),
+            "partly_checked": sum(1 for r in rows if r["risk"] == PARTLY_CHECKED),
+            "not_read": sum(1 for r in rows if r["risk"] == NOT_READ)}
+
+
+# ---------------------------------------------------------------------------------------------------------------
 # selftest
 
 
@@ -586,6 +682,20 @@ def selftest():
              for n in (0, 1, 7, 20, 60)]
     plan_items = fix_first(mixed, top=1)
 
+    inventory = {"python": ["a.py", "b.py", "c.py", "setup.py"], "manifests": ["requirements.txt", "setup.py"],
+                 "other": ["index.js", "notes.txt", "Makefile"], "skipped": [("blob.bin", "binary")],
+                 "excluded": 0, "ignored": 0}
+    rows_rep = _demo([f("exec.shell", "FAIL", "b.py:3"), f("net.egress", "INFO", "b.py:5"),
+                      f("works.syntax", "FAIL", "c.py:1"), f("complete.readme_missing", "WARN", "a.py"),
+                      f("supply.lookalike", "WARN", "requirements.txt:1"), f("secret.key", "FAIL", "index.js:1"),
+                      f("secret.key", "FAIL", "blob.bin:1"), f("complete.readme_missing", "WARN", ".")])
+    rows_before = copy.deepcopy(rows_rep)
+    rows = {r["rel"]: r for r in file_rows(rows_rep, inventory)}
+    reason_only = {r["rel"]: r for r in file_rows(
+        _demo([], status="PARTIAL", reasons=["2 Python file(s) did not parse: c.py, d.py"]), inventory)}
+    more = {r["rel"]: r for r in file_rows(
+        _demo([], status="PARTIAL", reasons=["7 Python file(s) did not parse: a.py, b.py and 5 more"]), inventory)}
+
     checks = [
         ("labels_are_the_five", set(LABELS) == {HIGH, MEDIUM, LOW, NONE_FOUND, COULD_NOT_CHECK}),
         ("harm_high", harm(high)["level"] == HIGH and harm(high)["counts"] == {"FAIL": 1, "WARN": 1, "INFO": 0}),
@@ -644,6 +754,41 @@ def selftest():
         ("fix_first_lead_only_when_floored", fix_first_lead(high) is None and fix_first_lead(invalid) is None),
         ("partial_said_once_in_overall", score_sentence("overall", no_python).count("PARTIAL")
          + score_sentence("overall", no_python).count(_PARTIAL_CLAUSE) == 1),
+        ("file_rows_one_row_per_file_sorted", list(rows) == sorted(rows) and len(rows) == 9
+         and [r["rel"] for r in file_rows(rows_rep, inventory)] == sorted(rows)),
+        ("file_rows_worst_safe_finding_wins", rows["b.py"]["risk"] == HIGH
+         and rows["b.py"]["findings"] == {HIGH: 1, MEDIUM: 0, LOW: 1, QUALITY: 0}
+         and rows["requirements.txt"]["risk"] == MEDIUM),
+        ("file_rows_other_dimensions_are_quality", rows["a.py"]["risk"] == NONE_FOUND
+         and rows["a.py"]["findings"][QUALITY] == 1 and not any(rows["a.py"]["findings"][k] for k in LEVEL_LABEL.values())),
+        ("file_rows_unparsed_python_is_partly_checked", rows["c.py"]["risk"] == PARTLY_CHECKED
+         and rows["c.py"]["why_partly"] == WHY_PARTLY_UNPARSED
+         and reason_only["c.py"]["risk"] == PARTLY_CHECKED and reason_only["a.py"]["risk"] == NONE_FOUND
+         and more["a.py"]["risk"] == PARTLY_CHECKED and more["c.py"]["risk"] == NONE_FOUND),
+        ("file_rows_other_files_name_their_language", rows["notes.txt"]["risk"] == PARTLY_CHECKED
+         and rows["Makefile"]["why_partly"] == WHY_PARTLY_NO_LANGUAGE
+         and reason_only["index.js"]["risk"] == PARTLY_CHECKED
+         and reason_only["index.js"]["why_partly"].startswith("JavaScript code is not analysed yet")),
+        ("file_rows_not_read_wins_over_findings", rows["blob.bin"]["risk"] == NOT_READ
+         and rows["blob.bin"]["why_not_read"] == "binary" and rows["blob.bin"]["kind"] == "not_read"),
+        ("file_rows_a_secret_in_another_language_is_high", rows["index.js"]["risk"] == HIGH
+         and rows["index.js"]["why_partly"] is None),
+        ("file_rows_setup_py_is_one_row", [r["kind"] for r in file_rows(rows_rep, inventory)
+                                           if r["rel"] == "setup.py"] == ["python"]
+         and rows["requirements.txt"]["kind"] == "manifest"),
+        ("file_rows_unchecked_files_are_never_no_known_risks", not [
+            r for r in rows.values() if r["kind"] in ("other", "not_read") and r["risk"] == NONE_FOUND]
+         and not [r for r in reason_only.values() if r["kind"] in ("other", "not_read") and r["risk"] == NONE_FOUND]),
+        ("file_rows_project_level_findings_belong_to_no_file", sum(
+            sum(r["findings"].values()) for r in rows.values()) == 7),
+        ("file_counts_from_the_rows", file_counts(list(rows.values())) == {
+            "all": 9, "with_findings": 6, "no_known_risks": 2, "partly_checked": 3, "not_read": 1}
+         and file_counts([]) == dict.fromkeys(("all", "with_findings", "no_known_risks", "partly_checked",
+                                               "not_read"), 0)),
+        ("file_rows_never_mutates", rows_rep == rows_before),
+        ("file_rows_no_verdict_phrase", not [
+            v for r in rows.values() for v in (r["risk"], r["why_partly"], r["why_not_read"])
+            if VERDICT_PHRASES.search(v or "")]),
     ]
     return summarize("plain", checks)
 

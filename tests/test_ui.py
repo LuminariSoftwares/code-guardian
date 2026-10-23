@@ -238,3 +238,107 @@ def test_scan_carries_the_fix_first_lead(server):
                                                                 "goal_file": None}).encode())
     plain_layer = json.loads(raw)["plain"]
     assert status == 200 and plain_layer["fix_first_lead"].startswith("Safety problems do not raise the grade")
+
+
+# ---- GET /api/files (P78 S3): every file the scan saw, taken at scan time ------------------------------------------
+
+def files_call(server, scan, **kw):
+    status, raw = call(server, "GET", "/api/files?id=%s" % scan, **kw)
+    return status, json.loads(raw)
+
+
+def test_files_lists_what_the_scan_saw_with_counts_derived_from_the_rows(server, tmp_path):
+    (tmp_path / "a.py").write_text("x = 1\n", encoding="utf-8")
+    (tmp_path / "broken.py").write_text("def f(:\n", encoding="utf-8")
+    (tmp_path / "app.js").write_text("let a = 1;\n", encoding="utf-8")
+    (tmp_path / "blob.bin").write_bytes(b"\0\1")
+    (tmp_path / ".gitignore").write_text("ignored.txt\n", encoding="utf-8")
+    (tmp_path / "ignored.txt").write_text("x\n", encoding="utf-8")
+    status, body = files_call(server, scan_id(server, tmp_path))
+    assert status == 200
+    assert [r["rel"] for r in body["files"]] == [".gitignore", "a.py", "app.js", "blob.bin", "broken.py"]
+    assert body["counts"] == ui.plain.file_counts(body["files"])
+    assert (body["ignored"], body["excluded"]) == (1, 0)
+    assert {r["rel"]: r["risk"] for r in body["files"]} == {
+        ".gitignore": "Partly checked", "a.py": "No known risks found", "app.js": "Partly checked",
+        "blob.bin": "Not read", "broken.py": "Partly checked"}
+
+
+def test_files_needs_the_token_and_only_answers_get(server, tmp_path):
+    (tmp_path / "a.py").write_text("x = 1\n", encoding="utf-8")
+    sid = scan_id(server, tmp_path)
+    assert files_call(server, sid, token=False) == (403, {"error": "token"})
+    status, raw = call(server, "POST", "/api/files?id=%s" % sid)
+    assert (status, json.loads(raw)) == (404, {"error": "route"})
+    assert files_call(server, "") == (404, {"error": "scan"})
+    assert call(server, "GET", "/api/files")[0] == 404
+
+
+def test_files_honours_the_goal_files_excludes_the_way_the_scan_does(server, tmp_path):
+    (tmp_path / "gen").mkdir()
+    (tmp_path / "main.py").write_text("def main():\n    return 1\n", encoding="utf-8")
+    (tmp_path / "gen" / "made.py").write_text("X = 1\n", encoding="utf-8")
+    (tmp_path / ui.goal.FILENAME).write_text(ui.goal.render("demo", ["main.py"], exclude=["gen/*"]), encoding="utf-8")
+    status, body = files_call(server, scan_id(server, tmp_path))
+    assert status == 200 and body["excluded"] >= 1
+    assert [r["rel"] for r in body["files"] if r["rel"].startswith("gen/")] == []
+    assert "main.py" in [r["rel"] for r in body["files"]]
+
+
+def test_files_uses_the_goal_file_named_in_the_request(server, tmp_path):
+    (tmp_path / "keep.py").write_text("X = 1\n", encoding="utf-8")
+    (tmp_path / "skip.py").write_text("X = 2\n", encoding="utf-8")
+    elsewhere = tmp_path.parent / (tmp_path.name + "-goal.toml")
+    elsewhere.write_text(ui.goal.render("demo", ["keep.py"], exclude=["skip.py"]), encoding="utf-8")
+    raw = json.dumps({"path": str(tmp_path), "goal_file": str(elsewhere)}).encode()
+    status, scanned = call(server, "POST", "/api/scan", raw)
+    assert status == 200
+    status, body = files_call(server, json.loads(scanned)["id"])
+    assert [r["rel"] for r in body["files"]] == ["keep.py"] and body["excluded"] == 1
+
+
+def test_files_for_one_file_scanned_as_a_copy(server, tmp_path):
+    one = tmp_path / "only.py"
+    one.write_text("x = 1\n", encoding="utf-8")
+    status, body = files_call(server, scan_id(server, one))
+    assert status == 200 and [r["rel"] for r in body["files"]] == ["only.py"]
+
+
+def test_files_are_kept_and_dropped_with_the_reports(server, monkeypatch):
+    monkeypatch.setattr(ui, "REPORTS_KEPT", 2)
+    ids = [scan_id(server, CLEAN) for _ in range(3)]
+    assert files_call(server, ids[0]) == (404, {"error": "scan"})
+    assert files_call(server, ids[1])[0] == files_call(server, ids[2])[0] == 200
+    assert sorted(server.inventories) == sorted(ids[1:])
+
+
+def test_a_check_without_an_inventory_is_404_not_a_crash(server):
+    sid = scan_id(server, CLEAN)
+    server.inventories.clear()
+    assert files_call(server, sid) == (404, {"error": "scan"})
+
+
+def test_a_walk_that_crashes_leaves_the_scan_working_and_the_list_absent(server, monkeypatch):
+    real = ui.walk.walk
+    calls = []
+
+    def flaky(root, exclude=()):
+        calls.append(root)
+        if len(calls) == 1:  # the one taken for the file list; the scan's own walk is a later call
+            raise OSError("boom")
+        return real(root, exclude=exclude)
+
+    monkeypatch.setattr(ui.walk, "walk", flaky)
+    sid = scan_id(server, CLEAN)
+    assert files_call(server, sid) == (404, {"error": "scan"})
+    assert len(calls) >= 1
+
+
+def test_the_inventory_is_walked_before_the_scan_and_never_changes_the_report(server, monkeypatch):
+    order = []
+    real_walk, real_scan = ui.walk.walk, ui.report.scan
+    monkeypatch.setattr(ui.walk, "walk", lambda *a, **k: order.append("walk") or real_walk(*a, **k))
+    monkeypatch.setattr(ui.report, "scan", lambda *a, **k: order.append("scan") or real_scan(*a, **k))
+    sid = scan_id(server, CLEAN)
+    assert order[:2] == ["walk", "scan"]
+    assert server.report_of(sid) == ui.redact_report(real_scan(str(CLEAN)))
