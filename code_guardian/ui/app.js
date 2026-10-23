@@ -1,6 +1,6 @@
 "use strict";
 // code-guardian ui: the page. It talks only to the local server's API (/api/scan, /api/scans, /api/files, /api/file,
-// /api/explain, /api/diff) with the
+// /api/explain, /api/diff, /api/browse) with the
 // token from the link's fragment (#t=...). It never computes a score or a sentence: every number and every sentence
 // on the page comes from the report and its plain-language layer. Text from the report is always set as text, never
 // as markup. The only things it keeps in the browser are the person's own choices: the settings (theme, text size, the
@@ -14,6 +14,9 @@
   var API_FILES = "/api/files";
   var API_EXPLAIN = "/api/explain";
   var API_DIFF = "/api/diff";
+  var API_BROWSE = "/api/browse";
+  var NO_DIALOG = "Your Python cannot open a folder window here; paste the path instead.";
+  var BUSY = "A folder window is already open on the computer running code-guardian. Pick a folder there, or close it.";
   var KEPT = 20;  // checks the server holds for comparing; the oldest goes first
   var MAX_EXPLAIN = 200;  // lines per question; the server refuses more
   var PICK_HINT = "Select some lines above, or type a start and end line, to ask what they do.";
@@ -446,11 +449,55 @@
     box.hidden = !text;
   }
 
+  // The server's sentence for a folder it will not check as a whole (a drive, the home folder, Downloads ...),
+  // shown under the field. "" clears it.
+  function showRefused(text) {
+    var line = $("path-refused");
+    line.textContent = text;
+    line.hidden = !text;
+  }
+
+  // ---- Browse: the folder window opens on the computer running code-guardian, never in the browser ----------------
+
+  function browseClick() {
+    var button = $("browse");
+    if (button.disabled || state.scanning || state.again) return;
+    showOpenError("");
+    showRefused("");
+    button.disabled = true;
+    var start = $("path").value.trim() || null;
+    return call(API_BROWSE, { method: "POST", body: { start: start } }).then(function (answer) {
+      button.disabled = false;
+      if (!answer.path) return;   // closed without a choice
+      if (answer.refused) {
+        $("path").value = "";
+        showRefused(answer.refused);
+        return;
+      }
+      startScan(answer.path);
+    }, function (err) {
+      button.disabled = false;
+      if (err.status === 501) return noDialog();
+      if (err.status === 409) return showOpenError(BUSY);
+      if (err.status === 0 || (err.status === 403 && err.body.error === "token")) return handleApiError(err);
+      showOpenError("The folder window could not open (" + (err.body.detail || err.body.error || err.status) + "). Paste the path instead.");
+    });
+  }
+
+  // This Python has no folder window: Browse goes for the rest of the session, and the hint says what to do instead.
+  function noDialog() {
+    $("browse").hidden = true;
+    $("browse-hint").hidden = true;
+    var hint = $("os-hint");
+    if (hint.textContent.indexOf(NO_DIALOG) < 0) hint.textContent = hint.textContent + " " + NO_DIALOG;
+  }
+
   // ---- scanning ------------------------------------------------------------------------------------------------
 
   function setScanning(path, on) {
     state.scanning = on;
     $("scan-button").disabled = on;
+    $("browse").disabled = on;
     $("scan-button").textContent = on ? "Checking…" : "Check this folder";
     var box = $("scanning");
     box.hidden = !on;
@@ -471,6 +518,7 @@
     path = String(path || "").trim();
     if (!path || state.scanning || state.again) return;
     showOpenError("");
+    showRefused("");
     if (state.screen !== "open") show("open");
     $("path").value = path;
     setScanning(path, true);
@@ -491,6 +539,10 @@
       setScanning(path, false);
       if (err.status === 403 && err.body.error === "token") return handleApiError(err);
       if (err.status === 0) return handleApiError(err);
+      if (err.status === 400 && err.body.error === "refused") {
+        showRefused(String(err.body.detail || ""));
+        return refreshRecent();
+      }
       showOpenError(scanErrorText(err));
       refreshRecent();
     });
@@ -1444,6 +1496,8 @@
       ev.preventDefault();
       startScan($("path").value);
     });
+    $("browse").addEventListener("click", browseClick);
+    $("path").addEventListener("input", function () { showRefused(""); });
     $("new-check").addEventListener("click", function () { show("open"); $("path").focus(); });
     $("check-again").addEventListener("click", checkAgain);
     $("rail-toggle").addEventListener("click", toggleRail);

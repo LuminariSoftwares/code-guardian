@@ -1,4 +1,4 @@
-"""Capture the screenshots of `code-guardian ui` in docs/screenshots/ (plan P76 S3, P78 S1, S2, S3).
+"""Capture the screenshots of `code-guardian ui` in docs/screenshots/ (plan P76 S3, P78 S1, S2, S3, S4).
 
 Development only: Playwright is not a dependency or an extra of the package, so install it into a scratch
 environment first (pip install playwright, plus a Chromium it can find). The scanned folder is visible on the page,
@@ -29,6 +29,10 @@ pieces, so no file in this repository holds one.
 The settings screens (P78 S1) are the Settings panel open over the Open screen, one screenful as a person sees it (the
 panel is fixed to the window, so a full-page capture would put it at the bottom of a tall page). Then Light is picked
 in that panel and the risky project is checked again: result_light is the Summary in the light palette.
+
+browse_refused_390x844.png (P78 S4) is the Open screen of a fresh server after typing a whole drive (/ here, a drive
+letter on Windows) and pressing the button: the server refuses it before reading anything and the sentence shows
+under the field. No folder window is opened for it.
 """
 import argparse
 import http.server
@@ -225,6 +229,27 @@ def capture(browser, out, risky, js, app, width, height, scale):
         thread.join(10)
 
 
+def browse_refused(browser, out):
+    """The Open screen after a whole drive was typed: the refusal sentence under the field (390 x 844 only)."""
+    server = ui.make_server(port=0)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        context = browser.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2)
+        page = context.new_page()
+        page.goto("http://127.0.0.1:%d/#t=%s" % (server.server_address[1], server.token))
+        page.wait_for_selector("#screen-open:not([hidden])")
+        page.fill("#path", "C:" + chr(92) if os.name == "nt" else "/")
+        page.click("#scan-button")
+        page.wait_for_selector("#path-refused:not([hidden])", timeout=30000)
+        shoot(page, out, "browse_refused_390x844.png")
+        context.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(10)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--out", default=str(ROOT / "docs" / "screenshots"))
@@ -249,6 +274,7 @@ def main(argv=None):
         try:
             for width, height, scale in SIZES:
                 capture(browser, out, risky, js, app, width, height, scale)
+            browse_refused(browser, out)
         finally:
             browser.close()
             model.shutdown()

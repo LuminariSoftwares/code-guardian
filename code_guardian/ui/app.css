@@ -353,8 +353,12 @@ legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
 /* ---- open ----------------------------------------------------------------------------------------------------- */
 
 .intro { color: var(--muted); }
-.scan-form .row { display: grid; gap: 0.75rem; margin-top: 0.75rem; }
+.scan-form .row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 0.75rem; margin-top: 0.75rem; }
+.scan-form .row input { grid-column: 1 / -1; }
 .scan-form .hint { margin: 0.75rem 0 0; }
+.scan-form #browse { min-height: 3rem; }
+.scan-form #browse-hint { margin-top: 0.25rem; }
+.path-refused { margin: 0.75rem 0 0; color: var(--high); font-weight: 600; }
 .recent { margin-top: 1.5rem; }
 .recent li { list-style: none; }
 .recent-item {
@@ -922,7 +926,8 @@ legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
   .frame[data-rail="mini"] .rail-again .ghost { width: 2.75rem; padding: 0.25rem; }
   .frame[data-rail="mini"] .rail-when { font-size: 0.6875rem; text-align: center; }
 
-  .scan-form .row { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
+  .scan-form .row { grid-template-columns: minmax(0, 1fr) auto auto; align-items: end; }
+  .scan-form .row input { grid-column: auto; }
   .pick-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 
   /* Code: the file list is a column beside the viewer; its summary is only the heading. */

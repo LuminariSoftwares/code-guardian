@@ -71,10 +71,13 @@
   <form id="scan-form" class="scan-form card" autocomplete="off">
     <label for="path">Folder path</label>
     <div class="row">
-      <input type="text" id="path" name="path" class="mono" spellcheck="false" autocapitalize="off" autocorrect="off" placeholder="Paste the folder path here" required>
+      <input type="text" id="path" name="path" class="mono" spellcheck="false" autocapitalize="off" autocorrect="off" placeholder="Paste the folder path here" required aria-describedby="path-refused os-hint">
+      <button type="button" class="ghost" id="browse">Browse…</button>
       <button type="submit" class="primary" id="scan-button">Check this folder</button>
     </div>
+    <p class="path-refused" id="path-refused" role="alert" hidden></p>
     <p class="hint" id="os-hint">Paste the full path of the folder you want checked.</p>
+    <p class="hint" id="browse-hint">Opens a folder window on the computer running code-guardian.</p>
   </form>
   <div id="scanning" class="card status-line" role="status" hidden></div>
   <div id="open-error" class="alert" role="alert" hidden></div>

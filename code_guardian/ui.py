@@ -9,12 +9,17 @@ The server calls report.scan() and builds every sentence with plain.py; it never
                               0 is any free port; any other number is that port or an OSError
     run(path, port, open_browser) -> exit code        # the `code-guardian ui` command (C1)
 
+A folder refuse.refused() names (a drive, the home folder, Downloads, ...) is refused before anything reads it, by
+POST /api/scan, by `code-guardian ui PATH` and for the folder Browse picks (P78 C5). POST /api/browse opens the
+computer's own folder window in a child process (DIALOG_SOURCE, through Server.dialog_runner), one at a time (C6).
+
     python -m code_guardian.ui --selftest
 """
 
 import atexit
 import codecs
 import collections
+import errno
 import http.client
 import http.server
 import json
@@ -22,6 +27,7 @@ import os
 import secrets
 import shutil
 import socketserver
+import subprocess
 import sys
 import tempfile
 import threading
@@ -29,7 +35,7 @@ import time
 import webbrowser
 from urllib.parse import parse_qsl
 
-from . import explain, goal, plain, report, verify, walk
+from . import explain, goal, plain, refuse, report, verify, walk
 from .finding import summarize
 from .scanners import redact_report
 
@@ -46,9 +52,39 @@ DIMENSIONS = ("safe", "works", "complete", "overall")
 EXPLAIN_MAX_LINES = 200
 EXPLAIN_SETUP = "set CODE_GUARDIAN_LLM_URL and CODE_GUARDIAN_LLM_MODEL, then restart code-guardian ui"
 REPORTS_KEPT = 20  # finished reports (and their file inventories) held for /api/diff and /api/files; the oldest goes first
+DIALOG_TIMEOUT = 600  # seconds a folder window may stay open; no answer by then is a cancel
+DIALOG_DETAIL = {3: "this Python has no tkinter", 4: "no display to open a window on"}
+
+# The folder window, run as `python -I -c DIALOG_SOURCE START` (ADR 0009): tkinter wants the main thread of its own
+# process, so the server's threads never import it. Exit 0 and the folder on stdout as UTF-8 whatever the console's
+# code page is (browse() decodes UTF-8), 1 cancelled, 3 no tkinter, 4 no display.
+DIALOG_SOURCE = """\
+import sys
+try:
+    import tkinter
+    import tkinter.filedialog
+except ImportError:
+    sys.exit(3)
+try:
+    root = tkinter.Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
+    root.update()
+except tkinter.TclError:
+    sys.exit(4)
+root.lift()
+root.focus_force()
+chosen = tkinter.filedialog.askdirectory(parent=root, initialdir=sys.argv[1], mustexist=True,
+                                         title="Pick the folder to check")
+chosen = chosen if isinstance(chosen, str) else ""
+sys.stdout.reconfigure(encoding="utf-8")
+print(chosen)
+sys.exit(0 if chosen else 1)
+"""
 
 _live = set()
 _live_lock = threading.Lock()
+_dialog_lock = threading.Lock()  # one folder window at a time, across every server in this process
 
 
 class ScanRefused(report.UsageError):
@@ -82,6 +118,7 @@ class Server(http.server.ThreadingHTTPServer):
     # POSIX SO_REUSEADDR only lets a restart bind a port whose old connections are in TIME_WAIT; it never lets two
     # listeners share one. On Windows it would let another process take a fixed --port, so it stays off there.
     allow_reuse_address = os.name != "nt"
+    dialog_runner = staticmethod(subprocess.run)  # replaced by a fake in the tests and --selftest
 
     def __init__(self, port=0):
         self.token = secrets.token_urlsafe(24)
@@ -122,6 +159,9 @@ class Server(http.server.ThreadingHTTPServer):
     def scan(self, path, goal_file=None):
         """Scan a directory, or a copy of a single file, and return {"id", "report", "plain"}."""
         target = os.path.abspath(os.path.expanduser(_unquote(path)))
+        sentence = refuse.refused(target)  # before anything is read or listed; a single file is never refused
+        if sentence:
+            raise ScanRefused("refused", sentence)
         made = None
         if os.path.isfile(target):
             made = tempfile.mkdtemp(prefix="cg-ui-")
@@ -164,6 +204,28 @@ class Server(http.server.ThreadingHTTPServer):
             while len(self.inventories) > REPORTS_KEPT:
                 self.inventories.popitem(last=False)
         return {"id": entry["id"], "report": rep, "plain": plain_of(rep)}
+
+    def browse(self, start):
+        """(status, body) for /api/browse (C6): open the folder window in a child process and wait for its answer."""
+        if not _dialog_lock.acquire(blocking=False):
+            return 409, {"error": "busy"}
+        try:
+            try:
+                done = self.dialog_runner([sys.executable, "-I", "-c", DIALOG_SOURCE, start or os.path.expanduser("~")],
+                                          capture_output=True, text=True, encoding="utf-8",
+                                          timeout=DIALOG_TIMEOUT)
+            except subprocess.TimeoutExpired:
+                return 200, {"path": None, "cancelled": True}
+        finally:
+            _dialog_lock.release()
+        chosen = (done.stdout or "").rstrip("\r\n")
+        if done.returncode == 1 or (done.returncode == 0 and not chosen):
+            return 200, {"path": None, "cancelled": True}
+        if done.returncode != 0:
+            detail = DIALOG_DETAIL.get(done.returncode, "the folder window could not open (exit %s)" % done.returncode)
+            return 501, {"error": "no_dialog", "detail": detail}
+        path = os.path.abspath(chosen)
+        return 200, {"path": path, "refused": refuse.refused(path)}
 
     def _forget(self, entry, made):
         with self.lock:
@@ -295,6 +357,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self._json(404, {"error": "route"})
         if self.command == "POST" and path == "/api/scan":
             return self._scan(body)
+        if self.command == "POST" and path == "/api/browse":
+            return self._browse(body)
         if self.command == "POST" and path == "/api/explain":
             return self._explain(body)
         if self.command == "POST" and path == "/api/diff":
@@ -328,6 +392,22 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._json(400, {"error": exc.error, "detail": exc.detail})
         except Exception as exc:  # the scanner crashed: say so, never the traceback
             return self._json(500, {"error": "scan", "detail": type(exc).__name__})
+
+    def _browse(self, body):
+        try:
+            req = json.loads(body.decode("utf-8"))
+        except ValueError:
+            return self._json(400, {"error": "json"})
+        if not isinstance(req, dict):
+            return self._json(400, {"error": "json"})
+        start = req.get("start")
+        if start is not None and not isinstance(start, str):
+            return self._json(400, {"error": "start", "detail": "start must be a string or null"})
+        try:
+            status, out = self.server.browse(start)
+        except Exception as exc:  # the window's process could not start: say so, never the traceback
+            return self._json(500, {"error": "browse", "detail": type(exc).__name__})
+        return self._json(status, out)
 
     def _diff(self, body):
         """Two checks of this session by id, or the text of two saved `scan --json` files: verify.diff's result as it
@@ -419,7 +499,18 @@ def make_server(port=None):
 
 def run(path=None, port=None, open_browser=True):
     """`code-guardian ui`: print the one URL line, then serve until Ctrl-C. Returns the exit code."""
-    server = make_server(port)
+    if path:
+        sentence = refuse.refused(os.path.abspath(os.path.expanduser(_unquote(path))))
+        if sentence:  # before any socket is opened
+            sys.stderr.write("code-guardian: %s\n" % sentence)
+            return 2
+    try:
+        server = make_server(port)
+    except OSError as exc:  # a --port that is taken, or one this system will not hand out
+        why = "is in use" if exc.errno in (errno.EADDRINUSE, getattr(errno, "WSAEADDRINUSE", None)) else \
+            "cannot be used here (%s)" % (exc.strerror or type(exc).__name__)
+        sys.stderr.write("code-guardian: port %s %s; pick another or leave out --port\n" % (port, why))
+        return 2
     try:
         if path:
             try:
@@ -464,6 +555,13 @@ def _call(server, method, path, body=None, headers=None):
     return resp.status, got, js
 
 
+class _Done:
+    """What a fake dialog runner returns: the fields of subprocess.CompletedProcess that browse() reads."""
+
+    def __init__(self, returncode, stdout=""):
+        self.returncode, self.stdout, self.stderr = returncode, stdout, ""
+
+
 def selftest():
     tmp = tempfile.mkdtemp(prefix="cg-ui-selftest-")
     server = make_server(0)
@@ -501,6 +599,25 @@ def selftest():
         route_status, _, route = _call(server, "GET", "/api/nope", headers=token)
         page_status, page_headers, _ = _call(server, "GET", "/")
         list_status, _, listed = _call(server, "GET", "/api/scans", headers=token)
+        home_status, _, home = post(os.path.expanduser("~"), headers=token)
+        browse = lambda: _call(server, "POST", "/api/browse", {"start": None}, headers=token)  # noqa: E731
+        # Fake runners only: the real one would open a window, and --selftest never starts a process.
+        server.dialog_runner = lambda args, **kw: _Done(3)
+        nodialog_status, _, nodialog = browse()
+        entered, release, first = threading.Event(), threading.Event(), {}
+
+        def slow(args, **kw):
+            entered.set()
+            release.wait(30)
+            return _Done(1)
+        server.dialog_runner = slow
+        holder = threading.Thread(target=lambda: first.setdefault("r", browse()))
+        holder.start()
+        try:
+            busy_status, _, busy = browse() if entered.wait(30) else (None, None, None)
+        finally:
+            release.set()
+            holder.join(30)
     finally:
         server.shutdown()
         server.server_close()
@@ -535,6 +652,12 @@ def selftest():
         ("diff_unknown_404_bad_text_400", (gone_status, text_status) == (404, 400)),
         ("invalid_json_400", json_status == 400),
         ("temp_copy_removed_on_close", bool(one_dir) and not os.path.exists(one_dir)),
+        ("refused_home_400", (home_status, home) == (400, {"error": "refused",
+                                                          "detail": refuse.refused(os.path.expanduser("~"))})),
+        ("browse_no_dialog_501", (nodialog_status, nodialog) == (501, {"error": "no_dialog",
+                                                                      "detail": DIALOG_DETAIL[3]})),
+        ("browse_busy_409", (busy_status, busy) == (409, {"error": "busy"})
+         and first.get("r", (None,))[0] == 200 and first["r"][2] == {"path": None, "cancelled": True}),
     ]
     return summarize("ui", checks)
 

@@ -342,3 +342,75 @@ def test_the_inventory_is_walked_before_the_scan_and_never_changes_the_report(se
     sid = scan_id(server, CLEAN)
     assert order[:2] == ["walk", "scan"]
     assert server.report_of(sid) == ui.redact_report(real_scan(str(CLEAN)))
+
+
+# ---- P78 S4: the refusal before any read, and POST /api/browse's own refusals -------------------------------------
+
+
+def test_a_refused_folder_never_reaches_the_scanner(server, monkeypatch):
+    import os
+
+    calls = []
+    monkeypatch.setattr(ui.report, "scan", lambda *a, **k: calls.append(a))
+    monkeypatch.setattr(ui.walk, "walk", lambda *a, **k: calls.append(a))
+    raw = json.dumps({"path": os.path.expanduser("~"), "goal_file": None}).encode("utf-8")
+    status, body = call(server, "POST", "/api/scan", raw=raw)
+    assert (status, json.loads(body)["error"]) == (400, "refused") and calls == []
+    assert json.loads(call(server, "GET", "/api/scans")[1]) == []
+
+
+@pytest.mark.parametrize("body", [{"start": 3}, {"start": ["/"]}, {"start": True}, ["/"], "x"])
+def test_browse_refuses_a_start_that_is_not_a_string_or_null(server, body):
+    server.dialog_runner = lambda *a, **k: pytest.fail("the dialog runner was called")
+    status, raw = call(server, "POST", "/api/browse", raw=json.dumps(body).encode("utf-8"))
+    assert status == 400 and json.loads(raw)["error"] in ("start", "json")
+
+
+def test_browse_releases_the_lock_after_a_runner_that_raises(server):
+    def boom(*a, **k):
+        raise OSError("no such interpreter")
+
+    server.dialog_runner = boom
+    raw = json.dumps({"start": None}).encode("utf-8")
+    status, body = call(server, "POST", "/api/browse", raw=raw)
+    assert status == 500 and json.loads(body) == {"error": "browse", "detail": "OSError"}
+    server.dialog_runner = lambda *a, **k: type("Done", (), {"returncode": 1, "stdout": "", "stderr": ""})()
+    status, body = call(server, "POST", "/api/browse", raw=raw)
+    assert (status, json.loads(body)) == (200, {"path": None, "cancelled": True})
+
+
+# ---- P78 S4 review: a folder name outside the console's character set reaches the server intact -------------------
+
+WIDE_NAME = "proj-" + chr(0x9879) + chr(0x76EE)  # two CJK characters, none of them in cp1252
+
+
+def test_dialog_source_prints_a_name_outside_the_console_code_page(tmp_path):
+    import os
+    import subprocess
+    import sys
+
+    stub = tmp_path / "stub" / "tkinter"
+    stub.mkdir(parents=True)
+    (stub / "__init__.py").write_text("class TclError(Exception):\n    pass\n\n\nclass Tk:\n"
+                                      "    def __getattr__(self, name):\n        return lambda *a, **kw: None\n",
+                                      encoding="utf-8")
+    (stub / "filedialog.py").write_text("def askdirectory(**kw):\n    return %r\n" % WIDE_NAME, encoding="utf-8")
+    env = {k: v for k, v in os.environ.items() if k not in ("PYTHONUTF8", "PYTHONIOENCODING")}
+    env.update(PYTHONPATH=str(stub.parent), PYTHONIOENCODING="cp1252")
+    # no -I, as in the acceptance file: -I would ignore PYTHONPATH and find the real tkinter
+    done = subprocess.run([sys.executable, "-c", ui.DIALOG_SOURCE, str(tmp_path)], cwd=str(stub.parent), env=env,
+                          capture_output=True, encoding="utf-8", timeout=60)
+    assert done.returncode == 0, (done.returncode, done.stderr)
+    assert done.stdout.rstrip("\r\n") == WIDE_NAME
+
+
+def test_browse_asks_the_runner_for_utf8(server):
+    seen = []
+
+    def runner(args, **kw):
+        seen.append(kw)
+        return type("Done", (), {"returncode": 1, "stdout": "", "stderr": ""})()
+
+    server.dialog_runner = runner
+    call(server, "POST", "/api/browse", raw=json.dumps({"start": None}).encode("utf-8"))
+    assert seen and seen[0].get("encoding") == "utf-8" and seen[0].get("text") is True, seen
