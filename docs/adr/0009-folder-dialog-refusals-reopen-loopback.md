@@ -15,12 +15,12 @@ alongside them: whether the page could be opened from a phone.
 
 **The folder window is the computer's own, opened in a child process.** A page cannot open a folder window on the
 machine that runs the server, so `POST /api/browse` does it: it runs
-`[sys.executable, "-I", "-c", DIALOG_SOURCE, start or home]` with `capture_output=True, text=True, timeout=600`.
+`[sys.executable, "-I", "-c", DIALOG_SOURCE, start or home]` with `capture_output=True, text=True, encoding="utf-8", timeout=600`.
 `DIALOG_SOURCE` is a constant in `ui.py` of at most 25 lines that imports `tkinter`, makes a hidden root window,
 raises it to the top (`-topmost`, `update`, `lift`, `focus_force`) and calls `tkinter.filedialog.askdirectory`. It
 prints the folder and exits 0, or exits 1 when the window was closed without a choice, 3 when this Python has no
-`tkinter`, 4 when there is no display to open a window on, and 5 when the folder's name cannot be written in the
-console's encoding. The server maps 0 to the folder, 1 and a timeout to `{"path": null, "cancelled": true}`, 3 and 4
+`tkinter`, 4 when there is no display to open a window on. The child writes the folder as UTF-8 and the server reads
+it as UTF-8, so a folder name in any language comes through. The server maps 0 to the folder, 1 and a timeout to `{"path": null, "cancelled": true}`, 3 and 4
 to `501 no_dialog` with the reason, and anything else to `501` with the exit code.
 
 It is a child process because tkinter wants to own the main thread of the process that imports it, and the server
@@ -82,7 +82,6 @@ that is a separate opt-in decision, a candidate for v1.2, not part of this one.
   session and says to paste the path instead. Pasting always works.
 - A folder window left open holds the lock for up to ten minutes; a second Browse in that time is `409 busy`, and the
   page says a window is already open.
-- A folder whose name cannot be written in the console's encoding (exit 5) is `501`; the person pastes the path.
 - A project placed directly at a drive root or a mount point is refused; the sentence asks for the folder it is in.
 - `ui --selftest` checks the 501, 409 and refusal paths through a fake runner; it never starts a process.
 - Reaching the page from a phone stays a tunnel the person sets up; the app documents nothing beyond loopback.
