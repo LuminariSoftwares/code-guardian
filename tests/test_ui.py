@@ -342,3 +342,38 @@ def test_the_inventory_is_walked_before_the_scan_and_never_changes_the_report(se
     sid = scan_id(server, CLEAN)
     assert order[:2] == ["walk", "scan"]
     assert server.report_of(sid) == ui.redact_report(real_scan(str(CLEAN)))
+
+
+# ---- P78 S4: the refusal before any read, and POST /api/browse's own refusals -------------------------------------
+
+
+def test_a_refused_folder_never_reaches_the_scanner(server, monkeypatch):
+    import os
+
+    calls = []
+    monkeypatch.setattr(ui.report, "scan", lambda *a, **k: calls.append(a))
+    monkeypatch.setattr(ui.walk, "walk", lambda *a, **k: calls.append(a))
+    raw = json.dumps({"path": os.path.expanduser("~"), "goal_file": None}).encode("utf-8")
+    status, body = call(server, "POST", "/api/scan", raw=raw)
+    assert (status, json.loads(body)["error"]) == (400, "refused") and calls == []
+    assert json.loads(call(server, "GET", "/api/scans")[1]) == []
+
+
+@pytest.mark.parametrize("body", [{"start": 3}, {"start": ["/"]}, {"start": True}, ["/"], "x"])
+def test_browse_refuses_a_start_that_is_not_a_string_or_null(server, body):
+    server.dialog_runner = lambda *a, **k: pytest.fail("the dialog runner was called")
+    status, raw = call(server, "POST", "/api/browse", raw=json.dumps(body).encode("utf-8"))
+    assert status == 400 and json.loads(raw)["error"] in ("start", "json")
+
+
+def test_browse_releases_the_lock_after_a_runner_that_raises(server):
+    def boom(*a, **k):
+        raise OSError("no such interpreter")
+
+    server.dialog_runner = boom
+    raw = json.dumps({"start": None}).encode("utf-8")
+    status, body = call(server, "POST", "/api/browse", raw=raw)
+    assert status == 500 and json.loads(body) == {"error": "browse", "detail": "OSError"}
+    server.dialog_runner = lambda *a, **k: type("Done", (), {"returncode": 1, "stdout": "", "stderr": ""})()
+    status, body = call(server, "POST", "/api/browse", raw=raw)
+    assert (status, json.loads(body)) == (200, {"path": None, "cancelled": True})
