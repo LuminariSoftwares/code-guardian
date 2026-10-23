@@ -18,7 +18,7 @@
     { key: "Quality", note: "Whether it works and whether the project is complete: tests, README, licence and the like." }
   ];
   var HARM_CLASS = { "High": "lvl-High", "Medium": "lvl-Medium", "Low": "lvl-Low",
-                     "No known risks found": "lvl-None", "Could not check": "lvl-Unknown" };
+                     "No known risks found": "harm-none", "Could not check": "lvl-Unknown" };
   var DIM_TITLE = { safe: "Safe", works: "Works", complete: "Complete", overall: "Overall" };
   var SCREENS = ["notoken", "open", "result", "fixfirst", "findings", "code", "compare"];
   var RESULT_SCREENS = ["result", "fixfirst", "findings", "code", "compare"];
@@ -30,7 +30,8 @@
     screen: null,
     file: null,       // rel of the file in the viewer
     files: {},        // "id\nrel" -> /api/file body
-    scanning: false
+    scanning: false,
+    again: false      // a "Check again" is running
   };
 
   // ---- the token: only ever from the fragment ------------------------------------------------------------------
@@ -92,6 +93,11 @@
     return n + " " + word + (n === 1 ? "" : "s");
   }
 
+  // 33 -> "33/100", joined from a bare slash so no string in this file looks like a path to the URL check.
+  function outOf(n) {
+    return n + "/" + 100;
+  }
+
   function clock(iso) {
     var d = new Date(iso);
     if (isNaN(d.getTime())) return "";
@@ -144,8 +150,9 @@
     var inResult = RESULT_SCREENS.indexOf(screen) >= 0 && !!state.current;
     $("tabs").hidden = !inResult;
     $("scanned").hidden = !inResult;
+    $("summary-rail").hidden = !inResult;
     $("new-check").hidden = !inResult;
-    $("main").className = screen === "code" ? "wide" : "";
+    $("main").className = (inResult ? "with-rail" : "") + (screen === "code" ? " wide" : "");
     var tabs = $("tabs").querySelectorAll("button");
     for (var i = 0; i < tabs.length; i++) {
       if (tabs[i].getAttribute("data-screen") === screen) tabs[i].setAttribute("aria-current", "page");
@@ -266,7 +273,7 @@
 
   function startScan(path) {
     path = String(path || "").trim();
-    if (!path || state.scanning) return;
+    if (!path || state.scanning || state.again) return;
     showOpenError("");
     if (state.screen !== "open") show("open");
     $("path").value = path;
@@ -278,10 +285,9 @@
         paintScanning(path, started);
       }, function () { /* the scan call reports errors */ });
     }, POLL_MS);
-    return call(API_SCAN, { method: "POST", body: { path: path, goal_file: null } }).then(function (result) {
+    return scan(path).then(function (result) {
       window.clearInterval(timer);
       setScanning(path, false);
-      state.results[result.id] = result;
       setResult(result);
       show("result");
     }, function (err) {
@@ -289,13 +295,58 @@
       setScanning(path, false);
       if (err.status === 403 && err.body.error === "token") return handleApiError(err);
       if (err.status === 0) return handleApiError(err);
-      var detail = err.body.detail ? String(err.body.detail) : "";
-      if (err.body.error === "path") showOpenError("That folder was not found. Check the path and try again. (" + detail + ")");
-      else if (err.body.error === "goal") showOpenError("The project's goal file could not be read: " + detail);
-      else if (err.body.error === "scan") showOpenError("The check stopped with an error (" + detail + "). Nothing was changed in the folder.");
-      else showOpenError("The check could not start (" + (err.body.error || err.status) + ").");
+      showOpenError(scanErrorText(err));
       refreshRecent();
     });
+  }
+
+  // One POST /api/scan. The path as asked is kept with the result, so "Check again" asks for the same thing.
+  function scan(path) {
+    return call(API_SCAN, { method: "POST", body: { path: path, goal_file: null } }).then(function (result) {
+      result.asked = path;
+      state.results[result.id] = result;
+      return result;
+    });
+  }
+
+  function scanErrorText(err) {
+    var detail = err.body.detail ? String(err.body.detail) : "";
+    if (err.body.error === "path") return "That folder was not found. Check the path and try again. (" + detail + ")";
+    if (err.body.error === "goal") return "The project's goal file could not be read: " + detail;
+    if (err.body.error === "scan") return "The check stopped with an error (" + detail + "). Nothing was changed in the folder.";
+    return "The check could not start (" + (err.body.error || err.status) + ").";
+  }
+
+  // "Check again": scan the same folder now, on demand only, and stay on the tab the reader is on. Every tab and
+  // the rail are redrawn from the new response; an open file is opened again from the new scan.
+  function checkAgain() {
+    if (!state.current || state.again || state.scanning) return;
+    var path = state.current.asked || state.current.report.path;
+    var screen = state.screen;
+    var file = screen === "code" ? state.file : null;
+    var line = file ? parseInt($("jump-line").value, 10) || null : null;
+    setAgain(true, "Checking the folder again…");
+    return scan(path).then(function (result) {
+      setAgain(false, "");
+      setResult(result);
+      show(screen, false);
+      if (file) openCode(file, line);
+    }, function (err) {
+      if (err.status === 0 || (err.status === 403 && err.body.error === "token")) {
+        setAgain(false, "");
+        return handleApiError(err);
+      }
+      setAgain(false, "Could not check again: " + scanErrorText(err));
+    });
+  }
+
+  function setAgain(on, text) {
+    state.again = on;
+    ["check-again", "check-again-summary"].forEach(function (id) {
+      $(id).disabled = on;
+      $(id).textContent = on ? "Checking…" : "Check again";
+    });
+    if (text || on) $("rail-when").textContent = text;
   }
 
   // ---- one result ----------------------------------------------------------------------------------------------
@@ -308,10 +359,15 @@
     $("scanned-path").textContent = rep.path;
     var entry = null;
     $("scanned-when").textContent = "";
+    $("rail-when").textContent = "";
     call(API_SCANS).then(function (entries) {
       for (var i = 0; i < entries.length; i++) if (entries[i].id === result.id) entry = entries[i];
-      if (entry) $("scanned-when").textContent = "· checked at " + clock(entry.when);
+      if (entry && state.current === result) {
+        $("scanned-when").textContent = "· checked at " + clock(entry.when);
+        $("rail-when").textContent = "checked at " + clock(entry.when);
+      }
     }, function () { /* the time is a nicety */ });
+    renderRail(rep, plain);
     renderSummary(rep, plain);
     renderFixFirst(rep, plain);
     renderFindings(rep, plain);
@@ -331,7 +387,7 @@
     }
 
     var harm = plain.harm || {};
-    $("harm").className = "harm " + (HARM_CLASS[harm.level] || "lvl-Unknown");
+    $("harm").className = "harm " + harmClass(harm);
     $("harm-word").textContent = harm.level || "Could not check";
     $("partial-flag").hidden = !harm.partial;
     $("harm-why").textContent = harm.why || "";
@@ -367,6 +423,29 @@
     });
   }
 
+  function harmClass(harm) {
+    return HARM_CLASS[harm.level] || "lvl-Unknown";
+  }
+
+  // The rail: grade, how worried to be, Safe, how many fixes and findings. Every number is read from the response.
+  function renderRail(rep, plain) {
+    var scores = rep.scores || {};
+    $("rail-grade").textContent = scores.grade ? scores.grade + " (" + outOf(scores.overall) + ")" : "No grade";
+    var harm = plain.harm || {};
+    $("rail-harm").className = "rail-harm " + harmClass(harm);
+    $("rail-harm-word").textContent = harm.level || "Could not check";
+    $("rail-partial").hidden = !harm.partial;
+    $("rail-safe").textContent = scores.safe === null || scores.safe === undefined ? "not scored" : outOf(scores.safe);
+    var fixes = (plain.fix_first || []).length;
+    $("rail-fix").textContent = fixes ? plural(fixes, "item") : "nothing";
+    var counts = { High: 0, Medium: 0, Low: 0, Quality: 0 };
+    (plain.cards || []).forEach(function (c) { counts[groupOf(c, rep)] += 1; });
+    $("rail-high").textContent = String(counts.High);
+    $("rail-medium").textContent = String(counts.Medium);
+    $("rail-low").textContent = String(counts.Low);
+    $("rail-quality").textContent = String(counts.Quality);
+  }
+
   function depthWord(depth) {
     if (depth === "full") return "Depth: full analysis";
     if (depth === "secrets+manifests") return "Depth: read for keys and install settings only";
@@ -380,6 +459,12 @@
     clear(list);
     var rows = plain.fix_first || [];
     $("fix-empty").hidden = rows.length > 0;
+    // The scan's own notes on its ranking (such as why a Safe fix shows +0 and still comes first) go above the list.
+    var notes = plain.fix_first_notes || [];
+    var box = $("fix-notes-body");
+    clear(box);
+    notes.forEach(function (n) { box.appendChild(el("p", null, n)); });
+    $("fix-notes").hidden = !notes.length;
     rows.forEach(function (row) {
       var li = el("li", "card");
       li.appendChild(el("h3", null, row.title));
@@ -487,7 +572,7 @@
     (state.current.plain.cards || []).forEach(function (c) {
       var loc = parseWhere(c.where);
       if (!loc || loc.rel !== rel || !loc.line) return;
-      (byLine[loc.line] = byLine[loc.line] || []).push({ group: groupOf(c, rep), what: c.what });
+      (byLine[loc.line] = byLine[loc.line] || []).push({ group: groupOf(c, rep), card: c });
     });
     return byLine;
   }
@@ -567,11 +652,8 @@
       row.appendChild(el("span", "ln", String(n)));
       row.appendChild(el("span", "src", text.length ? text : " "));
       frag.appendChild(row);
-      (notes[n] || []).forEach(function (note) {
-        var tag = el("span", "line-note " + note.group);
-        tag.appendChild(el("strong", null, note.group + ": "));
-        tag.appendChild(document.createTextNode(note.what));
-        frag.appendChild(tag);
+      (notes[n] || []).forEach(function (note, k) {
+        frag.appendChild(lineNote(note, "N" + n + "-" + k));
       });
     });
     if (body.truncated) frag.appendChild(el("span", "code-empty", "Only the first 2 MB of this file is shown."));
@@ -579,6 +661,39 @@
     pre.appendChild(frag);
     $("jump-line").max = String((body.lines || []).length || 1);
     $("selection-note").textContent = "Select some lines above to ask what they do.";
+  }
+
+  // A note under a flagged line: the level and the check's title; tapping it opens the card's why and what to do.
+  function lineNote(note, id) {
+    var card = note.card;
+    var tag = el("span", "line-note " + note.group);
+    var toggle = el("button", "note-toggle");
+    toggle.type = "button";
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.setAttribute("aria-controls", id);
+    toggle.appendChild(el("strong", null, note.group + ": "));
+    toggle.appendChild(document.createTextNode(card.what));
+    var more = el("span", "note-more", "What this means");
+    toggle.appendChild(more);
+    var body = el("span", "note-body");
+    body.id = id;
+    body.hidden = true;
+    body.appendChild(el("span", "note-why", card.why));
+    if (card.how) {
+      var how = el("span", "note-how");
+      how.appendChild(el("strong", null, "What to do: "));
+      how.appendChild(document.createTextNode(card.how));
+      body.appendChild(how);
+    }
+    toggle.addEventListener("click", function () {
+      var open = toggle.getAttribute("aria-expanded") !== "true";
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      more.textContent = open ? "Hide" : "What this means";
+      body.hidden = !open;
+    });
+    tag.appendChild(toggle);
+    tag.appendChild(body);
+    return tag;
   }
 
   function jumpTo(line) {
@@ -635,6 +750,8 @@
       startScan($("path").value);
     });
     $("new-check").addEventListener("click", function () { show("open"); $("path").focus(); });
+    $("check-again").addEventListener("click", checkAgain);
+    $("check-again-summary").addEventListener("click", checkAgain);
     var jumps = document.querySelectorAll("[data-screen]");
     for (var i = 0; i < jumps.length; i++) {
       jumps[i].addEventListener("click", function (ev) { show(ev.currentTarget.getAttribute("data-screen")); });

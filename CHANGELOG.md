@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `code-guardian ui`, the owner's first design reaction (P76 S3b): a summary rail on every tab (grade, how worried to be, Safe, how many fixes, finding counts) beside the screen on a wide window and as a strip under the tabs on a phone; a **Check again** button that re-scans the same folder on demand (never on a timer) and redraws every tab; the scan's own notes on its ranking above the Fix first list (such as "a Safe FAIL caps the grade at D"; `/api/scan` now carries `plain.fix_first_notes`); notes under flagged lines in the Code viewer open to the finding's why and what to do; "Go to line" sits on the file name's row. "No known risks found" is now a neutral grey (`--none`) with an outlined circle, never green: it is not an all clear.
+- `plain.py` copy: an em dash instead of ` -- `; the "from a scan that did not cover the whole project" clause is said once, on the Overall sentence, not on all four; a Python line with no files says there was no Python to check instead of "ran on these".
+
 - `code_guardian/plain.py`: a plain-language layer over a scan report -- a five-label harm level, one sentence per score, what was and was not checked, a card per finding and the fix-first list, in words for a reader who does not write code. It reads the report and changes nothing in it; the scores and findings are unchanged ([ADR 0007](docs/adr/0007-plain-language-layer-never-scores.md)).
 
 ## code-guardian 0.3.4 (2026-10-22)

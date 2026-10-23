@@ -43,7 +43,8 @@
   </section>
 </section>
 
-<!-- One result: the tabs and the scanned folder are shared by the result screens below. -->
+<!-- One result: the tabs, the summary rail and the scanned folder are shared by the result screens below. -->
+<div class="frame" id="frame">
 <nav class="tabs" id="tabs" aria-label="Result" hidden>
   <button type="button" data-screen="result">Summary</button>
   <button type="button" data-screen="fixfirst">Fix first</button>
@@ -51,6 +52,34 @@
   <button type="button" data-screen="code">Code</button>
   <button type="button" data-screen="compare">Compare</button>
 </nav>
+
+<!-- The same numbers on every tab, from the scan response; beside the screen on a wide window, a strip on a phone. -->
+<aside id="summary-rail" class="rail" aria-label="This check at a glance" hidden>
+  <div class="rail-head">
+    <p class="rail-grade"><span class="rail-key">Grade</span> <span id="rail-grade"></span></p>
+    <div class="rail-harm" id="rail-harm">
+      <p class="harm-label"><span class="harm-icon" aria-hidden="true"></span><span id="rail-harm-word"></span></p>
+      <span class="flag" id="rail-partial" hidden>partial check</span>
+    </div>
+  </div>
+  <dl class="rail-stats">
+    <div><dt>Safe</dt><dd id="rail-safe"></dd></div>
+    <div><dt>Fix first</dt><dd id="rail-fix"></dd></div>
+  </dl>
+  <p class="rail-sub">Findings</p>
+  <dl class="rail-stats rail-counts">
+    <div><dt class="High">High</dt><dd id="rail-high"></dd></div>
+    <div><dt class="Medium">Medium</dt><dd id="rail-medium"></dd></div>
+    <div><dt class="Low">Low</dt><dd id="rail-low"></dd></div>
+    <div><dt class="Quality">Quality</dt><dd id="rail-quality"></dd></div>
+  </dl>
+  <div class="rail-again">
+    <button type="button" class="ghost" id="check-again">Check again</button>
+    <p class="rail-when" id="rail-when" role="status"></p>
+  </div>
+</aside>
+
+<div class="frame-body">
 <p class="scanned" id="scanned" hidden>Folder: <span class="mono" id="scanned-path"></span> <span id="scanned-when"></span></p>
 
 <!-- Result: how worried to be, first. -->
@@ -62,7 +91,7 @@
   <div id="harm" class="harm">
     <p class="eyebrow">How worried to be</p>
     <div class="harm-head">
-      <p class="harm-word" id="harm-word"></p>
+      <p class="harm-word harm-label"><span class="harm-icon" aria-hidden="true"></span><span id="harm-word"></span></p>
       <span class="flag" id="partial-flag" hidden>partial check</span>
     </div>
     <p class="harm-why" id="harm-why"></p>
@@ -77,12 +106,13 @@
       <dt>High</dt><dd>A Safe check matched a pattern it treats as serious. Read these first.</dd>
       <dt>Medium</dt><dd>A Safe check matched, but it may be fine where it is. Worth a look.</dd>
       <dt>Low</dt><dd>Things to know about, such as where the program talks to the network. Not a problem on their own.</dd>
-      <dt>No known risks found</dt><dd>No Safe check reported anything in the files it could read. A static check only sees the patterns it knows.</dd>
+      <dt>No known risks found</dt><dd>No Safe check reported anything in the files it could read. That is not the same as “all clear”: a static check only sees the patterns it knows, so this label is grey, not green.</dd>
       <dt>Could not check</dt><dd>The scan could not judge this folder, so there is no grade.</dd>
       <dt>partial check</dt><dd>Some of the folder was not fully checked; the first line on this screen says which part.</dd>
     </dl>
   </details>
   <div class="next">
+    <button type="button" class="ghost" id="check-again-summary">Check again</button>
     <button type="button" class="ghost" data-screen="fixfirst">What to fix first</button>
     <button type="button" class="ghost" data-screen="findings">All findings</button>
   </div>
@@ -92,6 +122,10 @@
 <section id="screen-fixfirst" class="screen" hidden>
   <h1>Fix these first</h1>
   <p class="intro">Ranked by how many points each fix would add to the grade. The order and the numbers are the scan's own.</p>
+  <div class="fix-notes" id="fix-notes" role="note" hidden>
+    <p class="fix-notes-title">Read this before the list</p>
+    <div id="fix-notes-body"></div>
+  </div>
   <ol class="fix-list" id="fix-list"></ol>
   <p id="fix-empty" class="hint" hidden>Nothing to fix: no finding takes points off.</p>
 </section>
@@ -116,10 +150,8 @@
       <div class="viewer-bar">
         <span class="file-name mono" id="file-name">Pick a file</span>
         <form class="jump" id="jump-form">
-          <div>
-            <label for="jump-line">Go to line</label>
-            <input type="number" id="jump-line" min="1" inputmode="numeric">
-          </div>
+          <label for="jump-line">Go to line</label>
+          <input type="number" id="jump-line" min="1" inputmode="numeric">
           <button type="submit" class="ghost">Go</button>
         </form>
       </div>
@@ -133,7 +165,7 @@
         <p class="later">Explaining lines arrives in a later version of code-guardian.</p>
       </div>
       <section class="explain-panel card" id="explain-panel" hidden>
-        <h3>AI explanation -- may be wrong; does not change any score</h3>
+        <h3>AI explanation — may be wrong; does not change any score</h3>
         <div id="explain-body"></div>
       </section>
     </div>
@@ -143,8 +175,10 @@
 <!-- Before / After: built in a later version. -->
 <section id="screen-compare" class="screen" hidden>
   <h1>Before and after</h1>
-  <p class="intro">Comparing two checks of the same folder -- what got fixed, what is new, and how the grade changed -- arrives in a later version of code-guardian.</p>
+  <p class="intro">Comparing two checks of the same folder — what got fixed, what is new, and how the grade changed — arrives in a later version of code-guardian.</p>
 </section>
+</div>
+</div>
 
 </main>
 <script src="/app.js"></script>

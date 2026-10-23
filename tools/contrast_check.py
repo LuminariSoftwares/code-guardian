@@ -14,13 +14,13 @@ TEXT = 4.5
 LARGE = 3.0
 # Every text colour the page uses, on every surface it is drawn on. The level colours and the accent are also used
 # for small text (the level word on a card, links), so they are held to the text ratio, not only the large one.
-TEXT_FG = ("--text", "--muted", "--high", "--medium", "--low", "--ok", "--accent")
+TEXT_FG = ("--text", "--muted", "--high", "--medium", "--low", "--ok", "--none", "--accent")
 TEXT_BG = ("--bg", "--surface", "--surface-2")
 PAIRS = ([(fg, bg, TEXT, "text") for fg in TEXT_FG for bg in TEXT_BG]
          + [("--text", "--hl", TEXT, "text on the jumped-to line"),
             ("--muted", "--hl", TEXT, "line number on the jumped-to line"),
             ("--on-accent", "--accent", TEXT, "text on the main button")]
-         + [(fg, bg, LARGE, "large label") for fg in ("--high", "--medium", "--low", "--ok", "--accent")
+         + [(fg, bg, LARGE, "large label") for fg in ("--high", "--medium", "--low", "--ok", "--none", "--accent")
             for bg in ("--bg", "--surface")]
          + [("--focus", bg, LARGE, "focus ring") for bg in TEXT_BG])
 
