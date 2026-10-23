@@ -1,5 +1,7 @@
 # Contributing
 
+Need help? See [SUPPORT.md](SUPPORT.md).
+
 Issues and pull requests are welcome. This is a single-maintainer project worked on in evenings and at weekends, so
 reviews are best effort — if something has been sitting for a while, a nudge on the thread is fine.
 

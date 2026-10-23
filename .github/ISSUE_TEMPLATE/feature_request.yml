@@ -1,0 +1,30 @@
+name: Feature request
+description: Suggest a change. There is no promise of a timeline; the answer may be "later" or "not here", with the reason.
+body:
+  - type: markdown
+    id: intro
+    attributes:
+      value: |
+        Requests are welcome. The answer may be "later" or "not here", and it will come with the reason.
+        Runtime dependencies are out of scope (the standard-library constraint is the design, see `docs/adr/`).
+  - type: textarea
+    id: goal
+    attributes:
+      label: What are you trying to do?
+      description: The job you want done, not the feature you have in mind.
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: What did you try?
+      description: Commands, flags or workarounds, and what happened.
+    validations:
+      required: true
+  - type: textarea
+    id: change
+    attributes:
+      label: What would change if this existed?
+      description: What you could do, or stop doing, that you cannot now.
+    validations:
+      required: true
