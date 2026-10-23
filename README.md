@@ -168,22 +168,17 @@ plain sentence under the field. `code-guardian scan` on the command line is not 
 
 **Re-open**: opening the page again, or picking an earlier check in the list, shows that check as it was kept in
 memory while `code-guardian ui` runs (the last 20), without reading the folder again; the summary says when it was
-made ("Checked at 14:05"). **Check again** reads the files in the folder again now and redraws every screen, and it
+made, in your browser's own time format ("Checked at 02:05 PM" on a US computer). **Check again** reads the files in the folder again now and redraws every screen, and it
 runs only when you press it, never on a timer.
 
 ### From a phone
 
-code-guardian ui only ever listens on 127.0.0.1 of the computer it runs on; it never opens a port to your network. To
-look at it from a phone, forward that port through something you already trust -- an SSH tunnel
-(`ssh -L 8765:127.0.0.1:<port> you@that-computer`) or Tailscale Serve pointed at `127.0.0.1:<port>` -- and open the
-printed link on the phone. The Browse button opens its folder window on the computer running code-guardian, not on
-the phone.
-
-**What works today.** The page answers only when the address in the browser is `127.0.0.1` or `localhost` with the
-port code-guardian printed; any other name or port gets a short `origin` error instead of the page. So for the SSH
-tunnel, use the printed port on both sides (`ssh -L <port>:127.0.0.1:<port> you@that-computer`; the command above
-works as written when that port is 8765, the first one code-guardian tries). Tailscale Serve passes its own address
-on to the page, so the page refuses it for now.
+code-guardian ui only ever listens on 127.0.0.1 of the computer it runs on; it never opens a port to your network,
+and the page only answers when the address in the browser is 127.0.0.1 or localhost with the port code-guardian
+printed. To look at it from a phone, use an SSH tunnel you already trust with the same port number on both ends
+(`ssh -L <port>:127.0.0.1:<port> you@that-computer`, where <port> is the one in the printed link, usually 8765), then
+open the printed link on the phone. Tailscale Serve and other proxies that pass on their own address are refused for
+now. The Browse button opens its folder window on the computer running code-guardian, not on the phone.
 
 ## Example: a repo that trips every scanner
 

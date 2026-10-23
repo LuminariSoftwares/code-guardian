@@ -51,14 +51,14 @@
     (the stored result, with its file list) and `POST /api/open` with an **Open a saved check** button for a
     `scan --json` file; a saved check has no folder behind it, so the Code screen says so and its file controls are
     off, and Check again reads the folder it names only if it is still on this computer. The summary rail now reads
-    "Checked at HH:MM" ("Saved check from PATH" for a saved one). A report that leaves the last 20 now also drops its
-    file list.
+    "Checked at" and the time in the browser's own format, such as "Checked at 02:05 PM" ("Saved check from PATH"
+    for a saved one). A report that leaves the last 20 now also drops its file list.
   - **From a phone, and the README** (S6): the README's The app section now describes the five changes above, with
-    four screenshots, and how to look at the page from a phone. The page still listens only on 127.0.0.1; to reach
-    it from a phone, forward the port through an SSH tunnel with the printed port on both sides. The README also says
-    plainly what does not work yet: a proxy that passes on its own name, such as Tailscale Serve, gets the page's
-    `origin` error, because the page answers only to `127.0.0.1` or `localhost` at its own port. Documentation only;
-    nothing in the code changed.
+    four screenshots, and how to look at the page from a phone. The phone section documents one way that works: an
+    SSH tunnel with the same port number on both ends (the port in the printed link, usually 8765), because the page
+    still listens only on 127.0.0.1 and answers only to `127.0.0.1` or `localhost` at its own port. Tailscale Serve,
+    and any other proxy that passes on its own address, is not supported yet: the page refuses it. Documentation
+    only; nothing in the code changed.
 - `code-guardian ui`, before / after (P76 S5): the Compare tab. Fix something, press **Check again**, open Compare: it shows one sentence first ("1 fixed, 0 new, grade D → B"), the score change per dimension, and three lists, **Fixed**, **New** and **Still there**, each item with its level word, title and where it is; a new High finding is marked "New High" in words as well as colour. You can pick any two checks of the session or load two files saved with `scan --json`; the files are read in the browser and compared by the local server, never uploaded. New `POST /api/diff` (two check ids, or the text of two saved reports; it returns `verify.diff` unchanged plus `sentence`) and `plain.diff_sentence()`; the server keeps the last 20 finished reports for comparing.
 - `plain.py` copy: on a PARTIAL scan the Overall sentence says "PARTIAL" once (the cap reason already says it, so the "did not cover the whole project" clause is left out); the Fix first notes get one plain sentence above them when Safe is at its floor ("Safety problems do not raise the grade until most of them are fixed, so they can show +0 here. Fix them first anyway."), and the scanner's note stays word for word under it (`/api/scan` carries it as `plain.fix_first_lead`).
 - `code-guardian ui`, select-to-explain (P76 S4): on the Code screen, drag some lines or type a start and an end line (at most 200; the two fields fill each other) and ask your own model what they do. Before anything is sent the panel says "These N lines go to your model at HOST:PORT (MODEL). Nothing else is sent." and waits for a confirmation; with no model configured it shows the one setup step instead and sends nothing. The answer sits under "AI explanation — may be wrong; does not change any score" and never changes a grade, a label or a finding. New `explain.excerpt()` and `POST /api/explain` (the model settings are read from the environment on each request); `scan --explain` and the MCP `explain` tool are unchanged and still send findings only. The note for a model that does not answer now leaves out any user:password in the URL.
