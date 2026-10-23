@@ -27,7 +27,8 @@ dependencies = []
 # The test suite only; `dependencies` stays empty, so installing the tool pulls in nothing.
 # build: tests/test_spdx_license.py builds a wheel and reads its METADATA.
 # jsonschema: tests/test_outputs.py validates the SARIF, tests/test_tool_docs.py the MCP schemas.
-test = ["pytest", "build", "jsonschema"]
+# pyyaml: tests/test_support_kit.py parses the GitHub issue forms.
+test = ["pytest", "build", "jsonschema", "pyyaml"]
 
 [project.urls]
 Homepage = "https://github.com/LuminariSoftwares/code-guardian"

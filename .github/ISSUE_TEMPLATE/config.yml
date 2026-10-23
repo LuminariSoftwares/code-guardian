@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security issue
+    url: https://github.com/LuminariSoftwares/code-guardian/security/advisories/new
+    about: Report a vulnerability privately. Please do not open a public issue for it.
+  - name: Question
+    url: https://github.com/LuminariSoftwares/code-guardian/issues?q=label%3Aquestion
+    about: There are no Discussions. Open an issue with the `question` label (this link lists the ones already asked).

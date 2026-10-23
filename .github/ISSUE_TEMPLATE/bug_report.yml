@@ -1,0 +1,63 @@
+name: Bug report
+description: Something code-guardian did is wrong, crashed, or surprised you.
+labels: ["needs-info"]
+body:
+  - type: markdown
+    id: intro
+    attributes:
+      value: |
+        Thanks for reporting. This is a one-person, best-effort project: you will get an acknowledgement within a day;
+        reproducing and fixing takes longer, and the issue will say what is happening.
+        For a security problem use [private reporting](https://github.com/LuminariSoftwares/code-guardian/security/advisories/new) instead.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The output of `code-guardian --version`.
+      placeholder: code-guardian 0.0.0
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: Windows 11 / macOS 14 / Ubuntu 24.04
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      description: The output of `python --version`.
+      placeholder: Python 3.12.4
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: The exact command
+      description: Copy it as you typed it, including flags and the path you scanned.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: The full output
+      description: All of it, not a summary. Remove anything private first; describe its shape instead.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: checkboxes
+    id: quick-start
+    attributes:
+      label: Quick start
+      options:
+        - label: I ran the quick start as written
+          required: true
