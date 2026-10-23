@@ -29,7 +29,7 @@ import time
 import webbrowser
 from urllib.parse import parse_qsl
 
-from . import explain, goal, plain, report, verify
+from . import explain, goal, plain, report, verify, walk
 from .finding import summarize
 from .scanners import redact_report
 
@@ -45,7 +45,7 @@ ASSETS = {"/": ("index.html", "text/html; charset=utf-8"), "/app.css": ("app.css
 DIMENSIONS = ("safe", "works", "complete", "overall")
 EXPLAIN_MAX_LINES = 200
 EXPLAIN_SETUP = "set CODE_GUARDIAN_LLM_URL and CODE_GUARDIAN_LLM_MODEL, then restart code-guardian ui"
-REPORTS_KEPT = 20  # finished reports held for /api/diff; the oldest goes first
+REPORTS_KEPT = 20  # finished reports (and their file inventories) held for /api/diff and /api/files; the oldest goes first
 
 _live = set()
 _live_lock = threading.Lock()
@@ -88,6 +88,7 @@ class Server(http.server.ThreadingHTTPServer):
         self.scans = []  # entries, oldest first: id, path, when, state, grade, overall, status
         self.roots = {}  # scan id -> the directory /api/file may read under
         self.reports = collections.OrderedDict()  # scan id -> its (redacted) report, the last REPORTS_KEPT
+        self.inventories = collections.OrderedDict()  # scan id -> the walk the scan saw, trimmed with reports
         self.temp_dirs = []
         self.lock = threading.Lock()
         super().__init__((HOST, port), Handler)
@@ -136,8 +137,15 @@ class Server(http.server.ThreadingHTTPServer):
                  "state": "scanning", "grade": None, "overall": None, "status": None}
         with self.lock:
             self.scans.append(entry)
+        goal_file = _unquote(goal_file) if goal_file else None
         try:
-            rep = redact_report(report.scan(root, _unquote(goal_file) if goal_file else None))
+            # The files the scan will see: its own goal-file excludes, walked just before it walks (report.scan).
+            contract, _ = report._contract(root, goal_file)
+            try:
+                inventory = walk.walk(root, exclude=contract["exclude"] if contract else ())
+            except Exception:  # the scan reports a crashed walk itself; the file list is simply absent
+                inventory = None
+            rep = redact_report(report.scan(root, goal_file))
         except (report.UsageError, goal.GoalError) as exc:
             self._forget(entry, made)
             raise ScanRefused("goal", str(exc)) from None
@@ -149,8 +157,12 @@ class Server(http.server.ThreadingHTTPServer):
             entry.update(state="done", grade=rep["scores"]["grade"], overall=rep["scores"]["overall"],
                          status=rep["status"])
             self.reports[entry["id"]] = rep
+            if inventory is not None:
+                self.inventories[entry["id"]] = inventory
             while len(self.reports) > REPORTS_KEPT:
                 self.reports.popitem(last=False)
+            while len(self.inventories) > REPORTS_KEPT:
+                self.inventories.popitem(last=False)
         return {"id": entry["id"], "report": rep, "plain": plain_of(rep)}
 
     def _forget(self, entry, made):
@@ -164,6 +176,17 @@ class Server(http.server.ThreadingHTTPServer):
     def report_of(self, scan_id):
         with self.lock:
             return self.reports.get(scan_id)
+
+    def files_of(self, scan_id):
+        """(status, body) for /api/files: one row per file the scan saw (plain.file_rows), or 404 for a check this
+        server does not hold or one saved without its file list."""
+        with self.lock:
+            rep, inventory = self.reports.get(scan_id), self.inventories.get(scan_id)
+        if rep is None or inventory is None:
+            return 404, {"error": "scan"}
+        rows = plain.file_rows(rep, inventory)
+        return 200, {"files": rows, "counts": plain.file_counts(rows), "ignored": inventory["ignored"],
+                     "excluded": inventory["excluded"]}
 
     def listing(self):
         with self.lock:
@@ -278,6 +301,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._diff(body)
         if self.command == "GET" and path == "/api/scans":
             return self._json(200, self.server.listing())
+        if self.command == "GET" and path == "/api/files":
+            status, out = self.server.files_of(dict(parse_qsl(query, keep_blank_values=True)).get("id", ""))
+            return self._json(status, out)
         if self.command == "GET" and path == "/api/file":
             params = dict(parse_qsl(query, keep_blank_values=True))
             status, out = self.server.read_file(params.get("id", ""), params.get("rel", ""))
@@ -457,6 +483,8 @@ def selftest():
         up_status, _, up = _call(server, "GET", "/api/file?id=%s&rel=../x" % sid, headers=token)
         abs_status, _, absolute = _call(server, "GET", "/api/file?id=%s&rel=%s" % (sid, os.path.join(tmp, "x")),
                                         headers=token)
+        files_status, _, filed = _call(server, "GET", "/api/files?id=%s" % sid, headers=token)
+        nofiles_status, _, nofiles = _call(server, "GET", "/api/files?id=gone", headers=token)
         quoted_status, _, quoted = post('"%s"' % proj, headers=token)
         one_status, _, one = post(os.path.join(proj, "a.py"), headers=token)
         diff_status, _, diffed = _call(server, "POST", "/api/diff", {"before": sid, "after": (quoted or {}).get("id")},
@@ -494,6 +522,9 @@ def selftest():
                                                                                   "cards", "fix_first"}),
         ("scans_listed_done", list_status == 200 and len(listed) >= 3 and all(e["state"] == "done" for e in listed)),
         ("file_read", file_status == 200 and read["lines"] == ["print(1)"] and read["truncated"] is False),
+        ("files_listed", files_status == 200 and [r["rel"] for r in filed["files"]] == ["a.py", "b.py"]
+         and filed["counts"] == plain.file_counts(filed["files"]) and filed["counts"]["all"] == 2),
+        ("files_unknown_404", (nofiles_status, nofiles) == (404, {"error": "scan"})),
         ("dotdot_refused", (up_status, up) == (403, {"error": "outside"})),
         ("absolute_refused", (abs_status, absolute) == (403, {"error": "outside"})),
         ("quoted_path", quoted_status == 200 and quoted["report"]["scores"] == scanned["report"]["scores"]),

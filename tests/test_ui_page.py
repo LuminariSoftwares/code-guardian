@@ -9,7 +9,7 @@ import pytest
 from conftest import ROOT
 
 UI = ROOT / "code_guardian" / "ui"
-ALLOWED = {"/api/scan", "/api/scans", "/api/file", "/api/explain", "/api/diff", "/app.js", "/app.css", "/"}
+ALLOWED = {"/api/scan", "/api/scans", "/api/files", "/api/file", "/api/explain", "/api/diff", "/app.js", "/app.css", "/"}
 PREFIX = "/api/"  # the guard in call(), not a URL
 LUMINARI = "https://github.com/LuminariSoftwares"  # the one outside address the page names: a plain link, never fetched
 
@@ -26,7 +26,7 @@ def test_every_url_in_the_page_is_the_local_api_or_its_own_files():
     js = _js()
     paths = {s.split("?")[0] for s in _strings(js) if s.startswith("/") and not s.startswith("//")} - {PREFIX}
     assert paths and paths <= ALLOWED, paths - ALLOWED
-    assert paths >= {"/api/scan", "/api/scans", "/api/file", "/api/explain", "/api/diff"}, paths
+    assert paths >= {"/api/scan", "/api/scans", "/api/files", "/api/file", "/api/explain", "/api/diff"}, paths
     html = (UI / "index.html").read_text(encoding="utf-8")
     link = re.search(r'<a\b[^>]*\bid="luminari"[^>]*>', html)
     assert html.count(LUMINARI) == 1 and link and 'href="%s"' % LUMINARI in link.group(0), "the Luminari link, once"
@@ -568,7 +568,7 @@ def test_a_restart_gets_the_same_default_port_so_the_browser_keeps_its_settings(
 
 def _checked(page, url, tmp_path):
     project = tmp_path / "proj"
-    project.mkdir()
+    project.mkdir(parents=True)
     (project / "app.py").write_text(WITH_KEY, encoding="utf-8")
     page.goto(url)
     page.fill("#path", str(project))
@@ -632,3 +632,137 @@ def test_the_side_window_width_uses_the_phone_strip_collapsed(tmp_path):
         assert STRIP_LINE.match(_strip_text(page)), _strip_text(page)
         page.click("#rail-toggle")
         assert page.is_visible("#check-again") and page.is_visible("#rail-harm-word")
+
+
+# ---- P78 S3: the Code screen lists every file; the S2 design nits (a)-(d) -----------------------------------------
+
+RISKY = ROOT / "tests" / "fixtures" / "risky_repo"
+CSS = (UI / "app.css").read_text(encoding="utf-8")
+
+
+def _code_of(page, url, project=RISKY, wait="#file-list li"):
+    page.goto(url)
+    page.fill("#path", str(project))
+    page.click("#scan-button")
+    page.wait_for_selector("#screen-result:not([hidden])", timeout=60000)
+    page.click("#tabs button[data-screen=code]")
+    page.wait_for_selector("#screen-code:not([hidden])")
+    page.wait_for_selector(wait, timeout=30000)
+
+
+def _box(page, selector):
+    return page.evaluate("""(s) => { const b = document.querySelector(s).getBoundingClientRect();
+      return {l: b.left, t: b.top, w: b.width, h: b.height, r: b.right}; }""", selector)
+
+
+def test_the_page_has_no_inline_style_anywhere():
+    html = (UI / "index.html").read_text(encoding="utf-8")
+    js = _js()
+    assert not re.search(r"\sstyle\s*=", html)
+    for banned in ('setAttribute("style"', "setAttribute('style'", ".style.", ".cssText", "<style"):
+        assert banned not in js, banned
+
+
+def test_the_file_list_rows_say_the_word_the_server_gave_and_why(tmp_path):
+    with _page(1280, 800) as (page, url):
+        _code_of(page, url)
+        page.select_option("#file-filter", "all")
+        rows = {li.get_attribute("data-rel"): li for li in page.query_selector_all("#file-list .file-btn")}
+        assert "web/setup.js" in rows and "risky/runner.py" in rows and "setup.py" in rows
+        js = rows["web/setup.js"].inner_text()
+        assert "Partly checked" in js and "JavaScript code is not analysed yet" in js
+        assert "High" in rows["risky/runner.py"].inner_text()
+        assert page.locator("#file-list .file-btn[data-rel='web/setup.js'] .file-risk.lvl-Partly").count() == 1
+        assert page.locator("#file-list .file-btn[data-rel='risky/runner.py'] .file-risk.lvl-High").count() == 1
+        assert "files-title" == page.get_attribute("#files-drawer h2", "id")
+        assert page.inner_text("#files-title") == "Files"
+        assert [o.inner_text().rsplit(" (", 1)[0] for o in page.query_selector_all("#file-filter option")] == [
+            "All files", "Files with findings", "No known risks found", "Partly checked", "Not read"]
+
+
+def test_the_default_filter_is_all_files_when_nothing_has_a_finding(tmp_path):
+    project = tmp_path / "quiet"
+    project.mkdir()
+    (project / "a.py").write_text("def add(x, y):\n    return x + y\n", encoding="utf-8")
+    (project / "notes.txt").write_text("hello\n", encoding="utf-8")
+    with _page(1280, 800) as (page, url):
+        _code_of(page, url, project)
+        assert page.evaluate("document.getElementById('file-filter').value") == "all"
+        assert page.evaluate("document.getElementById('file-filter').selectedOptions[0].textContent").startswith(
+            "All files (2)")
+
+
+def test_the_code_screen_counts_the_findings_about_the_whole_project(tmp_path):
+    with _page(1280, 800) as (page, url):
+        _code_of(page, url)
+        assert re.search(r"\d+ findings? (is|are) about the whole project, not one file", page.inner_text("#files-note"))
+
+
+def test_a_phone_shows_the_picked_file_name_once(tmp_path):
+    """Nit (b): the drawer's summary keeps the name for a screen reader only; the viewer bar draws it."""
+    with _page(390, 844) as (page, url):
+        _code_of(page, url)
+        page.click("#file-list .file-btn[data-rel='risky/runner.py']")
+        page.wait_for_selector("#L7")
+        shown = page.evaluate("""(name) => [...document.querySelectorAll('#screen-code *')].filter(
+            e => !e.children.length && e.textContent.includes(name) && e.getBoundingClientRect().width > 2
+                 && e.getBoundingClientRect().height > 2 && e.checkVisibility({checkVisibilityCSS: true}))
+            .map(e => e.id || e.className)""", "risky/runner.py")
+        assert shown == ["file-name"], shown
+        assert page.get_attribute("#file-name", "data-must-show") is not None
+        assert "risky/runner.py" in page.evaluate("document.getElementById('files-picked').textContent")
+        assert "risky/runner.py" in page.inner_text("#files-drawer > summary"), "the summary still names it for a reader"
+        assert page.evaluate("document.getElementById('files-drawer').open") is False
+
+
+def test_a_wide_screen_does_not_name_the_file_in_the_summary():
+    with _page(1280, 800) as (page, url):
+        _code_of(page, url)
+        page.click("#file-list .file-btn[data-rel='risky/runner.py']")
+        page.wait_for_selector("#L7")
+        assert page.evaluate("document.getElementById('files-picked').textContent") == ""
+
+
+def test_the_tabs_fade_at_the_edge_only_with_css(tmp_path):
+    """Nit (a): on a phone the row scrolls and says so; the fade is background gradients, no script and no style."""
+    rule = re.search(r"\n\.tabs \{(.*?)\n\}", CSS, re.S).group(1)
+    assert rule.count("linear-gradient") == 4 and "local" in rule and "scroll" in rule
+    with _page(390, 844) as (page, url):
+        _checked(page, url, tmp_path / "phone")
+        got = page.evaluate("""() => { const r = document.getElementById('tabs'), c = getComputedStyle(r);
+          return {scrolls: r.scrollWidth > r.clientWidth, image: c.backgroundImage, attach: c.backgroundAttachment,
+                  inline: r.getAttribute('style')}; }""")
+        assert got["scrolls"] and got["inline"] is None
+        assert got["image"].count("linear-gradient") == 4 and "local" in got["attach"] and "scroll" in got["attach"]
+    with _page(1280, 800) as (page, url):
+        _checked(page, url, tmp_path / "wide")
+        assert page.evaluate("document.getElementById('tabs').scrollWidth <= document.getElementById('tabs').clientWidth")
+
+
+def test_the_two_line_fields_stay_on_one_line_in_the_right_column():
+    """Nit (c): at 1280 "to line" no longer wraps under "From line"."""
+    with _page(1280, 800) as (page, url):
+        _code_of(page, url)
+        a, b = _box(page, "#line-start"), _box(page, "#line-end")
+        assert abs(a["t"] - b["t"]) < 1 and b["l"] >= a["r"], (a, b)
+        aside = _box(page, "#code-aside")
+        assert b["r"] <= aside["r"] and a["l"] >= aside["l"]
+        labels = page.evaluate("""() => ['line-start', 'line-end'].map(
+            id => { const l = document.querySelector('label[for=' + id + ']').getBoundingClientRect();
+                    return [Math.round(l.top), Math.round(l.height)]; })""")
+        assert labels[0] == labels[1], labels
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+
+def test_the_code_viewer_is_at_least_34rem_wide_at_1280_with_the_summary_open():
+    """Nit (d): the file list and the right column are narrower (and the rail's share and the gaps smaller) from 900 to
+    1439 px, so the viewer keeps about 34rem at 1280 x 800 and the right column stays beside it."""
+    with _page(1280, 800) as (page, url):
+        _code_of(page, url)
+        assert page.get_attribute("#rail-toggle", "aria-expanded") == "true"
+        rem = page.evaluate("parseFloat(getComputedStyle(document.documentElement).fontSize)")
+        viewer, aside, files = _box(page, "#screen-code .viewer"), _box(page, "#code-aside"), _box(page, "#files-drawer")
+        assert viewer["w"] / rem >= 33.9, viewer["w"] / rem
+        assert aside["l"] >= viewer["r"] - 1 and files["r"] <= viewer["l"] + 1
+        assert files["w"] / rem >= 11.9 and aside["w"] / rem >= 14.9, "nothing was hidden to make room"
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")

@@ -185,15 +185,27 @@
   <div id="groups"></div>
 </section>
 
-<!-- Code: the files the findings point to, and the lines. -->
+<!-- Code: every file the check saw, each honestly labelled, and the lines of the one picked. -->
 <section id="screen-code" class="screen" hidden>
   <h1>Code</h1>
   <div class="code-layout">
     <details class="files-drawer" id="files-drawer" open>
-      <summary id="files-title">Files with findings</summary>
+      <summary><h2 id="files-title">Files</h2><span class="sr-only" id="files-picked"></span></summary>
       <nav class="files" aria-labelledby="files-title">
+        <div class="files-tools">
+          <label for="file-filter" class="sr-only">Which files to list</label>
+          <select id="file-filter">
+            <option value="all">All files</option>
+            <option value="with">Files with findings</option>
+            <option value="none">No known risks found</option>
+            <option value="partly">Partly checked</option>
+            <option value="notread">Not read</option>
+          </select>
+          <input type="search" id="file-find" placeholder="Find a file" aria-label="Find a file" autocomplete="off" spellcheck="false">
+        </div>
+        <p class="files-note" id="files-capped" role="status" hidden></p>
         <ul id="file-list"></ul>
-        <p class="files-note">Only the files a finding points to are listed.</p>
+        <p class="files-note" id="files-note"></p>
       </nav>
     </details>
     <div class="viewer">
@@ -212,10 +224,10 @@
       <div class="explain-bar card">
         <p id="selection-note" class="hint">Select some lines above, or type a start and end line, to ask what they do.</p>
         <form class="range" id="range-form" autocomplete="off">
-          <label for="line-start">From line</label>
-          <input type="number" id="line-start" min="1" inputmode="numeric">
-          <label for="line-end">to line</label>
-          <input type="number" id="line-end" min="1" inputmode="numeric">
+          <span class="range-field"><label for="line-start">From line</label>
+          <input type="number" id="line-start" min="1" inputmode="numeric"></span>
+          <span class="range-field"><label for="line-end">to line</label>
+          <input type="number" id="line-end" min="1" inputmode="numeric"></span>
         </form>
         <p class="hint" id="range-msg" role="status" hidden></p>
         <div class="row">
