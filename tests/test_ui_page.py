@@ -48,12 +48,12 @@ def test_the_token_is_read_only_from_the_fragment():
     js = _js()
     for banned in ("location.search", "sessionStorage", "document.cookie", "indexedDB", "URLSearchParams"):
         assert banned not in js, banned
-    # the person's own settings are the one thing the page keeps in the browser: one key, read and written in two
-    # small functions, and never the token
-    assert 'var STORE_KEY = "cg.settings";' in js
+    # the person's own choices are the only things the page keeps in the browser: the settings and whether the summary
+    # column is open or a slim rail (P78 S2), each under one key, read and written in two small functions, never the token
+    assert 'var STORE_KEY = "cg.settings";' in js and 'var RAIL_KEY = "cg.rail";' in js
     stores = re.findall(r"localStorage\.(\w+)\(([^)]*)\)", js)
-    assert sorted(method for method, _ in stores) == ["getItem", "setItem"], stores
-    assert all(args.split(",")[0] == "STORE_KEY" for _, args in stores), stores
+    assert sorted(method for method, _ in stores) == ["getItem", "getItem", "setItem", "setItem"], stores
+    assert sorted(args.split(",")[0] for _, args in stores) == ["RAIL_KEY", "RAIL_KEY", "STORE_KEY", "STORE_KEY"], stores
     assert not re.search(r"setItem\([^)]*token", js, re.I)
     assert re.search(r"window\.location\.hash", js)
     reads = re.findall(r"function readToken\(\) \{(.*?)\n  \}", js, re.S)
@@ -278,6 +278,7 @@ def test_check_again_then_compare_shows_what_was_fixed(tmp_path):
         assert "same check" in page.inner_text("#pick-hint") and page.is_disabled("#pick-compare")
         rail_before = page.inner_text("#rail-grade")
         (project / "app.py").write_text(WITHOUT_KEY, encoding="utf-8")
+        page.click("#rail-toggle")  # on a phone the strip starts collapsed; Check again is in its details
         page.click("#check-again")
         page.wait_for_selector("#compare-result:not([hidden])", timeout=60000)
         assert page.inner_text("#compare-sentence").startswith("1 fixed, 0 new, grade ")
@@ -561,3 +562,73 @@ def test_a_restart_gets_the_same_default_port_so_the_browser_keeps_its_settings(
     if first not in ui.DEFAULT_PORTS:
         pytest.skip("every default port is busy on this machine")
     assert [serve_one_request() for _ in range(3)] == [first] * 3
+
+
+# ---- sizes (P78 S2): the tabs, the summary rail and the strip -----------------------------------------------------
+
+def _checked(page, url, tmp_path):
+    project = tmp_path / "proj"
+    project.mkdir()
+    (project / "app.py").write_text(WITH_KEY, encoding="utf-8")
+    page.goto(url)
+    page.fill("#path", str(project))
+    page.click("#scan-button")
+    page.wait_for_selector("#screen-result:not([hidden])", timeout=60000)
+    page.wait_for_selector("#summary-rail:not([hidden])")
+
+
+def test_the_active_tab_is_scrolled_into_view_on_a_phone(tmp_path):
+    with _page(390, 844) as (page, url):
+        _checked(page, url, tmp_path)
+        page.click("#tabs button[data-screen=compare]")
+        box = page.evaluate("""() => {
+          const row = document.getElementById('tabs').getBoundingClientRect();
+          const tab = document.querySelector('#tabs button[aria-current=page]').getBoundingClientRect();
+          return {rowL: row.left, rowR: row.right, l: tab.left, r: tab.right,
+                  scrolled: document.getElementById('tabs').scrollLeft, page: document.documentElement.scrollWidth};
+        }""")
+        assert box["scrolled"] > 0, "the row did not scroll to the last tab"
+        assert box["l"] >= box["rowL"] and box["r"] <= box["rowR"] + 0.5, box
+        assert box["page"] <= 390, "only the row scrolls sideways, never the page"
+
+
+def test_a_refused_rail_store_still_renders_the_column(tmp_path):
+    refuse = ("Storage.prototype.getItem = function () { throw new Error('blocked'); };"
+              "Storage.prototype.setItem = function () { throw new Error('blocked'); };")
+    with _page(1280, 800, init=refuse) as (page, url):
+        _checked(page, url, tmp_path)
+        rem = "parseFloat(getComputedStyle(document.documentElement).fontSize)"
+        assert page.evaluate("document.getElementById('summary-rail').getBoundingClientRect().width / " + rem) >= 13
+        assert page.get_attribute("#rail-toggle", "aria-expanded") == "true"
+        page.click("#rail-toggle")  # the choice holds for this visit even though nothing can be saved
+        assert page.evaluate("document.getElementById('summary-rail').getBoundingClientRect().width / " + rem) <= 4
+        assert page.get_attribute("#rail-toggle", "aria-expanded") == "false"
+
+
+STRIP_LINE = re.compile(r"^Grade [A-F] \(\d+/100\) High \d+ Medium \d+ Low \d+ Quality \d+$")
+
+
+def _strip_text(page):
+    text = page.evaluate("""() => ['.rail-grade', '.rail-counts'].map(
+        s => document.querySelector('#summary-rail ' + s).innerText).join(' ')""")
+    return " ".join(text.split())
+
+
+def test_the_strip_line_on_a_phone_is_the_grade_and_the_counts(tmp_path):
+    with _page(390, 844) as (page, url):
+        _checked(page, url, tmp_path)
+        assert STRIP_LINE.match(_strip_text(page)), _strip_text(page)
+        assert page.get_attribute("#rail-toggle", "aria-expanded") == "false"
+        assert page.get_attribute("#frame", "data-rail") == "strip"
+        assert page.is_hidden("#rail-harm-word") and page.is_hidden("#check-again")
+
+
+def test_the_side_window_width_uses_the_phone_strip_collapsed(tmp_path):
+    with _page(520, 900) as (page, url):
+        _checked(page, url, tmp_path)
+        assert page.get_attribute("#frame", "data-rail") == "strip"
+        assert page.get_attribute("#rail-toggle", "aria-expanded") == "false"
+        assert page.evaluate("document.getElementById('rail-details').hidden")
+        assert STRIP_LINE.match(_strip_text(page)), _strip_text(page)
+        page.click("#rail-toggle")
+        assert page.is_visible("#check-again") and page.is_visible("#rail-harm-word")

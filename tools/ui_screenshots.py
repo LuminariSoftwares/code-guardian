@@ -1,4 +1,4 @@
-"""Capture the screenshots of `code-guardian ui` in docs/screenshots/ (plan P76 S3, P78 S1).
+"""Capture the screenshots of `code-guardian ui` in docs/screenshots/ (plan P76 S3, P78 S1, S2).
 
 Development only: Playwright is not a dependency or an extra of the package, so install it into a scratch
 environment first (pip install playwright, plus a Chromium it can find). The scanned folder is visible on the page,
@@ -6,10 +6,13 @@ so the projects are copied into a neutral folder (default /tmp/demo) and only th
 
     python tools/ui_screenshots.py [--out docs/screenshots] [--root /tmp/demo]
 
-Writes {open,result,fixfirst,findings,code,diff,settings,result_light}_{390x844,1280x800}.png. result_390x844 is a JavaScript-only project, so
-its first screen shows the PARTIAL banner, the grey "No known risks found" and the "partial check" flag; every other
+Writes {open,result,fixfirst,findings,code,diff}_{390x844,520x900,1280x800}.png (a phone, the narrow side window and a
+full screen), rail_mini_1280x800.png (the result with the summary column shrunk to the slim icon rail) and, at 390 and
+1280 only, {settings,result_light}_<size>.png. result_390x844 and result_520x900 are a JavaScript-only project, so
+the first screen shows the PARTIAL banner, the grey "No known risks found" and the "partial check" flag; every other
 screen is a copy of tests/fixtures/risky_repo, whose Fix first screen shows the scan's notes above the list and whose
-Code screen shows one inline note opened. Fails if any screen scrolls sideways.
+Code screen shows one inline note opened. Below 600 px the summary is a collapsed strip; the tool opens it before it
+clicks "Check again" and closes it again. Fails if any screen scrolls sideways.
 
 The Code screens also show a selection, the filled start and end fields and an answer in the explanation panel. The
 answer comes from a stub model started here, a tiny HTTP server on the loopback address that returns one fixed
@@ -37,7 +40,7 @@ sys.path.insert(0, str(ROOT))
 
 from code_guardian import ui  # noqa: E402
 
-SIZES = ((390, 844, 2), (1280, 800, 1))  # width, height, device scale
+SIZES = ((390, 844, 2), (520, 900, 1), (1280, 800, 1))  # width, height, device scale
 JS_FILES = {
     "index.js": "const http = require(\"http\");\n\n"
                 "http.createServer((req, res) => res.end(\"hello\")).listen(3000);\n",
@@ -119,9 +122,14 @@ def compare(page, out, app, size):
     page.click("#new-check")
     check(page, app)
     (app / "app.py").write_text(APP_AFTER, encoding="utf-8")
+    phone = page.get_attribute("#rail-toggle", "aria-expanded") == "false"  # the strip starts collapsed on a phone
+    if phone:
+        page.click("#rail-toggle")
     page.click("#check-again")
     page.wait_for_selector("#check-again:not([disabled])", timeout=60000)
     page.wait_for_selector("#rail-when:has-text('checked at')", timeout=10000)
+    if phone:
+        page.click("#rail-toggle")
     page.click("#tabs button[data-screen=compare]")
     page.wait_for_selector("#compare-result:not([hidden])", timeout=30000)
     shoot(page, out, "diff_%s.png" % size)
@@ -159,6 +167,11 @@ def capture(browser, out, risky, js, app, width, height, scale):
             page.click("#new-check")
             check(page, risky)
             shoot(page, out, "result_%s.png" % size)
+            page.click("#rail-toggle")  # the column shrinks to the slim icon rail, and comes back
+            page.wait_for_selector("#rail-toggle[aria-expanded=false]")
+            shoot(page, out, "rail_mini_%s.png" % size)
+            page.click("#rail-toggle")
+            page.wait_for_selector("#rail-toggle[aria-expanded=true]")
         page.click("#tabs button[data-screen=fixfirst]")
         shoot(page, out, "fixfirst_%s.png" % size)
         page.click("#tabs button[data-screen=findings]")
@@ -184,7 +197,8 @@ def capture(browser, out, risky, js, app, width, height, scale):
         page.click("#new-check")
         page.wait_for_selector("#recent li")
         shoot(page, out, "open_%s.png" % size)
-        settings_and_light(page, out, risky, size)
+        if width != 520:  # the Settings panel and the light palette are shown at the two older sizes only
+            settings_and_light(page, out, risky, size)
         context.close()
     finally:
         server.shutdown()
