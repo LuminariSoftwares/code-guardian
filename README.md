@@ -98,6 +98,88 @@ lines. On a one-file project it takes well under a second. To give the same tool
 claude mcp add code-guardian -- uvx code-guardian-mcp mcp
 ```
 
+## The app
+
+`code-guardian ui` shows the same scan as a page in your browser, in plain words, for people who use AI to write code
+but do not read code well. `code-guardian ui PATH` checks that folder first; `code-guardian ui` alone opens the page
+and you pick a folder there. It prints one line, `code-guardian ui: open http://127.0.0.1:8765/#t=…`, and opens that
+link in your browser; the part after `#t=` is a key for this run, so use the printed link, not just the address. The
+page never changes your files, and the grade and findings are the ones `code-guardian scan` gives.
+
+### Settings
+
+The gear at the top of every screen opens three choices: **Theme** (Dark, the default, or Light), **Text size**
+(Normal, Larger or Largest) and whether the Luminari name shows at the top. Your choices are kept by this browser
+only, not in a file on the computer and not by code-guardian, so another browser or a private window starts from the
+defaults. The page never turns light because your computer is set to light; light is only ever your choice.
+
+<img src="docs/screenshots/settings_390x844.png" width="240" alt="The Settings panel on a phone: Theme, Text size and the Luminari name">
+
+![The result screen in the light theme on a 1280 px window](docs/screenshots/result_light_1280x800.png)
+
+### Sizes
+
+Every screen fits a phone, a narrow side window (about 520 px wide) and a full or wide screen, at all three text
+sizes, with nothing cut off: on a phone or in a side window the summary becomes one line under the tabs that you tap
+to open, and the file list on the Code screen becomes a drawer. The phone is shown below; the same screen at the other
+sizes is [result_520x900.png](docs/screenshots/result_520x900.png) (side window) and
+[result_1280x800.png](docs/screenshots/result_1280x800.png) (full screen).
+
+<img src="docs/screenshots/result_390x844.png" width="240" alt="The result screen on a phone, 390 by 844">
+
+### Every file
+
+The Code screen lists every file the check saw, not only the files with a finding, and gives each file one word. A
+file with a safety finding is marked **High**, **Medium** or **Low** by its worst one. The filter above the list
+picks which files you see, each with its count:
+
+- **All files**: every file the check saw.
+- **Files with findings**: files with at least one finding of any kind.
+- **No known risks found**: a Python file that was fully read and understood, or a manifest such as `pyproject.toml`
+  or `package.json`, with no safety finding. It means the checks found nothing, not that the file is proven safe, so
+  it is grey, never green.
+- **Partly checked**: a file in a language this tool does not analyse yet (JavaScript, Go, shell and the rest), where
+  only the shapes of keys were looked for, or a Python file that could not be understood (it did not parse). The row
+  says which.
+- **Not read**: a file the check did not open: a binary file, a link to another place (a symlink), a file it could
+  not read, or one over 2 MB.
+
+**Partly checked** and **Not read** do not mean no known risks: the tool looked at those files only in part or not at
+all, so a problem in them may not show in the grade. A find box next to the filter narrows the list by name.
+
+![The Code screen at 1280 px with the All files filter](docs/screenshots/code_1280x800.png)
+
+### Browse and the folders it refuses
+
+**Browse…**, beside the folder field, opens your computer's own folder window so you can pick the project folder
+instead of typing it; if this Python has no folder window, the button is hidden and the page asks you to paste the
+path. Some folders are refused as a whole, before anything in them is read, because they hold far more than one
+project:
+
+- a whole drive, the top of an external disk, or the top of a network share;
+- your home folder, and the folders above it;
+- Downloads, Desktop, Documents and your OneDrive as a whole (a project folder inside any of them is fine);
+- system folders, such as `C:\Windows`, Program Files, `/usr` or `/System`.
+
+The same rule applies to a folder you type or paste and to `code-guardian ui PATH`, and the page says why in one
+plain sentence under the field. `code-guardian scan` on the command line is not limited.
+
+### Re-open vs Check again
+
+**Re-open**: opening the page again, or picking an earlier check in the list, shows that check as it was kept in
+memory while `code-guardian ui` runs (the last 20), without reading the folder again; the summary says when it was
+made, in your browser's own time format ("Checked at 02:05 PM" on a US computer). **Check again** reads the files in the folder again now and redraws every screen, and it
+runs only when you press it, never on a timer.
+
+### From a phone
+
+code-guardian ui only ever listens on 127.0.0.1 of the computer it runs on; it never opens a port to your network,
+and the page only answers when the address in the browser is 127.0.0.1 or localhost with the port code-guardian
+printed. To look at it from a phone, use an SSH tunnel you already trust with the same port number on both ends
+(`ssh -L <port>:127.0.0.1:<port> you@that-computer`, where <port> is the one in the printed link, usually 8765), then
+open the printed link on the phone. Tailscale Serve and other proxies that pass on their own address are refused for
+now. The Browse button opens its folder window on the computer running code-guardian, not on the phone.
+
 ## Example: a repo that trips every scanner
 
 `tests/fixtures/risky_repo` is a small project that trips every scanner. Its key-shaped strings are never stored in
