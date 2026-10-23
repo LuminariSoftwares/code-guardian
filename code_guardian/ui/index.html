@@ -88,7 +88,11 @@
   </section>
   <form id="saved-form" class="card open-saved" autocomplete="off">
     <h2>Open a saved check</h2>
-    <p class="hint">A file saved with <span class="mono">code-guardian scan FOLDER --json &gt; check.json</span>. It is read here and shown as it was: no folder is read, and nothing is uploaded anywhere.</p>
+    <p class="hint">Open a check you saved earlier with <strong>Save this check</strong>. It is shown as it was: the folder is not read again, and nothing is uploaded anywhere.</p>
+    <details class="cli-note">
+      <summary>Using the command line?</summary>
+      <p class="hint">A file saved with <span class="mono">code-guardian scan FOLDER --json &gt; check.json</span>. It is read here and shown as it was: no folder is read, and nothing is uploaded anywhere.</p>
+    </details>
     <label for="open-saved">Saved check file</label>
     <input type="file" id="open-saved" accept=".json,application/json">
   </form>
@@ -171,9 +175,11 @@
   </details>
   <div class="next">
     <button type="button" class="ghost" id="check-again-summary" title="Reads the files again now">Check again</button>
+    <button type="button" class="ghost" id="save-check">Save this check</button>
     <button type="button" class="ghost" data-screen="fixfirst">What to fix first</button>
     <button type="button" class="ghost" data-screen="findings">All findings</button>
   </div>
+  <p class="hint save-note" id="save-note" role="status" hidden></p>
 </section>
 
 <!-- Fix first: the scan's own ranking. -->
@@ -306,7 +312,11 @@
   </form>
   <form id="files-form" class="card compare-pick" autocomplete="off">
     <h2>Or two saved files</h2>
-    <p class="hint">Files saved with <span class="mono">code-guardian scan FOLDER --json &gt; before.json</span>. They are read here and compared by this computer; nothing is uploaded anywhere.</p>
+    <p class="hint">Compare two checks you saved earlier with <strong>Save this check</strong>, for example one from last week and one from today. They are read on this computer; nothing is uploaded anywhere.</p>
+    <details class="cli-note">
+      <summary>Using the command line?</summary>
+      <p class="hint">Files saved with <span class="mono">code-guardian scan FOLDER --json &gt; before.json</span>. They are read here and compared by this computer; nothing is uploaded anywhere.</p>
+    </details>
     <div class="pick-row">
       <div>
         <label for="file-before">Before file</label>

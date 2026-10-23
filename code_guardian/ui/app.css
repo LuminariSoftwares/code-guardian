@@ -713,6 +713,10 @@ legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
 .open-saved { margin-top: 1rem; }
 .open-saved h2 { font-size: 1.0625rem; margin-bottom: 0.75rem; }
 .open-saved .hint { margin-bottom: 0.75rem; }
+.cli-note { margin-bottom: 0.75rem; }
+.cli-note summary { min-height: 2.75rem; display: flex; align-items: center; cursor: pointer; color: var(--accent); }
+.cli-note .hint { margin: 0.25rem 0 0; }
+.save-note { margin: 0.5rem 0 0; }
 #again-error { margin-bottom: 1rem; }
 
 /* ---- a saved check (P78 S5): no folder is behind it, so the Code screen says so and the file controls rest ---- */

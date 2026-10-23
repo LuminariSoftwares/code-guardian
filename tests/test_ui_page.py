@@ -329,7 +329,8 @@ def test_two_saved_files_compare_and_a_new_high_stands_out(tmp_path):
         page.set_input_files("#file-after", str(project / "app.py"))
         page.click("#files-compare")
         page.wait_for_selector("#compare-error:not([hidden])")
-        assert "The after file is not a report saved with code-guardian scan --json" in page.inner_text("#compare-error")
+        assert page.inner_text("#compare-error").startswith(
+            "The after file is not a check saved by code-guardian. Pick files made with Save this check.")
     finally:
         browser.close()
         pw.stop()
@@ -767,3 +768,121 @@ def test_the_code_viewer_is_at_least_34rem_wide_at_1280_with_the_summary_open():
         assert aside["l"] >= viewer["r"] - 1 and files["r"] <= viewer["l"] + 1
         assert files["w"] / rem >= 11.9 and aside["w"] / rem >= 14.9, "nothing was hidden to make room"
         assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+
+# ---- Save this check (P76 S6b): a saved check for people who do not use the command line ---------------------------
+
+def _scanned(page, url, project):
+    page.goto(url)
+    page.fill("#path", str(project))
+    page.click("#scan-button")
+    page.wait_for_selector("#screen-result:not([hidden])", timeout=60000)
+
+
+def _saved_as(page):
+    with page.expect_download() as got:
+        page.click("#save-check")
+    return got.value
+
+
+def test_the_saved_file_name_is_the_folder_and_the_time_with_odd_characters_replaced(tmp_path):
+    project = tmp_path / "my app é日本"
+    project.mkdir()
+    (project / "app.py").write_text(WITH_KEY, encoding="utf-8")
+    with _page(1280, 800) as (page, url):
+        _scanned(page, url, project)
+        dl = _saved_as(page)
+        assert re.fullmatch(r"code-guardian-my-app-{5}\d{4}-\d\d-\d\d-\d{4}\.json", dl.suggested_filename), dl.suggested_filename
+        saved = tmp_path / "out.json"
+        dl.save_as(str(saved))
+        data = json.loads(saved.read_text(encoding="utf-8"))
+        assert data["path"] == str(project) and data["findings"]
+        # A saved check can be saved again, and a folder from a Windows computer is cut at its last backslash.
+        data["path"] = "D:\\work\\my proj\\"
+        saved.write_text(json.dumps(data), encoding="utf-8")
+        page.click("#new-check")
+        page.set_input_files("#open-saved", str(saved))
+        page.wait_for_selector("#rail-when:has-text('Saved check from')")
+        assert re.fullmatch(r"code-guardian-my-proj-\d{4}-\d\d-\d\d-\d{4}\.json", _saved_as(page).suggested_filename)
+
+
+def test_the_command_line_wording_is_folded_and_opens_on_a_tap():
+    html = (UI / "index.html").read_text(encoding="utf-8")
+    assert len(re.findall(r'<details class="cli-note">', html)) == 2, "closed by default: no open attribute"
+    with _page(390, 844) as (page, url):
+        page.goto(url)
+        page.wait_for_selector("#screen-open:not([hidden])")
+        assert page.evaluate("document.querySelector('#saved-form details').open") is False
+        assert not page.is_visible("#saved-form details p")
+        page.click("#saved-form summary")
+        assert page.is_visible("#saved-form details p")
+        page.click("#screen-open button[data-screen=compare]")
+        assert page.evaluate("document.querySelector('#files-form details').open") is False
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+
+
+def test_the_save_line_appears_after_a_click_and_goes_when_another_check_is_drawn(tmp_path):
+    project = tmp_path / "proj"
+    project.mkdir()
+    (project / "app.py").write_text(WITH_KEY, encoding="utf-8")
+    with _page(390, 844) as (page, url):
+        _scanned(page, url, project)
+        assert page.is_hidden("#save-note")
+        box = _box(page, "#save-check")
+        assert box["l"] >= 0 and box["r"] <= 390, "reachable without scrolling sideways"
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+        _saved_as(page)
+        page.wait_for_selector("#save-note:not([hidden])")
+        assert page.inner_text("#save-note") == "Saved to your Downloads folder (or wherever your browser saves files)."
+        page.click("#check-again-summary")
+        page.wait_for_selector("#check-again-summary:not([disabled])")
+        assert page.is_hidden("#save-note")
+
+
+# ---- error sentences (P76 S6b): plain words first, the command line never the first or only advice ----------------
+
+CLI_ADVICE = re.compile(r"In a terminal|scan --json|code-guardian (?:scan|diff)")
+
+
+def test_no_error_sentence_in_the_page_leads_with_or_consists_of_command_line_advice():
+    found = [s for s in _strings(_js()) if CLI_ADVICE.search(s)]
+    assert found, "the one command-line alternative (Compare, too large) is still offered"
+    for text in found:
+        before = text[:CLI_ADVICE.search(text).start()]
+        assert before.strip(), "starts with command-line advice: " + text
+        first, sep, _ = before.partition("\\n")
+        assert sep and first.rstrip().endswith("."), "the plain sentence must come first, then a line break: " + text
+        assert "In a terminal" not in text and "scan --json" not in text, text
+
+
+def test_wrong_and_too_large_files_get_plain_sentences_with_the_command_line_after(tmp_path):
+    notacheck = tmp_path / "notes.txt"
+    notacheck.write_text("hello", encoding="utf-8")
+    big = tmp_path / "big.json"
+    big.write_text(json.dumps({"pad": "x" * (1024 * 1024 + 10)}), encoding="utf-8")
+    with _page(1280, 800) as (page, url):
+        page.goto(url)
+        page.wait_for_selector("#screen-open:not([hidden])")
+        page.set_input_files("#open-saved", str(notacheck))
+        page.wait_for_selector("#open-error:not([hidden])")
+        text = page.inner_text("#open-error")
+        assert text.startswith("That file is not a check saved by code-guardian. Pick a file made with Save this check."), text
+        assert "command" not in text and "--json" not in text, text
+        page.set_input_files("#open-saved", str(big))
+        page.wait_for_selector("#open-error:has-text('too large')")
+        assert page.inner_text("#open-error") == "That file is too large to open here (over 1 MB)."
+        page.click("#screen-open button[data-screen=compare]")
+        page.set_input_files("#file-before", str(notacheck))
+        page.set_input_files("#file-after", str(big))
+        page.click("#files-compare")
+        page.wait_for_selector("#compare-error:has-text('too large')")
+        lines = page.inner_text("#compare-error").split("\n")
+        lines = [ln for ln in lines if ln.strip()]
+        assert lines == ["These files are too large to compare here (over 1 MB together).",
+                         "If you use the command line: code-guardian diff before.json after.json"], lines
+        page.set_input_files("#file-after", str(notacheck))
+        page.click("#files-compare")
+        page.wait_for_selector("#compare-error:has-text('not a check')")
+        text = page.inner_text("#compare-error")
+        assert text.startswith("The before file is not a check saved by code-guardian. Pick files made with Save this check."), text
+        assert "terminal" not in text

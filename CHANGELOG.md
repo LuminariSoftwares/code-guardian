@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Save this check (P76 S6b).** A button on the Summary screen saves the current check as a file through the browser (nothing is written by the server), so **Open a saved check** and the two-file **Compare** no longer need the command line; their command-line wording is folded into a "Using the command line?" detail.
 - **The app, v1.1 (P78).** Six changes to `code-guardian ui`, each said in plain words first and then in detail. The
   README's [The app](README.md#the-app) section describes them for someone who uses AI to write code but does not
   read code well.

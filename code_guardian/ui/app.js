@@ -21,6 +21,7 @@
   var API_OPEN = "/api/open";
   var AGAIN_TITLE = "Reads the files again now";
   var MAX_SAVED = 1024 * 1024;  // the server refuses a request body over 1 MB
+  var TOO_LARGE_OPEN = "That file is too large to open here (over 1 MB).";
   var NO_DIALOG = "Your Python cannot open a folder window here; paste the path instead.";
   var BUSY = "A folder window is already open on the computer running code-guardian. Pick a folder there, or close it.";
   var KEPT = 20;  // checks the server holds for comparing; the oldest goes first
@@ -448,8 +449,16 @@
   }
 
   function showOpenError(text) {
-    var box = $("open-error");
-    box.textContent = text;
+    setLines($("open-error"), text);
+  }
+
+  // A message box's text, one line per "\n" (a break between them, never markup); "" hides the box.
+  function setLines(box, text) {
+    clear(box);
+    String(text || "").split("\n").forEach(function (line, i) {
+      if (i) box.appendChild(document.createElement("br"));
+      box.appendChild(document.createTextNode(line));
+    });
     box.hidden = !text;
   }
 
@@ -546,7 +555,7 @@
     if (!file || state.scanning || state.again) return;
     showOpenError("");
     if (file.size > MAX_SAVED) {
-      showOpenError("That file is too large to open here (1 MB). In a terminal, run: code-guardian diff before.json after.json");
+      showOpenError(TOO_LARGE_OPEN);
       return;
     }
     return readText(file).then(function (text) {
@@ -561,10 +570,10 @@
       refreshRecent();
     }, function (err) {
       if (err.status === 0 || (err.status === 403 && err.body.error === "token")) return handleApiError(err);
-      var detail = err.body.detail ? " (" + err.body.detail + ")" : "";
+      var detail = err.body.detail ? " (details: " + err.body.detail + ")" : "";
       if (err.status === -1) showOpenError("That file could not be read. Pick it again.");
-      else if (err.status === 413) showOpenError("That file is too large to open here (1 MB). In a terminal, run: code-guardian diff before.json after.json");
-      else if (err.body.error === "json") showOpenError("That is not a report saved with code-guardian scan --json" + detail + ".");
+      else if (err.status === 413) showOpenError(TOO_LARGE_OPEN);
+      else if (err.body.error === "json") showOpenError("That file is not a check saved by code-guardian. Pick a file made with Save this check." + detail);
       else showOpenError("That file could not be opened (" + (err.body.error || err.status) + ").");
     });
   }
@@ -676,6 +685,32 @@
     return "Could not check again: " + scanErrorText(err);
   }
 
+  // "Save this check": the report this page already holds, written as a file by the browser itself. The server writes
+  // nothing; the file is what "Open a saved check" and the Compare files accept.
+  function saveName(path, when) {
+    var parts = String(path || "").split(/[\\/]/).filter(function (p) { return p; });
+    var folder = (parts.length ? parts[parts.length - 1] : "").replace(/[^A-Za-z0-9._-]/gu, "-") || "check";
+    var pad = function (n) { return (n < 10 ? "0" : "") + n; };
+    var stamp = when.getFullYear() + "-" + pad(when.getMonth() + 1) + "-" + pad(when.getDate()) + "-" + pad(when.getHours()) + pad(when.getMinutes());
+    return "code-guardian-" + folder + "-" + stamp + ".json";
+  }
+
+  function saveCheck() {
+    if (!state.current) return;
+    var blob = new Blob([JSON.stringify(state.current.report)], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement("a");
+    link.href = url;
+    link.download = saveName(state.current.report.path, new Date());
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.setTimeout(function () { URL.revokeObjectURL(url); }, 1000);   // the download has started by then
+    var note = $("save-note");
+    note.textContent = "Saved to your Downloads folder (or wherever your browser saves files).";
+    note.hidden = false;
+  }
+
   function againError(text) {
     var box = $("again-error");
     box.textContent = text;
@@ -704,6 +739,7 @@
   function setResult(result) {
     state.current = result;
     state.file = null;
+    $("save-note").hidden = true;
     var rep = result.report;
     var plain = result.plain;
     $("scanned-path").textContent = rep.path;
@@ -1509,9 +1545,7 @@
   }
 
   function compareError(text) {
-    var box = $("compare-error");
-    box.textContent = text || "";
-    box.hidden = !text;
+    setLines($("compare-error"), text);
   }
 
   function compareErrorText(err) {
@@ -1519,9 +1553,12 @@
     if (err.status === 0) return "code-guardian is not answering. Is it still running in the terminal?";
     if (err.status === 403 && body.error === "token") return "This link is from an earlier run of code-guardian. Open the link the terminal printed.";
     if (err.status === 404) return "code-guardian no longer holds one of these checks (it keeps the last " + KEPT + "). Check the folder again, or compare two saved files.";
-    if (err.status === 413) return "These files are too large to compare here (1 MB for both together). In a terminal, run: code-guardian diff before.json after.json";
+    if (err.status === 413) {
+      return "These files are too large to compare here (over 1 MB together).\nIf you use the command line: code-guardian diff before.json after.json";
+    }
     if (body.error === "report") {
-      return (body.side ? "The " + body.side + " file" : "One of them") + " is not a report saved with code-guardian scan --json (" + (body.detail || "unreadable") + ").";
+      return (body.side ? "The " + body.side + " file" : "One of them") + " is not a check saved by code-guardian. " +
+        "Pick files made with Save this check." + (body.detail ? " (details: " + body.detail + ")" : "");
     }
     return "The two could not be compared (" + (body.detail || body.error || err.status) + ").";
   }
@@ -1619,6 +1656,7 @@
     $("path").addEventListener("input", function () { showRefused(""); });
     $("new-check").addEventListener("click", function () { show("open"); $("path").focus(); });
     $("check-again").addEventListener("click", checkAgain);
+    $("save-check").addEventListener("click", saveCheck);
     $("open-saved").addEventListener("change", function (ev) {
       var file = ev.target.files[0];
       ev.target.value = "";   // the same file can be picked again
