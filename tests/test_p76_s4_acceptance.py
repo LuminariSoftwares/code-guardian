@@ -1,5 +1,5 @@
 """P76 S4 acceptance -- select-to-explain: explain.excerpt (C8), POST /api/explain (C7), the Code screen panel, and
-the start/end line fields TJ asked for (decisions_log 2026-10-22 ~16:12).
+the start/end line fields the owner asked for (decisions_log 2026-10-22 ~16:12).
 
 Written by the overseer BEFORE the build session. The build session must add this file to the PR byte-for-byte and
 must not edit it; a PR that changes it fails the section.

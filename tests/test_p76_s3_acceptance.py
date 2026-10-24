@@ -122,7 +122,7 @@ def test_required_strings_and_dark_only():
     for needed in ("No known risks found", "partial check", "AI explanation"):
         assert needed in html, needed
     everything = html + read("app.css") + read("app.js")
-    # P78 (TJ 2026-10-22 ~16:12): a Settings panel may offer light mode; the page must never switch on its own.
+    # P78 (owner, 2026-10-22 ~16:12): a Settings panel may offer light mode; the page must never switch on its own.
     assert not re.search(r"prefers-color-scheme\s*:\s*light", everything, re.I)
     assert re.search(r"color-scheme\s*:\s*dark", read("app.css"))
 

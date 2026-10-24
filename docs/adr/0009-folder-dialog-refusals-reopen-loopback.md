@@ -19,7 +19,7 @@ machine that runs the server, so `POST /api/browse` does it: it runs
 `DIALOG_SOURCE` is a constant in `ui.py` of at most 25 lines that imports `tkinter`, makes a hidden root window,
 raises it to the top (`-topmost`, `update`, `lift`, `focus_force`) and calls `tkinter.filedialog.askdirectory`. It
 prints the folder and exits 0, or exits 1 when the window was closed without a choice, 3 when this Python has no
-`tkinter`, 4 when there is no display to open a window on. The child writes the folder as UTF-8 and the server reads
+`tkinter`, and 4 when there is no display to open a window on. The child writes the folder as UTF-8 and the server reads
 it as UTF-8, so a folder name in any language comes through. The server maps 0 to the folder, 1 and a timeout to `{"path": null, "cancelled": true}`, 3 and 4
 to `501 no_dialog` with the reason, and anything else to `501` with the exit code.
 

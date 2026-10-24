@@ -4,7 +4,7 @@ Written by the overseer from plan P78 contracts C1 (+ Port, Brand mark), C2 and 
 session must add this file to the PR byte-for-byte and must not edit it; a PR that changes it fails the section. Pure
 ASCII on purpose (lesson: escape sequences do not survive being retyped).
 
-Deviation (10), TJ 2026-10-22 ~21:36: the old star mark is retired, so `<svg id="luminari-mark">` ships EMPTY (a slot
+Deviation (10), owner 2026-10-22 ~21:36: the old star mark is retired, so `<svg id="luminari-mark">` ships EMPTY (a slot
 for the new mark) with the "Luminari" word beside it; the three --brand-* tokens stay for the new mark's colours.
 
 Browser checks need Playwright + Chromium and skip without them (CI and the owner's PC have neither); the build session

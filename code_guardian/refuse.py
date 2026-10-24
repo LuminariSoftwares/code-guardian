@@ -150,9 +150,9 @@ def _selftest():
     def w(*parts):
         return bs.join(parts)
 
-    win_home = w("C:", "Users", "tj")
-    nix_home = "/home/tj"
-    mounts = {"/Volumes/Backup", "/media/tj/USB", "/mnt/c"}
+    win_home = w("C:", "Users", "alex")
+    nix_home = "/home/alex"
+    mounts = {"/Volumes/Backup", "/media/alex/USB", "/mnt/c"}
 
     def nt(path, env=None):
         return refused(path, home=win_home, env=env or {}, platform="nt", ismount=lambda p: False)
@@ -176,19 +176,19 @@ def _selftest():
         ("nt_unc_deeper_allowed", nt(bs + bs + w("nas", "share", "proj")) is None),
         ("posix_root", nix("/") == DRIVE),
         ("posix_mac_disk", nix("/Volumes/Backup") == DRIVE),
-        ("posix_media_disk", nix("/media/tj/USB") == DRIVE),
+        ("posix_media_disk", nix("/media/alex/USB") == DRIVE),
         ("posix_wsl_drive", nix("/mnt/c") == DRIVE),
-        ("posix_wsl_folder_allowed", nix("/mnt/c/Users/tj/proj") is None),
+        ("posix_wsl_folder_allowed", nix("/mnt/c/Users/alex/proj") is None),
         # home and above it
         ("nt_home", nt(win_home) == HOME),
         ("nt_home_trailing", nt(win_home + bs) == HOME),
-        ("nt_home_case", nt(w("c:", "users", "TJ")) == HOME),
+        ("nt_home_case", nt(w("c:", "users", "ALEX")) == HOME),
         ("nt_above_home", nt(w("C:", "Users")) == ABOVE_HOME),
         ("posix_home", nix(nix_home) == HOME),
         ("posix_home_trailing", nix(nix_home + "/") == HOME),
         ("posix_above_home", nix("/home") == ABOVE_HOME),
-        ("posix_mac_home", nix("/Users/tj", home="/Users/tj") == HOME),
-        ("posix_mac_above_home", nix("/Users", home="/Users/tj") == ABOVE_HOME),
+        ("posix_mac_home", nix("/Users/alex", home="/Users/alex") == HOME),
+        ("posix_mac_above_home", nix("/Users", home="/Users/alex") == ABOVE_HOME),
         # catch-all folders: the folder itself is refused, a subfolder is allowed
         ("nt_downloads", nt(w(win_home, "Downloads")) == DOWNLOADS),
         ("nt_desktop", nt(w(win_home, "Desktop")) == DESKTOP),

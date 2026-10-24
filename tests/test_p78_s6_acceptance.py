@@ -6,6 +6,9 @@ must not edit it; a PR that changes it fails the section. This file is pure ASCI
 Amended by the overseer after PR #39 (P78 deviation 20): the plan's C9 paragraph promised Tailscale Serve and an SSH
 tunnel with mismatched ports, and the page's Host guard refuses both (it answers only 127.0.0.1 / localhost with its
 own port). The paragraph below says what is true today.
+
+Amended again by the overseer at P76 S7 (release 0.4.0): the CHANGELOG check read `## Unreleased`, which the release
+renames to its 0.4.0 heading. It now reads the 0.4.0 section, which stays in the file after later releases.
 """
 import re
 from pathlib import Path
@@ -80,8 +83,8 @@ def test_https_appears_once_in_the_page_files():
 
 def test_changelog_names_the_six_sections():
     text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    m = re.search(r"^## Unreleased\s*$(.*?)(?=^## |\Z)", text, re.M | re.S)
-    assert m, "no ## Unreleased section"
+    m = re.search(r"^## [^\n]*\b0\.4\.0\b[^\n]*$(.*?)(?=^## |\Z)", text, re.M | re.S)
+    assert m, "no ## ... 0.4.0 ... section"
     body = m.group(1).lower()
     for word in ("settings", "size", "every file", "browse", "re-open", "phone"):
         assert word in body, word

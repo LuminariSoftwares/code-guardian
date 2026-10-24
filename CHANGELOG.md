@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## code-guardian-mcp 0.4.0 (2026-10-23)
+
+You can now check a project folder in your browser (`code-guardian ui`): every file is listed with an honest label, you can save a check and compare two, and it works in light or dark on any screen size, phone included.
+Nothing leaves your computer: the page talks only to the program running on your own machine, and the one thing that can go further is the lines you pick for an AI explanation, sent only to a model you set up yourself.
 
 - **Save this check (P76 S6b).** A button on the Summary screen saves the current check as a file through the browser (nothing is written by the server), so **Open a saved check** and the two-file **Compare** no longer need the command line; their command-line wording is folded into a "Using the command line?" detail.
 - **The app, v1.1 (P78).** Six changes to `code-guardian ui`, each said in plain words first and then in detail. The
