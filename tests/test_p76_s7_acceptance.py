@@ -6,6 +6,9 @@ must not edit it; a PR that changes it fails the section. This file is pure ASCI
 Also here, as P78 deviation (14): the owner's initials and an example user name built from them are scrubbed from
 the tree (the overseer's own acceptance files are replaced with amended copies in the same PR); and the ADR 0009 list
 gets its missing "and" (the S4 nit).
+
+Amended by the overseer after PR #41: the README is the PyPI page, so its release line, sample output and the two
+pinned refs (`@v...` and `rev: v...`) must name 0.4.0 before the tag.
 """
 import json
 import re
@@ -78,3 +81,12 @@ def test_adr_0009_list_reads_right():
     flat = re.sub(r"\s+", " ", adr)
     assert "3 when this Python has no `tkinter`, and 4 when there is no display" in flat, \
         "the exit-code list needs 'and' before its last item"
+
+
+def test_readme_names_the_release():
+    text = _read("README.md")
+    old = [m.group(0) for m in re.finditer(r"[^\n]*\b0\.3\.\d+\b[^\n]*", text)]
+    assert not old, "README still names 0.3.x: %s" % old[:5]
+    assert "**%s is the current release.**" % VERSION in text
+    assert "code-guardian@v%s" % VERSION in text and "rev: v%s" % VERSION in text
+    assert "code-guardian %s  scan of" % VERSION in text
