@@ -34,9 +34,9 @@ ONEDRIVE = "That is your whole OneDrive. Pick the project folder inside it."
 SYSTEM = "That is part of the operating system, not a project. Pick the folder your project is in."
 
 BS = chr(92)  # a backslash, built so no escape sequence has to survive being retyped
-WIN_HOME = "C:" + BS + "Users" + BS + "tj"
-NIX_HOME = "/home/tj"
-MOUNTS = {"/Volumes/Backup", "/media/tj/USB", "/mnt/c"}
+WIN_HOME = "C:" + BS + "Users" + BS + "alex"
+NIX_HOME = "/home/alex"
+MOUNTS = {"/Volumes/Backup", "/media/alex/USB", "/mnt/c"}
 
 
 def w(*parts):
@@ -76,7 +76,7 @@ NT_REFUSED = [
     (BS + BS + w("nas", "share", ""), {}, DRIVE),
     (WIN_HOME, {}, HOME),
     (WIN_HOME + BS, {}, HOME),
-    (w("c:", "users", "TJ"), {}, HOME),
+    (w("c:", "users", "ALEX"), {}, HOME),
     (w("C:", "Users"), {}, ABOVE),
     (w(WIN_HOME, "Downloads"), {}, DOWNLOADS),
     (w(WIN_HOME, "Downloads", ""), {}, DOWNLOADS),
@@ -96,7 +96,7 @@ NIX_REFUSED = [
     ("/", {}, DRIVE),
     ("/Volumes/Backup", {}, DRIVE),
     ("/Volumes/Backup/", {}, DRIVE),
-    ("/media/tj/USB", {}, DRIVE),
+    ("/media/alex/USB", {}, DRIVE),
     ("/mnt/c", {}, DRIVE),
     (NIX_HOME, {}, HOME),
     (NIX_HOME + "/", {}, HOME),
@@ -125,9 +125,9 @@ def test_posix_refused(path, env, want):
 
 
 def test_mac_home_and_users_folder():
-    assert _nix("/Users/tj", home="/Users/tj") == HOME
-    assert _nix("/Users", home="/Users/tj") == ABOVE
-    assert _nix("/Users/tj/Downloads", home="/Users/tj") == DOWNLOADS
+    assert _nix("/Users/alex", home="/Users/alex") == HOME
+    assert _nix("/Users", home="/Users/alex") == ABOVE
+    assert _nix("/Users/alex/Downloads", home="/Users/alex") == DOWNLOADS
 
 
 # ---- allowed --------------------------------------------------------------------------------------------------------
@@ -150,7 +150,7 @@ NIX_ALLOWED = [
     ("/tmp/x", {}),
     ("/var/x", {}),
     ("/private/var/folders/ab/x", {}),
-    ("/mnt/c/Users/tj/proj", {}),
+    ("/mnt/c/Users/alex/proj", {}),
     ("/Volumes/Backup/code/app", {}),
     (NIX_HOME + "/Downloads/my-app", {}),
     (NIX_HOME + "/Documents/school/proj", {}),

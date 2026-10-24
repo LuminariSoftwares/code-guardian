@@ -12,8 +12,8 @@ from code_guardian.refuse import REASONS, refused
 
 ROOT = Path(__file__).resolve().parent.parent
 BS = chr(92)
-WIN_HOME = BS.join(("C:", "Users", "tj"))
-NIX_HOME = "/home/tj"
+WIN_HOME = BS.join(("C:", "Users", "alex"))
+NIX_HOME = "/home/alex"
 VERDICT_WORDS = ("sa" + "fe", "se" + "cure", "cl" + "ean", "no ri" + "sks", "harm" + "less", "guarant" + "eed")
 
 
