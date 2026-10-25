@@ -9,6 +9,10 @@ gets its missing "and" (the S4 nit).
 
 Amended by the overseer after PR #41: the README is the PyPI page, so its release line, sample output and the two
 pinned refs (`@v...` and `rev: v...`) must name 0.4.0 before the tag.
+
+Amended by the overseer 2026-10-25 for the 0.4.1 release prep (PR #46): the version checks read the CURRENT version
+from pyproject.toml (it must be 0.4.0 or later and agree everywhere), while the CHANGELOG check stays on the 0.4.0
+section, the release this file was written for. A later release no longer needs this file amended.
 """
 import json
 import re
@@ -18,14 +22,23 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
-VERSION = "0.4.0"
+RELEASE = "0.4.0"  # the release this file was written for: its CHANGELOG section must keep its words
+
+
+def _current():
+    m = re.search(r'^version\s*=\s*"([^"]+)"', (ROOT / "pyproject.toml").read_text(encoding="utf-8"), re.M)
+    return m.group(1) if m else None
+
+
+VERSION = _current()  # every version field, the CLI and the README name the current version
 
 
 def _read(rel):
     return (ROOT / rel).read_text(encoding="utf-8")
 
 
-def test_every_version_field_is_040():
+def test_every_version_field_agrees():
+    assert VERSION and tuple(int(x) for x in VERSION.split(".")[:3]) >= (0, 4, 0), VERSION
     assert re.search(r'^version\s*=\s*"%s"' % re.escape(VERSION), _read("pyproject.toml"), re.M)
     assert re.search(r'^__version__\s*=\s*"%s"' % re.escape(VERSION), _read("code_guardian/__init__.py"), re.M)
     assert re.search(r'^VERSION\s*=\s*"%s"' % re.escape(VERSION), _read("code_guardian/mcp_server.py"), re.M)
@@ -53,7 +66,7 @@ def test_cli_prints_the_version():
 
 def test_changelog_names_the_release():
     text = _read("CHANGELOG.md")
-    head = re.search(r"^## .*\b%s\b.*\(20\d\d-\d\d-\d\d\)\s*$" % re.escape(VERSION), text, re.M)
+    head = re.search(r"^## .*\b%s\b.*\(20\d\d-\d\d-\d\d\)\s*$" % re.escape(RELEASE), text, re.M)
     assert head, "no '## ... 0.4.0 ... (YYYY-MM-DD)' heading"
     unreleased = re.search(r"^## Unreleased\s*$(.*?)(?=^## |\Z)", text, re.M | re.S)
     assert unreleased is None or not unreleased.group(1).strip(), "## Unreleased still has entries"
