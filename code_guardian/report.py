@@ -7,6 +7,8 @@ Public contract:
                                        # raises UsageError (bad PATH or baseline) / goal.GoalError
                                        # exclude: globs left out at the person's request, after the goal file's;
                                        # non-empty adds excluded_by_request [{"glob", "files"}] and a note
+                                       # secret.key INFO findings that say "looks like a test value" add the
+                                       # top-level key test_values_graded: n (only when n > 0)
     orphans(path, goal_file=None, infer=False, exclude=()) -> hygiene dict (+ "files")
     render(report) -> text            render_orphans(hygiene) -> text       status_line(report) -> text
     coverage_of(inv, langs) -> coverage dict          coverage_line(coverage) -> 'coverage: ...'
@@ -22,6 +24,7 @@ Public contract:
 
 import ast
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -314,7 +317,8 @@ def scan(path, goal_file=None, explain=False, env=None, online=False, baseline=N
         findings.extend(out.run("leftovers", lambda: leftovers.check(project, reached), [], findings))
     else:
         out.skipped("leftovers", "no Python files and no manifests")
-    findings = score.sort_findings(scanners.dedupe(_test_code_to_info(_one_secret_per_line(findings))))
+    findings = score.sort_findings(scanners.dedupe(_test_code_to_info(
+        _test_key_context(_one_secret_per_line(findings), trees, sources))))
     langs = _languages(inv["other"])
     coverage = coverage_of(inv, langs)
     for rel, why in inv["skipped"]:
@@ -360,6 +364,10 @@ def scan(path, goal_file=None, explain=False, env=None, online=False, baseline=N
         report["baseline"] = {"file": baseline, "version": base["version"], "new": new, "known": known}
     if exclude:
         report["excluded_by_request"] = [{"glob": g, "files": n} for g, n in asked]
+    graded = sum(1 for f in findings if f["code"] == "secret.key" and f["level"] == "INFO"
+                 and any(e.startswith(scanners.TEST_VALUE + ": ") for e in f["evidence"]))
+    if graded:
+        report["test_values_graded"] = graded
     _score(report)
     report = redact_report(report)  # before explain: the model sees what every output shows, nothing more
     if explain:
@@ -420,6 +428,116 @@ def _test_code_to_info(findings):
             continue
         f["evidence"].append("in %s: reported at INFO (was %s)" % (where, f["level"]))
         f["level"] = "INFO"
+    return findings
+
+TEST_VALUE_FIX = "keep test values out of the source too, or make them obviously fake"
+TEST_VALUE_HINT = ("if this is a test value, make it say so (FAKE or TEST in the value, or one character repeated, "
+                   "like 000000) and it is reported as information")
+_NAME_WORDS = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+")
+FAKE_NAME_WORDS = scanners.PLACEHOLDER_WORDS | {"selftest"}
+
+
+def _fake_named(name):
+    """A name with a placeholder word in it: test_key, FAKE_TOKEN, TestClient, _selftest, sample_value."""
+    for word in _NAME_WORDS.findall(name):
+        word = word.lower()
+        if word in FAKE_NAME_WORDS or word.endswith("s") and word[:-1] in FAKE_NAME_WORDS:
+            return True
+    return False
+
+
+def _key_index(tree):
+    """What _test_key_context asks of one file, found in one walk: the str constants that are the value of an
+    assignment or a keyword argument (with the names they are given), the str constants inside any assert or compared
+    in any comparison, and every function or class with its line span."""
+    named, compared, scopes = [], [], []
+    for node in ast.walk(tree):
+        value, names = None, []
+        if isinstance(node, ast.Assign):
+            value, targets = node.value, node.targets
+        elif isinstance(node, ast.AnnAssign):
+            value, targets = node.value, [node.target]
+        elif isinstance(node, ast.keyword) and node.arg:
+            value, targets, names = node.value, (), [node.arg]
+        else:
+            targets = ()
+        for t in targets:
+            if isinstance(t, ast.Name):
+                names.append(t.id)
+            elif isinstance(t, ast.Attribute):
+                names.append(t.attr)
+        if isinstance(value, ast.Constant) and isinstance(value.value, str) and names:
+            named.append((value, names))
+        if isinstance(node, ast.Assert):
+            compared.extend(n.value for n in ast.walk(node) if isinstance(n, ast.Constant) and isinstance(n.value, str))
+        elif isinstance(node, ast.Compare):
+            compared.extend(n.value for n in [node.left] + node.comparators
+                            if isinstance(n, ast.Constant) and isinstance(n.value, str))
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            scopes.append((node.lineno, getattr(node, "end_lineno", None) or node.lineno, node.name))
+    return named, compared, scopes
+
+
+def _key_signals(index, value, lineno, rel):
+    """The signals that hold for the key-shaped `value` on `lineno`, in the order U2, L1, L2, U1, as (word, text)
+    pairs. U2: assigned to a fake-named variable or keyword. L1: in a test file. L2: the innermost function or class
+    around the line has a placeholder word in its name. U1: the value sits inside a string compared in an assert or
+    any comparison."""
+    named, compared, scopes = index
+    out = []
+    for const, names in named:
+        if value in const.value and const.lineno <= lineno <= (getattr(const, "end_lineno", None) or const.lineno):
+            name = next((n for n in names if _fake_named(n)), None)
+            if name:
+                out.append(("U2", "assigned to %s" % name))
+                break
+    if not_product(rel) == "test code":
+        out.append(("L1", "in a test file"))
+    around = [s for s in scopes if s[0] <= lineno <= s[1]]
+    if around:
+        name = max(around, key=lambda s: (s[0], -s[1]))[2]
+        if _fake_named(name):
+            out.append(("L2", "inside %s()" % name))
+    if any(value in text for text in compared):
+        out.append(("U1", "compared in an assert"))
+    return out
+
+
+def _test_key_context(findings, trees, texts):
+    """Read a key-shaped FAIL in a parsed Python file by how it is used (P88 C4). INFO only when the value is assigned
+    to a fake-named variable (U2) and at least one more signal holds: in a test file (L1), inside a test or fake
+    function (L2), compared in an assert (U1). Location and comparison alone never do: a real key pasted into a test
+    still gets the FAIL, with the signals named and a hint on how to say it is a test value. `texts` maps every read
+    file to its text (the scan passes its sources); a file that did not parse, or a value not found on its line, is
+    left alone."""
+    indexes = {}
+    for f in findings:
+        if f["code"] != "secret.key" or f["level"] != "FAIL" or scanners.KEY_SHAPE not in f["evidence"]:
+            continue
+        rel, _, line = f["node"].rpartition(":")
+        if rel not in trees or rel not in texts or not line.isdigit():
+            continue
+        lineno = int(line)
+        lines = texts[rel].splitlines()
+        if not 0 < lineno <= len(lines):
+            continue
+        size = next((e[len("length: "):].split(" ", 1)[0] for e in f["evidence"] if e.startswith("length: ")), "")
+        value = next((v for v in scanners.key_values(lines[lineno - 1]) if str(len(v)) == size), None)
+        if value is None:
+            continue
+        if rel not in indexes:
+            indexes[rel] = _key_index(trees[rel])
+        signals = _key_signals(indexes[rel], value, lineno, rel)
+        said = [text for _word, text in signals]
+        if "U2" in [word for word, _text in signals] and len(signals) > 1:
+            f["level"] = "INFO"
+            f["summary"] = f["summary"].replace("in the source; value redacted",
+                                                "in the source (%s; value redacted)" % scanners.TEST_VALUE)
+            f["evidence"].append("%s: %s" % (scanners.TEST_VALUE, " and ".join(said)))
+            f["try"] = [TEST_VALUE_FIX]
+        elif signals:
+            f["evidence"].append("test signals seen: " + ", ".join(said))
+            f["try"].append(TEST_VALUE_HINT)
     return findings
 
 
@@ -619,6 +737,9 @@ def render(report):
                                                      "  [new]" if f.get("new") else "") for f in group)
     if not shown:
         lines.append("  none")
+    if report.get("test_values_graded"):
+        lines.append("  %d key-shaped value(s) look like test values and are reported as information, not as "
+                     "failures; each finding says why" % report["test_values_graded"])
     lines += ["", "egress inventory (%d):" % len(report["egress"])]
     lines.extend("  %-4s  %s  %-4s  %s" % (e["level"], e["node"], e["kind"], e["target"]) for e in report["egress"])
     lines += [""] + _hygiene_lines(report["hygiene"])
