@@ -185,21 +185,24 @@ None.
 ### Backup folders and test values (0.4.1)
 
 Two changes in 0.4.1 move findings, so they are calibrated the same way: counts on a real project folder before and
-after, no change on the fixtures, and no change on the five pinned repositories. The counts are written when the
-section is built (P88 S5), from `cg_review.py` on the release candidate; a blank cell is not measured yet.
+after, no change on the fixtures, and no change on the five pinned repositories. The counts below were measured for P88 S5 with cg_review.py on the release candidate.
 
-A real Windows scripts folder (the maintainer's own, scanned as a whole, then with its backup copies left out at the
-person's request, then with test values graded):
+A real Windows scripts folder (the maintainer's own: 1,335 Python files and 4,877 other files, with an _archive/ of 1,203 backup copies and 48 *.backup-* files), scanned on 2026-10-24 (US Central) by 0.4.0 and by the 0.4.1 release candidate (main b466957) at the same moment:
 
-| scan | FAIL | INFO (looks like a test value) |
-|---|---:|---:|
-| 0.4.0, every file | | |
-| 0.4.1, backup copies left out with `--exclude` | | |
-| 0.4.1, and key-shaped test values graded | | |
+| scan | secret.key FAIL | secret.key INFO (looks like a test value) | grade |
+|---|---:|---:|---|
+| 0.4.0, every file | 206 | 0 | F (19) |
+| 0.4.1, every file (test values graded) | 107 | 99 | F (19) |
+| 0.4.1, the two copies the page offered left out (--exclude '_archive/*' --exclude '*.backup-*') | 28 | 18 | F (19) |
+
+The page offered exactly those two copies (151 and 9 findings) and held none back; the 160 findings they held are exactly the 160 the rescan no longer reports.
+Each of the 99 "looks like a test value" reasons was checked against its line by a separate script that re-derives the reason without code-guardian (counts up, repeats one character, spells out a placeholder word): 99 of 99 true.
+Every other (code, level) count is identical between 0.4.0 and 0.4.1 on this folder; only secret.key FAIL moved to INFO, and the per-file FAIL + INFO totals are unchanged.
+The grade stays F because of two shell=True launchers (exec.shell FAIL) and 28 secret.key FAILs, most of them test values whose values look real; 13 of those carry the new hint (make the value say FAKE or TEST, or repeat one character).
 
 Fixtures and pinned repositories:
 
 | set | what changed | result |
 |---|---|---|
-| the 8 fixture repos (`tests/fixtures`, `risky_repo` as built by `tests/make_risky.py`) | scan report, sha256 of the canonical JSON | 0 delta against 0.4.0 (`tests/test_p88_s4_acceptance.py`) |
-| the 5 pinned 0.2.0 repos (requests, click, rich, httpx, flask) re-scanned with 0.4.1 | | no new FAIL and no FAIL moved to INFO: they carry no key shapes today, so any move would be a bug |
+| the 8 fixture repos (tests/fixtures, risky_repo as built by tests/make_risky.py) | scan report, sha256 of the canonical JSON | 0 delta against 0.4.0 (tests/test_p88_s4_acceptance.py), on Linux and Windows |
+| the 5 pinned 0.2.0 repos (requests, click, rich, httpx, flask) and the three guardian repos, re-scanned with 0.4.1 (tools/calibrate.py commits) | every finding by node, code and level | 0 findings changed: no new FAIL and no FAIL moved to INFO |
