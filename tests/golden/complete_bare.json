@@ -1,0 +1,487 @@
+{
+ "anchor": "pyproject.toml",
+ "coverage": {
+  "analysed": "python",
+  "other_source": {},
+  "other_source_files": 0,
+  "partial": false,
+  "python": 1,
+  "reason": null,
+  "safe_partial": false,
+  "works_scored": true
+ },
+ "dimensions": {
+  "complete": {
+   "checks": [
+    {
+     "code": "complete.license_missing",
+     "count": 1,
+     "deduction": 20,
+     "first": ".",
+     "level": "WARN",
+     "locations": [
+      "."
+     ],
+     "more": 0,
+     "weight": 20
+    },
+    {
+     "code": "complete.ci_missing",
+     "count": 1,
+     "deduction": 10,
+     "first": ".",
+     "level": "WARN",
+     "locations": [
+      "."
+     ],
+     "more": 0,
+     "weight": 10
+    },
+    {
+     "code": "complete.env_example",
+     "count": 1,
+     "deduction": 10,
+     "first": "app.py:3",
+     "level": "WARN",
+     "locations": [
+      "app.py:3"
+     ],
+     "more": 0,
+     "weight": 10
+    },
+    {
+     "code": "complete.lockfile",
+     "count": 1,
+     "deduction": 10,
+     "first": ".",
+     "level": "WARN",
+     "locations": [
+      "."
+     ],
+     "more": 0,
+     "weight": 10
+    },
+    {
+     "code": "complete.metadata",
+     "count": 1,
+     "deduction": 10,
+     "first": "pyproject.toml:1",
+     "level": "WARN",
+     "locations": [
+      "pyproject.toml:1"
+     ],
+     "more": 0,
+     "weight": 10
+    },
+    {
+     "code": "complete.readme_short",
+     "count": 1,
+     "deduction": 10,
+     "first": "README.md:1",
+     "level": "WARN",
+     "locations": [
+      "README.md:1"
+     ],
+     "more": 0,
+     "weight": 10
+    },
+    {
+     "code": "complete.license_undeclared",
+     "count": 1,
+     "deduction": 5,
+     "first": "pyproject.toml:1",
+     "level": "WARN",
+     "locations": [
+      "pyproject.toml:1"
+     ],
+     "more": 0,
+     "weight": 5
+    }
+   ],
+   "deducted": 75,
+   "partial": false,
+   "score": 25,
+   "scored": true
+  },
+  "safe": {
+   "checks": [],
+   "deducted": 0,
+   "partial": false,
+   "score": 100,
+   "scored": true
+  },
+  "works": {
+   "checks": [
+    {
+     "code": "works.tests_missing",
+     "count": 1,
+     "deduction": 15,
+     "first": ".",
+     "level": "WARN",
+     "locations": [
+      "."
+     ],
+     "more": 0,
+     "weight": 15
+    }
+   ],
+   "deducted": 15,
+   "partial": false,
+   "score": 85,
+   "scored": true
+  }
+ },
+ "egress": [],
+ "files": {
+  "excluded": 0,
+  "ignored": 0,
+  "manifests": 1,
+  "other": 2,
+  "python": 1,
+  "skipped": 0,
+  "unparsed": 0
+ },
+ "findings": [
+  {
+   "code": "complete.ci_missing",
+   "confidence": "LIKELY",
+   "evidence": [
+    "looked for: .github/workflows/, .gitlab-ci.yml, .circleci/, and other CI files"
+   ],
+   "fingerprint": "82614cc74cd71f3da6532c94a455c16972f894ad2b07091d9f8566d157847cbe",
+   "fix": null,
+   "level": "WARN",
+   "node": ".",
+   "severity": "partial",
+   "summary": "no CI configuration: nothing runs the tests on each change",
+   "try": [
+    "add a CI workflow that runs the tests"
+   ]
+  },
+  {
+   "code": "complete.license_missing",
+   "confidence": "LIKELY",
+   "evidence": [
+    "looked for: LICENSE, LICENCE, COPYING, UNLICENSE (any extension)"
+   ],
+   "fingerprint": "930beae195cf4084bc0835387d1df2762d4f7f5b636e4ce39dcffd55c5eed80c",
+   "fix": null,
+   "level": "WARN",
+   "node": ".",
+   "severity": "partial",
+   "summary": "no licence file: nobody may legally reuse this code",
+   "try": [
+    "add a LICENSE file (choosealicense.com helps pick one)"
+   ]
+  },
+  {
+   "code": "complete.lockfile",
+   "confidence": "LIKELY",
+   "evidence": [
+    "application marker: Dockerfile",
+    "looked for: uv.lock, poetry.lock, Pipfile.lock, pdm.lock, pixi.lock, requirements.lock, a fully pinned requirements.txt"
+   ],
+   "fingerprint": "b3ee2e9e368879cd777e741b60634d6d5976379a870623fa003ee5814ec727c4",
+   "fix": null,
+   "level": "WARN",
+   "node": ".",
+   "severity": "partial",
+   "summary": "an application without a lockfile: installs can differ run to run",
+   "try": [
+    "commit a lockfile (uv lock, poetry lock, or pip-compile)"
+   ]
+  },
+  {
+   "code": "works.tests_missing",
+   "confidence": "LIKELY",
+   "evidence": [
+    "looked for: tests/, test_*.py, *_test.py, tests.py, conftest.py"
+   ],
+   "fingerprint": "af61c7db491aa0f6f1c07962bd6797e96d8114856e6d6c2a8a93154dcf2e05d4",
+   "fix": null,
+   "level": "WARN",
+   "node": ".",
+   "severity": "partial",
+   "summary": "no test files: nothing checks that the code works",
+   "try": [
+    "add a tests/ folder with at least one test per entry point"
+   ]
+  },
+  {
+   "code": "complete.readme_short",
+   "confidence": "LIKELY",
+   "evidence": [
+    "minimum: 200 bytes"
+   ],
+   "fingerprint": "486c36cb6b411731d6daded39a8e5129b0067ce2bbeaabd5e70ab09d9f0a54e0",
+   "fix": null,
+   "level": "WARN",
+   "node": "README.md:1",
+   "severity": "partial",
+   "summary": "README is 14 bytes: too short to explain install and usage",
+   "try": [
+    "describe what it does, how to install, how to use"
+   ]
+  },
+  {
+   "code": "complete.env_example",
+   "confidence": "LIKELY",
+   "evidence": [
+    "reads: BARE_TOKEN_NAME"
+   ],
+   "fingerprint": "7834050c111469eda70222ce4ce66ab04432354153ccd606f58f443666a3311b",
+   "fix": null,
+   "level": "WARN",
+   "node": "app.py:3",
+   "severity": "partial",
+   "summary": "the code reads environment variables but there is no .env.example",
+   "try": [
+    "add a .env.example listing every variable with a safe placeholder"
+   ]
+  },
+  {
+   "code": "complete.license_undeclared",
+   "confidence": "LIKELY",
+   "evidence": [
+    "no license / license-files / License classifier"
+   ],
+   "fingerprint": "c5772dbbd3e346e368c05641ff50cc5131e8ea3fabf53700395cfb9e8a47d025",
+   "fix": null,
+   "level": "WARN",
+   "node": "pyproject.toml:1",
+   "severity": "partial",
+   "summary": "the package metadata declares no licence",
+   "try": [
+    "add license = \"MIT\" (or your licence) to [project]"
+   ]
+  },
+  {
+   "code": "complete.metadata",
+   "confidence": "LIKELY",
+   "evidence": [
+    "required: name, version (or dynamic), requires-python"
+   ],
+   "fingerprint": "96b4d1dc5b8e19da178e202b08daf0fea568ceecd7bac8af37ef01cf70e7bf52",
+   "fix": null,
+   "level": "WARN",
+   "node": "pyproject.toml:1",
+   "severity": "partial",
+   "summary": "pyproject.toml [project] is missing: version, requires-python",
+   "try": [
+    "add the missing keys to [project]"
+   ]
+  },
+  {
+   "code": "deps.declared_unused",
+   "confidence": "LIKELY",
+   "evidence": [
+    "kind: runtime"
+   ],
+   "fingerprint": "63bc131cad394c4a90f40af5e31fd7e844cb8dc768f1028752a3cb0e49a0a703",
+   "fix": null,
+   "level": "INFO",
+   "node": "pyproject.toml:3",
+   "severity": "partial",
+   "summary": "dependency requests is declared but never imported",
+   "try": [
+    "remove it, or note why it is needed (a plugin or a runner)"
+   ]
+  }
+ ],
+ "goal_file": null,
+ "hygiene": {
+  "counts": {
+   "orphan.dead": 0,
+   "orphan.test_only": 0,
+   "orphan.uncertain": 0
+  },
+  "entry_points": [],
+  "findings": [],
+  "goal": "",
+  "keep": [],
+  "notes": [
+   "no entry points found, so nothing is reported: run `code-guardian init` and edit the goal file"
+  ],
+  "source": "inferred"
+ },
+ "notes": [],
+ "other_languages": {},
+ "outcomes": [
+  {
+   "check": "walk",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "secrets",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "secret.key",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "exec.dynamic",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "exec.shell",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "deser.unsafe",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "net.egress",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "net.bind_all",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "tls.off",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "obfuscation",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "fs.outside",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "privacy.pii_log",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "privacy.pii_prompt",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "manifests",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "works",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "complete",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "supply",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "orphans",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "leftovers",
+   "outcome": "ran",
+   "reason": null
+  }
+ ],
+ "scores": {
+  "cap_reason": null,
+  "capped": false,
+  "complete": 25,
+  "grade": "B",
+  "grade_uncapped": "B",
+  "overall": 81,
+  "safe": 100,
+  "works": 85
+ },
+ "status": "COMPLETE",
+ "status_reasons": [],
+ "tool": "code-guardian",
+ "top": [
+  {
+   "code": "complete.license_missing",
+   "count": 1,
+   "deduction": 20,
+   "dimension": "complete",
+   "first": ".",
+   "level": "WARN",
+   "locations": [
+    "."
+   ],
+   "more": 0,
+   "weight": 20
+  },
+  {
+   "code": "works.tests_missing",
+   "count": 1,
+   "deduction": 15,
+   "dimension": "works",
+   "first": ".",
+   "level": "WARN",
+   "locations": [
+    "."
+   ],
+   "more": 0,
+   "weight": 15
+  },
+  {
+   "code": "complete.ci_missing",
+   "count": 1,
+   "deduction": 10,
+   "dimension": "complete",
+   "first": ".",
+   "level": "WARN",
+   "locations": [
+    "."
+   ],
+   "more": 0,
+   "weight": 10
+  },
+  {
+   "code": "complete.env_example",
+   "count": 1,
+   "deduction": 10,
+   "dimension": "complete",
+   "first": "app.py:3",
+   "level": "WARN",
+   "locations": [
+    "app.py:3"
+   ],
+   "more": 0,
+   "weight": 10
+  },
+  {
+   "code": "complete.lockfile",
+   "count": 1,
+   "deduction": 10,
+   "dimension": "complete",
+   "first": ".",
+   "level": "WARN",
+   "locations": [
+    "."
+   ],
+   "more": 0,
+   "weight": 10
+  }
+ ],
+ "weights_rule": "each check (code + level) deducts its weight once, plus a quarter of the weight per extra occurrence (rounded up), at most 2x the weight; INFO is never scored"
+}

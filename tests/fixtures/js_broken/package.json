@@ -1,0 +1,7 @@
+{
+  "name": "js-broken-example",
+  "version": "0.0.1",
+  "description": "A package whose entry point does not exist and whose imports do not resolve: a code-guardian test fixture.",
+  "main": "dist/index.js",
+  "dependencies": {}
+}

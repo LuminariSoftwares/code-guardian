@@ -1,0 +1,222 @@
+{
+ "anchor": "pyproject.toml",
+ "coverage": {
+  "analysed": "python",
+  "other_source": {},
+  "other_source_files": 0,
+  "partial": false,
+  "python": 4,
+  "reason": null,
+  "safe_partial": false,
+  "works_scored": true
+ },
+ "dimensions": {
+  "complete": {
+   "checks": [],
+   "deducted": 0,
+   "partial": false,
+   "score": 100,
+   "scored": true
+  },
+  "safe": {
+   "checks": [],
+   "deducted": 0,
+   "partial": false,
+   "score": 100,
+   "scored": true
+  },
+  "works": {
+   "checks": [],
+   "deducted": 0,
+   "partial": false,
+   "score": 100,
+   "scored": true
+  }
+ },
+ "egress": [
+  {
+   "kind": "url",
+   "level": "INFO",
+   "node": "cleanpkg/fetch.py:3",
+   "target": "https://example.com/api"
+  },
+  {
+   "kind": "call",
+   "level": "INFO",
+   "node": "cleanpkg/fetch.py:7",
+   "target": "requests.get"
+  }
+ ],
+ "files": {
+  "excluded": 0,
+  "ignored": 0,
+  "manifests": 1,
+  "other": 3,
+  "python": 4,
+  "skipped": 0,
+  "unparsed": 0
+ },
+ "findings": [
+  {
+   "code": "net.egress",
+   "confidence": "LIKELY",
+   "evidence": [
+    "kind: url",
+    "target: https://example.com/api",
+    "why: reserved documentation name"
+   ],
+   "fingerprint": "5e60c6ee0920a67e4027a25512aa778d040730a44169f01ac866383810d6968e",
+   "fix": null,
+   "level": "INFO",
+   "node": "cleanpkg/fetch.py:3",
+   "severity": "partial",
+   "summary": "URL literal https://example.com/api (reserved documentation name)",
+   "try": []
+  },
+  {
+   "code": "net.egress",
+   "confidence": "LIKELY",
+   "evidence": [
+    "kind: call",
+    "target: requests.get"
+   ],
+   "fingerprint": "184c87b49e9ee4954fd896320e6bc028b37a8dfa9fae0fd6fd45e858e6578008",
+   "fix": null,
+   "level": "INFO",
+   "node": "cleanpkg/fetch.py:7",
+   "severity": "partial",
+   "summary": "network call requests.get",
+   "try": []
+  }
+ ],
+ "goal_file": null,
+ "hygiene": {
+  "counts": {
+   "orphan.dead": 0,
+   "orphan.test_only": 0,
+   "orphan.uncertain": 0
+  },
+  "entry_points": [
+   "cleanpkg.cli:main"
+  ],
+  "findings": [],
+  "goal": "",
+  "keep": [],
+  "notes": [],
+  "source": "inferred (library public API)"
+ },
+ "notes": [],
+ "other_languages": {},
+ "outcomes": [
+  {
+   "check": "walk",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "secrets",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "secret.key",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "exec.dynamic",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "exec.shell",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "deser.unsafe",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "net.egress",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "net.bind_all",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "tls.off",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "obfuscation",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "fs.outside",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "privacy.pii_log",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "privacy.pii_prompt",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "manifests",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "works",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "complete",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "supply",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "orphans",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "leftovers",
+   "outcome": "ran",
+   "reason": null
+  }
+ ],
+ "scores": {
+  "cap_reason": null,
+  "capped": false,
+  "complete": 100,
+  "grade": "A",
+  "grade_uncapped": "A",
+  "overall": 100,
+  "safe": 100,
+  "works": 100
+ },
+ "status": "COMPLETE",
+ "status_reasons": [],
+ "tool": "code-guardian",
+ "top": [],
+ "weights_rule": "each check (code + level) deducts its weight once, plus a quarter of the weight per extra occurrence (rounded up), at most 2x the weight; INFO is never scored"
+}
