@@ -123,8 +123,17 @@ def write_baseline(path, out=None, goal_file=None, echo=print, exclude=()):
     return 0
 
 
+def _utf8_stdout():
+    """Write UTF-8 even when stdout is a pipe or file in the ANSI code page (Windows: cp1252 would put a lone 0xb7
+    byte for the report's "·"). A console already reports UTF-8 and is left alone; so are the error handlers."""
+    stream = sys.stdout
+    if (getattr(stream, "encoding", None) or "").lower().replace("-", "") != "utf8" and hasattr(stream, "reconfigure"):
+        stream.reconfigure(encoding="utf-8", errors=stream.errors)
+
+
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
+    _utf8_stdout()
     if argv[:1] == ["mcp"]:  # `code-guardian mcp` starts the same server as `code-guardian-mcp`
         from . import mcp_server
         return mcp_server.main(argv[1:])
