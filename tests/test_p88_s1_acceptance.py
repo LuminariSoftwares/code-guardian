@@ -509,5 +509,9 @@ def test_open_and_get_read_no_folder_and_keep_the_exclude(srv, backup_repo, monk
 # ---- S1 leaves scanners.py alone -------------------------------------------------------------------------------------
 
 def test_scanners_py_unchanged():
+    # Amended 2026-10-24 ~20:50 (overseer): S1 must not touch scanners.py, but S3 (PR #43) does, legitimately. Once
+    # S3's value signals are on the branch (scanners.test_value_reason exists) this S1 check has done its job.
     data = (ROOT / "code_guardian" / "scanners.py").read_bytes().replace(b"\r\n", b"\n")
+    if b"def test_value_reason(" in data:
+        pytest.skip("scanners.py carries P88 S3's change; S1's no-touch check applies only before S3 merges")
     assert hashlib.sha256(data).hexdigest() == SCANNERS_SHA256_MAIN
