@@ -15,6 +15,7 @@ Public contract:
 """
 
 import ast
+import hashlib
 import ipaddress
 import math
 import posixpath
@@ -195,10 +196,11 @@ def flows_from(pf, expr, is_source):
 
 KEY = r"[A-Za-z0-9_\-]{12,}"
 # Numbered as in .github/workflows/privacy.yml's built-in list (patterns 5-12), so a hit names the same rule.
-KEY_PATTERNS = [(n, label, re.compile(r"(?<![A-Za-z0-9_\-])" + re.escape(prefix) + KEY)) for n, label, prefix in (
-    (5, "sk- key", "sk-"), (6, "OpenRouter key", "sk-or-"), (7, "Tavily key", "tvly-"), (8, "GitHub token", "ghp_"),
-    (9, "GitHub fine-grained token", "github_pat_"), (10, "NVIDIA key", "nvapi-"), (11, "Groq key", "gsk_"),
-    (12, "Google API key", "AIza"))]
+_KEY_PREFIXES = ((5, "sk- key", "sk-"), (6, "OpenRouter key", "sk-or-"), (7, "Tavily key", "tvly-"),
+                 (8, "GitHub token", "ghp_"), (9, "GitHub fine-grained token", "github_pat_"),
+                 (10, "NVIDIA key", "nvapi-"), (11, "Groq key", "gsk_"), (12, "Google API key", "AIza"))
+KEY_PATTERNS = [(n, label, re.compile(r"(?<![A-Za-z0-9_\-])" + re.escape(prefix) + KEY))
+                for n, label, prefix in _KEY_PREFIXES]
 # Provider formats beyond the privacy list: (label, level, pattern with the body in group 1).
 PROVIDER_PATTERNS = [(label, level, re.compile(rx)) for label, level, rx in (
     ("AWS access key ID", "FAIL", r"(?<![A-Za-z0-9])(?:AKIA|ASIA)([0-9A-Z]{16})(?![A-Za-z0-9])"),
@@ -337,8 +339,53 @@ def _high_entropy(value):
             and any(c.isdigit() for c in value) and any(c.isalpha() for c in value) and len(set(value)) < len(value))
 
 
-def _secret(where, label, length, level="FAIL", shape=False):
+TEST_VALUE = "looks like a test value"  # evidence prefix of a key-shaped value graded INFO by test_value_reason
+_RUN = re.compile(r"(.)\1{5}")  # six or more of one character in a row
+
+
+def test_value_reason(prefix, body):
+    """Why a key-shaped value reads like a test value, or None when it reads like a real one. `body` is what follows
+    the key's prefix; a value that has a reason is reported at INFO instead of FAIL. Pure: the value is only looked at.
+
+    V1: the body spells out a placeholder word of four or more letters (any case): "spells out fake".
+    V2: the body is low-variety: at most 4 distinct characters ("is mostly one character"), a run of 6 or more of one
+    character ("repeats one character"), or 8 characters in a row each one code point above the last, like 12345678
+    or abcdefgh ("counts up"). A generated key is mixed, so none of these fire on one by chance.
+
+    `prefix` is the key's own prefix. GitHub's classic tokens ("ghp_") end in a CRC32 checksum in Base62, but GitHub's
+    own description of the format
+    (https://github.blog/engineering/platform-security/behind-githubs-new-authentication-token-formats/)
+    does not fix the Base62 alphabet or the characters the checksum covers, so no checksum exemption is written:
+    every prefix is graded by its body alone."""
+    low = body.lower()
+    for word in sorted(w for w in PLACEHOLDER_WORDS if len(w) >= 4):
+        if word in low:
+            return "spells out %s" % word
+    if len(set(body)) <= 4:
+        return "is mostly one character"
+    if _RUN.search(body):
+        return "repeats one character"
+    up = 1
+    for a, b in zip(body, body[1:]):
+        up = up + 1 if ord(b) == ord(a) + 1 else 1
+        if up >= 8:
+            return "counts up"
+    return None
+
+
+def _key_reason(value):
+    """test_value_reason for a KEY_PATTERNS match: the longest known prefix is split off (sk-or-... is an OpenRouter
+    key, whichever of the two patterns matched it)."""
+    prefix = max((p for _n, _l, p in _KEY_PREFIXES if value.startswith(p)), key=len)
+    return test_value_reason(prefix, value[len(prefix):])
+
+
+def _secret(where, label, length, level="FAIL", shape=False, reason=None):
     evidence = ["matched: %s" % label, "length: %d characters" % length] + ([KEY_SHAPE] if shape else [])
+    if reason:
+        return finding("secret.key", "INFO", where, "%s in the source (%s; value redacted)" % (label, TEST_VALUE),
+                       evidence + ["%s: %s" % (TEST_VALUE, reason)],
+                       ["keep test values out of the source too, or make them obviously fake"])
     if level == "INFO":
         return finding("secret.key", "INFO", where, "%s in the source (a test-mode key; value redacted)" % label,
                        evidence, ["keep test keys out of the source too; they still identify the account"])
@@ -355,20 +402,24 @@ def scan_secret_text(rel, text, python):
         hits = []
         for n, label, rx in KEY_PATTERNS:
             for m in rx.finditer(line):
-                hits.append(("%s shape (privacy pattern %d)" % (label, n), len(m.group(0)), "FAIL", True))
+                reason = _key_reason(m.group(0))
+                hits.append(("%s shape (privacy pattern %d)" % (label, n), len(m.group(0)),
+                             "INFO" if reason else "FAIL", True, reason))
         for label, level, rx in PROVIDER_PATTERNS:
             for m in rx.finditer(line):
                 if not _calls_itself_fake(m.group(1)):
-                    hits.append(("%s shape" % label, len(m.group(0)), level, level == "FAIL"))
+                    reason = test_value_reason("", m.group(1)) if level == "FAIL" else None
+                    hits.append(("%s shape" % label, len(m.group(0)), "INFO" if reason else level, level == "FAIL",
+                                 reason))
         for m in AWS_SECRET.finditer(line):
             if not _calls_itself_fake(m.group(2)):
-                hits.append(("AWS secret access key assigned to %r" % m.group(1), 40, "FAIL", False))
+                hits.append(("AWS secret access key assigned to %r" % m.group(1), 40, "FAIL", False, None))
         if PRIVATE_KEY.search(line):
-            hits.append(("private-key block", len(line.strip()), "FAIL", False))
+            hits.append(("private-key block", len(line.strip()), "FAIL", False, None))
         if not python:
             for m in SECRET_TEXT.finditer(line):
                 if _real_secret(m.group(1)):
-                    hits.append(("password-like literal", len(m.group(1)), "FAIL", False))
+                    hits.append(("password-like literal", len(m.group(1)), "FAIL", False, None))
         if hits:
             hits.sort(key=lambda h: h[2] != "FAIL")  # a FAIL on the line wins over a test-mode INFO
             out.append(_secret(where, *hits[0]))
@@ -959,7 +1010,14 @@ def _codes(src, fn):
 
 def selftest():
     h = "http" + "://"
-    key = "sk-" + "A" * 24
+    mixed = hashlib.sha256(b"code-guardian selftest").hexdigest()[:24]  # a mixed, real-shaped body, built here
+    key = "sk-" + mixed
+    pem = "-----BEGIN " + "RSA PRIVATE KEY-----"
+
+    def one(text, rel="a.js"):
+        found = scan_secret_text(rel, text, False)
+        return (found[0]["level"], found[0]["evidence"][-1]) if len(found) == 1 else None
+
     blob = "QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo" * 7
     crashed = []
     checks = [
@@ -968,9 +1026,9 @@ def selftest():
         ("secret_placeholder", scan_secret_text("a.yml", 'password: "<your password>"\n', False) == []),
         ("secret_password_py", _codes('password = "%s"\n' % ("hunter" + "22"), scan_password_literals) == [("secret.key", "FAIL", "t.py:1")]),
         ("secret_provider_shapes", [f["level"] for f in scan_secret_text(
-            "a.env", "A=%s\nB=%s\nC=%s\nD=%s\nE=%s\n" % ("AKIA" + "Q7XZ" * 4, "sk_" + "live_" + "a1B2" * 4,
-                                                       "sk_" + "test_" + "a1B2" * 4, "xox" + "b-" + "1234567890ab",
-                                                       "hf" + "_" + "aBcD" * 8), False)]
+            "a.env", "A=%s\nB=%s\nC=%s\nD=%s\nE=%s\n" % ("AKIA" + "Q7XZ4M9RK2T8W5BN", "sk_" + "live_" + "a1B2c3D4e5F6g7H8",
+                                                       "sk_" + "test_" + "a1B2c3D4e5F6g7H8", "xox" + "b-" + "4829r6037x24",
+                                                       "hf" + "_" + "KpLdGtHsRfWqZrWnJtXcBvQmXkPlRtYu"), False)]
          == ["FAIL", "FAIL", "INFO", "FAIL", "FAIL"]),
         ("secret_aws_example_is_fake", scan_secret_text("c", "k = %s\n" % ("AKIA" + "IOSFODNN7" + "EXAMPLE"), False) == []),
         ("secret_key_suffix_entropy", [len(_codes('%s = "%s"\n' % (name, value), scan_password_literals)) for name, value in
@@ -1015,6 +1073,28 @@ def selftest():
         ("pii_name", pii_name("user_email") and pii_name("clientIpAddress") and not pii_name("server_address")
          and not pii_name("emails_sent")),
         ("aliases", dotted(ast.parse("sp.run").body[0].value, {"sp": "subprocess"}) == "subprocess.run"),
+        ("testkey_word_info", one("k = '%s'\n" % ("sk-" + "fake" + mixed[:12])) ==
+         ("INFO", "looks like a test value: spells out fake")),
+        ("testkey_lowvar_info", one("k = '%s'\n" % ("sk-" + "Hq4" * 10)) ==
+         ("INFO", "looks like a test value: is mostly one character")),
+        ("testkey_run_info", one("k = '%s'\n" % ("sk-" + "Qm7xK2" + "0" * 8 + "pL9wR3")) ==
+         ("INFO", "looks like a test value: repeats one character")),
+        ("testkey_sequence_info", one("k = '%s'\n" % ("sk-" + "Qm7xK2" + "12345678" + "pL9wR3")) ==
+         ("INFO", "looks like a test value: counts up")),
+        ("realkey_stays_fail", [(f["level"], f["evidence"]) for f in scan_secret_text("a.js", "k = '%s'\n" % key, False)]
+         == [("FAIL", ["matched: sk- key shape (privacy pattern 5)", "length: 27 characters", KEY_SHAPE])]),
+        ("pem_never_info", [f["level"] for f in scan_secret_text("a", pem + " fake\n", False)] == ["FAIL"]
+         and [f["level"] for f in scan_secret_text("a", "%s %s\n" % (pem, "sk-" + "Hq4" * 10), False)] == ["FAIL"]),
+        ("fail_wins_the_line", [f["level"] for f in scan_secret_text(
+            "a.js", "a = '%s'; b = '%s'\n" % ("sk-" + "Hq4" * 10, key), False)] == ["FAIL"]),
+        ("provider_lowvar_info", one("A=%s\n" % ("AK" + "IA" + "Q" * 16), "a.env") ==
+         ("INFO", "looks like a test value: is mostly one character")),
+        ("classic_token_lowvar_info", one("t = '%s'\n" % ("gh" + "p_" + "A" * 36)) ==
+         ("INFO", "looks like a test value: is mostly one character")),  # no checksum exemption: graded by the body
+        ("classic_token_mixed_stays_fail", (one("t = '%s'\n" % ("gh" + "p_" + mixed + "Kp2Ld9Gt7Hs3")) or ("",))[0]
+         == "FAIL"),
+        ("reason_none_for_mixed", test_value_reason("sk-", mixed) is None
+         and test_value_reason("sk-", "Hq4" * 10) == "is mostly one character"),
     ]
     return summarize("scanners", checks)
 

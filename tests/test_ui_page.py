@@ -4,9 +4,11 @@ Settings panel: what it stores, where, and that it applies before the page is dr
 import contextlib
 import json
 import re
+import string
 
 import pytest
 from conftest import ROOT
+from make_risky import mixed_body
 
 UI = ROOT / "code_guardian" / "ui"
 ALLOWED = {"/api/scan", "/api/scans", "/api/files", "/api/file", "/api/explain", "/api/diff", "/api/browse",
@@ -225,7 +227,8 @@ def test_code_screen_clamps_and_explains_in_plain_words(tmp_path, monkeypatch):
 
 # ---- the Compare screen (P76 S5) ----------------------------------------------------------------------------------
 
-AWS_ID = "AKIA" + "Q7XZ" * 4  # built at runtime: the package's self-scan reads literals
+# built at runtime: the package's self-scan reads literals; a mixed body, because a low-variety one is graded INFO
+AWS_ID = "AKIA" + mixed_body("ui_page_aws", 16, string.ascii_uppercase + string.digits)
 WITH_KEY = 'import os\n\nKEY = "%s"\n\n\ndef run(cmd):\n    os.system(cmd)\n' % AWS_ID
 WITHOUT_KEY = 'import os\n\n\ndef run(cmd):\n    os.system(cmd)\n'
 

@@ -9,6 +9,7 @@ import sys
 import pytest
 
 from code_guardian import history, report
+from make_risky import mixed_body
 
 GIT = shutil.which("git")
 needs_git = pytest.mark.skipif(GIT is None, reason="git is not on PATH (CI has it)")
@@ -20,7 +21,7 @@ def git(root, *args):
 
 
 def key():
-    return "sk-" + "Hq4" * 10
+    return "sk-" + mixed_body("history", 30)  # mixed, like a real key: a low-variety body is graded INFO
 
 
 def make_repo(root):

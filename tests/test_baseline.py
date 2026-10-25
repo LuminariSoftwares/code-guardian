@@ -9,6 +9,7 @@ import sys
 import pytest
 
 from conftest import ROOT
+from make_risky import mixed_body
 
 from code_guardian import baseline, mcp_server, outputs, report
 
@@ -45,7 +46,7 @@ def test_fingerprint_ignores_line_numbers_and_whitespace():
     assert a == b and re.fullmatch(r"[0-9a-f]{64}", a)
     assert a != baseline.fingerprint("exec.shell", "FAIL", "app/main.py", "os.system('ls')")
     assert a != baseline.fingerprint("exec.shell", "WARN", "app/other.py", "os.system('ls')")
-    key = "sk-" + "K" * 30
+    key = "sk-" + mixed_body("baseline", 30)
     assert baseline.normalise("x = '%s'\t\t# k" % key) == "x = '<redacted key>' # k"
 
 

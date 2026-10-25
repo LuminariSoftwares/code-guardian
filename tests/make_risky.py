@@ -5,18 +5,41 @@ by concatenation, at test time, into a temporary copy.
 
     python tests/make_risky.py DEST      # DEST must not exist
 """
+import hashlib
+import re
 import shutil
 import string
 import sys
 from pathlib import Path
 
 SOURCE = Path(__file__).resolve().parent / "fixtures" / "risky_repo"
+_PLACEHOLDERS = ("mock", "fake", "dummy", "example", "placeholder", "sample", "redacted", "test", "notreal", "changeit")
+
+
+def mixed_body(seed, length, alphabet=string.ascii_letters + string.digits):
+    """A deterministic key body that reads like a real one, so a test that models a real leak keeps failing as one:
+    `length` letters and digits drawn from hashlib(seed), at least 12 distinct characters, no character three times
+    in a row, no placeholder word. The same seed always gives the same body."""
+    n = 0
+    while True:
+        digest = hashlib.sha256(("%s:%d" % (seed, n)).encode("utf-8")).digest()
+        body = "".join(alphabet[b % len(alphabet)] for b in digest[:length])
+        n += 1
+        if (len(body) == length and len(set(body)) >= 12 and any(c.isdigit() for c in body)
+                and any(c.isalpha() for c in body) and not re.search(r"(.)\1\1", body)
+                and not any(w in body.lower() for w in _PLACEHOLDERS)):
+            return body
+
+
+def risky_key():
+    """The key build() writes as line 1 of risky/settings.py: sk- and 24 mixed characters."""
+    return "sk-" + mixed_body("make_risky", 24)
 
 
 def build(dest):
     dest = Path(dest)
     shutil.copytree(SOURCE, dest)
-    key = "sk-" + "A" * 24
+    key = risky_key()
     password = "Tr0ub4dor" + "-and-3"
     alphabet = string.ascii_letters + string.digits
     seed, token = 12345, ""

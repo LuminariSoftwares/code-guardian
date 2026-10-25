@@ -6,6 +6,7 @@ import sys
 
 from code_guardian import mcp_server, outputs, report, scanners, score
 from code_guardian.finding import make_finding
+from make_risky import mixed_body
 
 
 def f(code, level, node):
@@ -37,7 +38,7 @@ def test_text_report_lists_up_to_three_locations(tmp_path):
 
 
 def planted():
-    key = "sk-" + "Zq7" * 10
+    key = "sk-" + mixed_body("locations_redact", 30)
     email = "alice.doe" + "@" + "corp-mail.org"
     return key, email
 
