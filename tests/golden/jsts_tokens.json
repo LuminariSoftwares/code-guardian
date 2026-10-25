@@ -1,0 +1,12 @@
+{
+ "js_broken/src/half.js": "bb675787fd73bf7403a9c7ec01842b0dacef186fcbf1b90551616855e9aea919",
+ "js_broken/src/index.ts": "e05e0e3dd34344bab925d76c83f445cbe99e2189953075c305d4bfbb4bf0e241",
+ "js_clean/src/index.js": "4939b53cf7f6f605e6d49f25de839aa474a40fb1c894d675e4a3f8132653306b",
+ "js_clean/src/util.js": "e257343d07948a017c98c3b3e873f946acedb868200f99ec18544ddeac5394bc",
+ "js_clean/test/index.test.js": "9f9a2653a0bd66127d0b4bafb525821397550ee3f76606c231f58701862b9c55",
+ "js_risky/server.js": "d5e04f2f74333c1eb0a0f7fa959f66d80a5263903edb5566c043e33a58312856",
+ "jsx_torture/App.jsx": "b4384a7f5190cfd1cdfcbe42128e30ef5cb1fc57186e846050e03aa9b03d7ae4",
+ "jsx_torture/Quote.jsx": "88b38d4245c2820093da14ea72a4ebe07ceddda4bb2b374f4604584b9ddfb2d3",
+ "jsx_torture/bin.mjs": "e5b5afba70e7e50cfa62694200eb00bf23875a0c37aa6251bc46223555df49ac",
+ "jsx_torture/util.tsx": "374e772c738e6f40f4ab75d077b808136809d2f0ade1b8de3c2c5e4619e2c7ce"
+}
