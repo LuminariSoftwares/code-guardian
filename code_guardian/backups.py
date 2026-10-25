@@ -14,8 +14,14 @@ Public contract:
     wanted(findings) -> True when a finding sits in a backup copy (only then does offer need graph and texts)
     offer(findings, inventory, graph=None, texts=None) -> (offered, held)
         offered: [{"glob", "files", "findings", "by_code": {"<code> <level>": n}, "fail", "named_by": [rel]}],
-                 most findings first
+                 most findings first, then by glob
         held:    [{"glob", "why"}]   a copy with findings that is not offered, and the reason in plain words
+
+Counts are exact (P93 C1): the candidates are the globs looks_like_backup gives the findings' files, folder globs
+first, then the one that drops more findings, then by glob; every path and finding is counted once, under the first
+candidate whose glob drops it (walk's own rule, so a mark glob also takes a dot file such as .pre-commit-config.yaml and
+a file inside another backup-looking folder). Leaving out every offered glob drops exactly the offered files and
+findings, and the held check below looks at the findings counted under the glob.
 
 A copy is offered only when it has at least one finding and the code kept beside it does not use it. It is held when
 a module outside it imports a module inside it (graph), or when it holds an install.hook finding at any level or an
@@ -39,6 +45,7 @@ import tokenize
 
 from .finding import summarize
 from .orphans import Graph, module_name
+from .walk import _excluded
 
 # A folder whose whole name says it is a copy (plan P88 section 2.6): _archive, old, backups, Backup-2026-08-24,
 # _old_20260824, tmp, temp, scratch, .trash; any *_old (src_old); backup_<anything> or backup-<anything>
@@ -112,9 +119,9 @@ def _into(qualified, prefix, inside):
     return any(qualified == m or qualified.startswith(m + ".") for m in inside)
 
 
-def _importers(graph, glob, prefix):
-    """The files outside the copy whose imports reach into it, sorted."""
-    inside = {m for m, rel in graph.modules.items() if looks_like_backup(rel) == glob}
+def _importers(graph, glob, prefix, owner):
+    """The files outside the copy whose imports reach into it, sorted. owner(rel) is the glob a path is counted under."""
+    inside = {m for m, rel in graph.modules.items() if owner(rel) == glob}
     out = set()
     for mod, rel in graph.modules.items():
         if mod in inside:
@@ -151,10 +158,10 @@ def _names(literal, segment, python):
     return python and bool(_DOTTED.match(literal)) and segment.lower() in literal.lower().split(".")
 
 
-def _naming_files(texts, glob, segment):
+def _naming_files(texts, glob, segment, owner):
     out = []
     for rel in sorted(texts):
-        if looks_like_backup(rel) == glob:
+        if owner(rel) == glob:
             continue
         strings, words = _literals(rel, texts[rel])
         python = rel.endswith(".py")
@@ -170,7 +177,7 @@ def _listing(rels, one, many):
     return "%s %s" % (shown, one if len(rels) == 1 else many)
 
 
-def _why(glob, group, graph):
+def _why(glob, group, graph, owner):
     """The reasons a copy with findings is not offered, in plain words; empty when it may be offered."""
     reasons = []
     risky = [f for f in group if f["code"] in ALWAYS_HELD or (f["code"] in NEVER_LEFT_OUT and f["level"] == "FAIL")]
@@ -179,30 +186,49 @@ def _why(glob, group, graph):
         reasons.append("it holds %s %s at %s, and a risk that runs code is never left out on a suggestion"
                        % ("an" if f["code"][0] in "aeiou" else "a", f["code"] + " " + f["level"], f["node"]))
     if graph is not None:
-        importers = _importers(graph, glob, _folder(glob)[1])
+        importers = _importers(graph, glob, _folder(glob)[1], owner)
         if importers:
             reasons.append(_listing(importers, "imports it", "import it"))
     return "; ".join(reasons)
 
 
+def _candidates(findings):
+    """The globs to consider, in the order a path is counted under them: folder globs first, then the glob that drops
+    more of the findings, then the glob text."""
+    rels = [_rel(f["node"]) for f in findings]
+    globs = {g for g in map(looks_like_backup, rels) if g}
+    dropped = {g: sum(1 for rel in rels if _excluded(rel, (g,))) for g in globs}
+    return sorted(globs, key=lambda g: (_folder(g)[0] is None, -dropped[g], g))
+
+
 def offer(findings, inventory, graph=None, texts=None):
     """(offered, held) for the backup copies in a scan. inventory is what walk.walk returned; graph is an
-    orphans.Graph of the parsed Python files; texts maps rel -> the text of every file read."""
+    orphans.Graph of the parsed Python files; texts maps rel -> the text of every file read. Every path and finding
+    is counted under the first candidate glob that drops it, so leaving out the offered globs drops exactly what the
+    offer says."""
+    order = _candidates(findings)
+    owners = {}
+
+    def owner(rel):
+        if rel not in owners:
+            owners[rel] = next((g for g in order if _excluded(rel, (g,))), None)
+        return owners[rel]
+
     files, grouped = {}, {}
     seen = set(inventory["python"]) | set(inventory["manifests"]) | set(inventory["other"])
     seen |= {rel for rel, _ in inventory["skipped"]}
     for rel in seen:
-        glob = looks_like_backup(rel)
+        glob = owner(rel)
         if glob:
             files[glob] = files.get(glob, 0) + 1
     for f in findings:
-        glob = looks_like_backup(_rel(f["node"]))
+        glob = owner(_rel(f["node"]))
         if glob:
             grouped.setdefault(glob, []).append(f)
     offered, held = [], []
     for glob in sorted(grouped, key=lambda g: (-len(grouped[g]), g)):
         group = grouped[glob]
-        why = _why(glob, group, graph)
+        why = _why(glob, group, graph, owner)
         if why:
             held.append({"glob": glob, "why": why})
             continue
@@ -213,7 +239,8 @@ def offer(findings, inventory, graph=None, texts=None):
         offered.append({"glob": glob, "files": files.get(glob, 0), "findings": len(group),
                         "by_code": dict(sorted(by_code.items(), key=lambda kv: (-kv[1], kv[0]))),
                         "fail": sum(1 for f in group if f["level"] == "FAIL"),
-                        "named_by": _naming_files(texts, glob, segment) if texts is not None and segment else []})
+                        "named_by": _naming_files(texts, glob, segment, owner)
+                        if texts is not None and segment else []})
     return offered, held
 
 
@@ -266,6 +293,12 @@ def selftest():
     ordered = run({"app/main.py": "", "_archive/a.py": "", "_backup/b.py": ""},
                   [f("secret.key", "FAIL", "_archive/a.py:1"), f("secret.key", "FAIL", "_backup/b.py:1"),
                    f("secret.key", "WARN", "_backup/b.py:2")])
+    once = offer([f("secret.key", "FAIL", "_archive/b.py.backup-1:1"), f("secret.key", "FAIL", "z.py.pre-fix:1"),
+                   f("deps.unpinned", "INFO", ".pre-commit-config.yaml:3")],
+                  inv("_archive/a.py", "_archive/b.py.backup-1", "tmp_old/y.py.backup-3", "z.py.pre-fix",
+                      other=(".pre-commit-config.yaml",)))
+    risky_dot = offer([f("secret.key", "FAIL", "z.py.pre-fix:1"), f("install.hook", "WARN", ".pre-commit-config.yaml:1")],
+                      inv("z.py.pre-fix", other=(".pre-commit-config.yaml",)))
     checks = [
         ("folder", looks_like_backup("_archive/x/y.py") == "_archive/*"),
         ("file_mark", looks_like_backup("a/b.py.backup-20260824") == "*.backup-*"),
@@ -305,6 +338,10 @@ def selftest():
         ("sorted_by_findings", [(g["glob"], g["findings"], g["fail"]) for g in ordered[0]]
          == [("_backup/*", 2, 1), ("_archive/*", 1, 1)]),
         ("no_findings_no_group", run(plain, [f("exec.shell", "WARN", "app/main.py:1")]) == ([], [])),
+        ("counted_once_under_first_glob", [(g["glob"], g["files"], g["findings"]) for g in once[0]]
+         == [("*.pre-*", 2, 2), ("_archive/*", 2, 1)] and once[1] == []),
+        ("risky_dot_file_holds_mark_glob", risky_dot[0] == [] and risky_dot[1][0]["glob"] == "*.pre-*"
+         and ".pre-commit-config.yaml" in risky_dot[1][0]["why"]),
         ("wanted", wanted(key) and not wanted([f("exec.shell", "WARN", "app/main.py:1")])),
     ]
     return summarize("backups", checks)
