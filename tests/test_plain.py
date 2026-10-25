@@ -575,3 +575,53 @@ def test_file_rows_over_every_fixture_never_calls_an_unread_file_clean(tmp_path)
                 assert row["risk"] in ("Partly checked", "Not read", "High", "Medium", "Low"), (root.name, row)
         hml = sum(1 for row in rows if row["risk"] in ("High", "Medium", "Low"))
         assert counts["no_known_risks"] + counts["partly_checked"] + counts["not_read"] == counts["all"] - hml
+
+
+# ---- P88 C5: the backup banner, the left-out line and the test-value line --------------------------------------------
+
+def _offered(glob, findings, **more):
+    return dict({"glob": glob, "files": findings, "findings": findings, "by_code": {"secret.key FAIL": findings}}, **more)
+
+
+def test_backup_offer_line_on_fixed_inputs():
+    assert plain.backup_offer_line([_offered("_archive/*", 151)], 206) == \
+        "151 of 206 findings are in 1 folder that looks like a backup copy: _archive/*"
+    assert plain.backup_offer_line([_offered("_archive/*", 151), _offered("*.backup-*", 3)], 206) == \
+        "154 of 206 findings are in 1 folder and 1 set of files that look like backup copies: _archive/*, *.backup-*"
+    assert plain.backup_offer_line([_offered("*.old", 2), _offered("*.bak", 1)], 9) == \
+        "3 of 9 findings are in 2 sets of files that look like backup copies: *.old, *.bak"
+    assert plain.backup_offer_line([_offered("old/*", 1)], 1) == \
+        "1 of 1 finding is in 1 folder that looks like a backup copy: old/*"
+
+
+def test_held_and_named_lines_on_fixed_inputs():
+    assert plain.held_line([{"glob": "old/*", "why": "app/main.py imports old/helper.py"}]) == [
+        "old/* was not offered: app/main.py imports old/helper.py"]
+    assert plain.held_line([]) == []
+    three = {"glob": "_archive/*", "named_by": ["a.py", "b.py", "c.py"]}
+    assert plain.named_line(three) == ("_archive/* is named in a string by 3 files (a.py, b.py, c.py): leave it out "
+                                       "only if they just write copies there")
+    assert plain.named_line({"glob": "old/*"}) is None
+
+
+def test_left_out_line_on_fixed_inputs():
+    assert plain.left_out_line([{"glob": "old/*", "files": 1, "findings": 1, "by_code": {"secret.key FAIL": 1}}]) == \
+        "Left out at your request: old/* (1 file, 1 finding left out: 1 secret.key, 0 other)"
+    assert plain.left_out_line([{"glob": "old/*", "files": 2, "findings": 0, "by_code": {}}]) == \
+        "Left out at your request: old/* (2 files, 0 findings left out: 0 secret.key, 0 other)"
+    # one group the server counted and one from the command line: the files only, never a half-counted total
+    assert plain.left_out_line([{"glob": "_archive/*", "files": 3, "findings": 2, "by_code": {"secret.key FAIL": 2}},
+                                {"glob": "old/*", "files": 4}]) == "Left out at your request: _archive/*, old/* (7 files)"
+
+
+def test_test_values_line_on_fixed_inputs():
+    assert plain.test_values_line(3) == "3 key-shaped values were graded as test values -- check they are fake"
+    assert plain.test_values_line(1) == "1 key-shaped value was graded as a test value -- check it is fake"
+
+
+def test_the_p88_sentences_make_no_promise():
+    sentences = [plain.backup_offer_line([_offered("_archive/*", 2)], 5), plain.test_values_line(2),
+                 plain.left_out_line([{"glob": "old/*", "files": 1}]), plain.held_line(
+                     [{"glob": "old/*", "why": "app/main.py imports it"}])[0],
+                 plain.named_line({"glob": "old/*", "named_by": ["a.py"]})]
+    assert not [s for s in sentences if plain.VERDICT_PHRASES.search(s)]

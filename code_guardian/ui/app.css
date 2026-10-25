@@ -197,6 +197,8 @@ main.with-rail { max-width: 72ch; }
 
 .scanned { color: var(--muted); font-size: 0.875rem; margin-bottom: 1rem; }
 .scanned .mono { color: var(--text); }
+.left-out { color: var(--muted); font-size: 0.875rem; margin: -0.5rem 0 1rem; }
+.left-out .link, .test-values .link, .findings-filter .link { min-height: 2.75rem; padding: 0.25rem 0.5rem; }
 
 /* ---- controls ------------------------------------------------------------------------------------------------- */
 
@@ -400,6 +402,18 @@ legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
   padding: 1rem;
   margin-bottom: 1rem;
 }
+
+/* ---- P88: backup copies offered, test values graded, a filtered findings list ------------------------------- */
+
+.backup-banner { border-left: 6px solid var(--accent); }
+.backup-text { margin: 0 0 0.5rem; font-weight: 600; }
+.backup-lines { list-style: none; margin: 0 0 0.5rem; padding: 0; color: var(--muted); font-size: 0.9375rem; }
+.backup-lines:empty { display: none; }
+.backup-lines li { margin: 0 0 0.25rem; overflow-wrap: anywhere; }
+.backup-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.75rem 0; }
+.backup-banner .cli-note { margin: 0; }
+.test-values, .findings-filter { color: var(--muted); margin: 0 0 0.75rem; }
+
 .eyebrow { color: var(--muted); font-size: 0.875rem; margin: 0 0 0.25rem; text-transform: uppercase; letter-spacing: 0.06em; }
 .harm-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.75rem; margin-bottom: 0.5rem; }
 .harm-word { font-size: 2.5rem; font-weight: 800; line-height: 1.1; margin: 0; }

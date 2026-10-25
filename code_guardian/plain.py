@@ -23,6 +23,11 @@ Public contract:
     diff_sentence(d) -> str                         # d: verify.diff(...); "1 fixed, 0 new, grade D \u2192 B"
     file_rows(report, inventory) -> [{"rel", "kind", "why_not_read", "why_partly", "findings", "risk"}]
     file_counts(rows) -> {"all", "with_findings", "no_known_risks", "partly_checked", "not_read"}
+    backup_offer_line(offered, total) -> str        # P88 C5: the banner sentence; offered = backup_offer["offered"]
+    held_line(held) -> [str]                        # one muted line per backup folder that was not offered
+    named_line(group) -> str | None                 # the caution under an offered folder that files name in a string
+    left_out_line(groups) -> str                    # groups = report["excluded_by_request"]
+    test_values_line(n) -> str                      # the summary line for report["test_values_graded"]
 
 CLI:
     python -m code_guardian.plain --selftest        # counted checks; rc 0 only if all pass
@@ -608,6 +613,70 @@ def file_counts(rows):
 
 
 # ---------------------------------------------------------------------------------------------------------------
+# P88 C5: the backup banner, the left-out line and the test-value line. The page builds these same sentences in
+# app.js from the same fields (the server sends no sentence for them); tests/test_p88_s2_acceptance.py and
+# tests/test_ui_backups.py hold the two to the same strings.
+
+
+def _count(n, one, many):
+    return "%d %s" % (n, one if n == 1 else many)
+
+
+def backup_offer_line(offered, total):
+    """The banner sentence: how many of the findings sit in the groups offered, and the globs. offered is the list in
+    backup_offer["offered"] (each {"glob", "findings", ...}); total is every finding of the result the banner sits on.
+    A glob ending in "/*" is a folder; any other is a set of files."""
+    findings = sum(g["findings"] for g in offered)
+    folders = sum(1 for g in offered if g["glob"].endswith("/*"))
+    kinds = []
+    if folders:
+        kinds.append(_count(folders, "folder", "folders"))
+    if len(offered) - folders:
+        kinds.append(_count(len(offered) - folders, "set of files", "sets of files"))
+    return "%d of %d %s %s in %s that %s: %s" % (
+        findings, total, "finding" if total == 1 else "findings", "is" if total == 1 else "are", " and ".join(kinds),
+        "looks like a backup copy" if len(offered) == 1 else "look like backup copies",
+        ", ".join(g["glob"] for g in offered))
+
+
+def held_line(held):
+    """One line per backup group the check did not offer, with the reason it gave."""
+    return ["%s was not offered: %s" % (g["glob"], g["why"]) for g in held]
+
+
+def named_line(group):
+    """A caution for an offered group that kept files name in a string, or None when none does: such files may only
+    write copies there, or may read from it."""
+    named = group.get("named_by") or []
+    if not named:
+        return None
+    names = ", ".join(named[:3]) + (" and %d more" % (len(named) - 3) if len(named) > 3 else "")
+    return "%s is named in a string by %s (%s): leave it out only if they just write copies there" % (
+        group["glob"], _count(len(named), "file", "files"), names)
+
+
+def left_out_line(groups):
+    """The summary-header line after a person left paths out. groups is report["excluded_by_request"]: each has a glob
+    and the files it left out; the server adds the findings and their counts by code when it computed them. A result
+    with no counts for some group (a command-line one) says the files only."""
+    files = sum(g.get("files", 0) for g in groups)
+    head = "Left out at your request: %s" % ", ".join(g["glob"] for g in groups)
+    if not all(isinstance(g.get("findings"), int) and isinstance(g.get("by_code"), dict) for g in groups):
+        return "%s (%s)" % (head, _count(files, "file", "files"))
+    found = sum(g["findings"] for g in groups)
+    keys = sum(n for g in groups for code, n in g["by_code"].items() if code.split(" ")[0] == "secret.key")
+    return "%s (%s, %s left out: %d secret.key, %d other)" % (
+        head, _count(files, "file", "files"), _count(found, "finding", "findings"), keys, found - keys)
+
+
+def test_values_line(n):
+    """The summary line for key-shaped values graded as test values: n is report["test_values_graded"]."""
+    if n == 1:
+        return "1 key-shaped value was graded as a test value -- check it is fake"
+    return "%d key-shaped values were graded as test values -- check they are fake" % n
+
+
+# ---------------------------------------------------------------------------------------------------------------
 # selftest
 
 
@@ -785,6 +854,18 @@ def selftest():
             "all": 9, "with_findings": 6, "no_known_risks": 2, "partly_checked": 3, "not_read": 1}
          and file_counts([]) == dict.fromkeys(("all", "with_findings", "no_known_risks", "partly_checked",
                                                "not_read"), 0)),
+        ("backup_lines_exact", backup_offer_line([{"glob": "_archive/*", "findings": 5}], 9)
+         == "5 of 9 findings are in 1 folder that looks like a backup copy: _archive/*"
+         and backup_offer_line([{"glob": "_archive/*", "findings": 1}], 1)
+         == "1 of 1 finding is in 1 folder that looks like a backup copy: _archive/*"
+         and held_line([{"glob": "old/*", "why": "app/main.py imports old/helper.py"}])
+         == ["old/* was not offered: app/main.py imports old/helper.py"] and held_line([]) == []
+         and named_line({"glob": "old/*", "named_by": []}) is None),
+        ("left_out_and_test_value_lines_exact", left_out_line(
+            [{"glob": "old/*", "files": 1, "findings": 1, "by_code": {"secret.key FAIL": 1}}])
+         == "Left out at your request: old/* (1 file, 1 finding left out: 1 secret.key, 0 other)"
+         and left_out_line([{"glob": "old/*", "files": 4}]) == "Left out at your request: old/* (4 files)"
+         and test_values_line(3) == "3 key-shaped values were graded as test values -- check they are fake"),
         ("file_rows_never_mutates", rows_rep == rows_before),
         ("file_rows_no_verdict_phrase", not [
             v for r in rows.values() for v in (r["risk"], r["why_partly"], r["why_not_read"])

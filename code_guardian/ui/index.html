@@ -143,9 +143,26 @@
 <div class="frame-body">
 <p class="scanned" id="scanned" hidden>Folder: <span class="mono" id="scanned-path"></span> <span id="scanned-when"></span></p>
 <div id="again-error" class="alert" role="alert" hidden></div>
+<!-- Shown on every tab of a check that left paths out at the person's request (P88 C5). -->
+<p class="left-out" id="left-out" hidden><span id="left-out-text"></span> <button type="button" class="link" id="left-out-put-back">Put them back</button></p>
 
 <!-- Result: how worried to be, first. -->
 <section id="screen-result" class="screen" hidden>
+  <!-- Backup copies with findings in them: offered, never left out unasked (P88 C5). app.js fills it from the check's
+       backup_offer; the one button that leaves them out is the person's. -->
+  <div id="backup-banner" class="backup-banner card" role="note" hidden>
+    <p class="backup-text" id="backup-offer-text"></p>
+    <ul class="backup-lines" id="backup-named"></ul>
+    <div class="backup-actions">
+      <button type="button" class="primary" id="backup-exclude">Check again without them</button>
+      <button type="button" class="ghost" id="backup-keep">Keep them in</button>
+    </div>
+    <ul class="backup-lines" id="backup-held"></ul>
+    <details class="cli-note" id="backup-cli">
+      <summary>Using the command line?</summary>
+      <p class="hint" id="backup-cli-text"></p>
+    </details>
+  </div>
   <div id="banner" class="banner" role="note" hidden>
     <span class="status-word" id="banner-word"></span>
     <span id="banner-text"></span>
@@ -159,6 +176,7 @@
     <p class="harm-why" id="harm-why"></p>
   </div>
   <p class="grade-line" id="grade-line"></p>
+  <p class="test-values" id="test-values" hidden><span id="test-values-text"></span> <button type="button" class="link" id="test-values-show">Show them</button></p>
   <ul class="sentences card" id="sentences"></ul>
   <h2 class="section-title">What was checked</h2>
   <ul class="checked card" id="checked"></ul>
@@ -198,6 +216,7 @@
 <section id="screen-findings" class="screen" hidden>
   <h1>Findings</h1>
   <p class="intro" id="findings-intro"></p>
+  <p class="findings-filter" id="findings-filter" hidden><span id="findings-filter-text"></span> <button type="button" class="link" id="findings-filter-clear">Show all findings</button></p>
   <div id="groups"></div>
 </section>
 
