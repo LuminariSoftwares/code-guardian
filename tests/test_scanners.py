@@ -3,10 +3,11 @@ clean under its own self-scan and the privacy workflow."""
 import pytest
 
 from conftest import HTTP as H, tailnet
+from make_risky import mixed_body
 
 from code_guardian import manifests, scanners
 
-KEY = "sk-" + "B" * 30
+KEY = "sk-" + mixed_body("scanners_key", 30)
 
 
 def run(fn, src):
@@ -16,8 +17,8 @@ def run(fn, src):
 
 @pytest.mark.parametrize("text, hits", [
     ("token = '%s'\n" % KEY, 1),
-    ("# old key: %s\n" % ("ghp_" + "c" * 20), 1),
-    ("x = '%s'\n" % ("AIza" + "d" * 30), 1),
+    ("# old key: %s\n" % ("ghp_" + mixed_body("scanners_ghp", 20)), 1),
+    ("x = '%s'\n" % ("AIza" + mixed_body("scanners_aiza", 30)), 1),
     ("-----BEGIN " + "OPENSSH PRIVATE KEY-----\n", 1),
     ("sk-short\n", 0),
     ("ask-" + "e" * 20 + "\n", 0),  # not at a token boundary

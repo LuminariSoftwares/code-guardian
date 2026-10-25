@@ -80,7 +80,7 @@ def test_risky_exact_nodes(tmp_path):
 
 def test_risky_secret_values_never_printed(tmp_path):
     out = cli("scan", risky(tmp_path), "--json").stdout
-    assert ("sk-" + "A" * 24) not in out and ("Tr0ub4dor" + "-and-3") not in out
+    assert make_risky.risky_key() not in out and ("Tr0ub4dor" + "-and-3") not in out
     assert "value redacted" in out
 
 

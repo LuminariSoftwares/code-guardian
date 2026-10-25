@@ -3,6 +3,7 @@ pattern in a tiny repo: red before the fix, green after."""
 import ast
 
 from code_guardian import report, scanners, works
+from make_risky import mixed_body
 
 
 def write(root, files):
@@ -33,7 +34,7 @@ def test_safe_findings_in_test_code_are_info(tmp_path):
 
 def test_key_shapes_and_decoded_exec_stay_fail_even_in_tests(tmp_path):
     rep = write(tmp_path, {
-        "tests/conftest.py": "import base64\nexec(base64.b64decode(PAYLOAD))\nKEY = '%s'\n" % ("sk-" + "Q" * 30),
+        "tests/conftest.py": "import base64\nexec(base64.b64decode(PAYLOAD))\nKEY = '%s'\n" % ("sk-" + mixed_body("calibration_conftest", 30)),
     })
     assert levels(rep, "obfuscation") == [("FAIL", "tests/conftest.py:2")]
     assert levels(rep, "secret.key") == [("FAIL", "tests/conftest.py:3")]
@@ -94,7 +95,7 @@ def test_documentation_samples_are_info(tmp_path):
         "pkg/__init__.py": "",
         "docs/auth.md": '>>> auth = BasicAuth(username="alice", password="s3cr3t-alice9")\n',
         "README.rst": 'Use ``api_key: "k3y-from-dashboard"`` in the config.\n',
-        "docs/keys.md": "KEY=%s\n" % ("ghp_" + "Z" * 30),
+        "docs/keys.md": "KEY=%s\n" % ("ghp_" + mixed_body("calibration_docs", 30)),
     })
     assert levels(rep, "secret.key") == [("FAIL", "docs/keys.md:1"), ("INFO", "README.rst:1"), ("INFO", "docs/auth.md:1")]
 

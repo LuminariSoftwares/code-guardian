@@ -58,7 +58,7 @@ def test_only_findings_are_sent(stub, tmp_path):
     for source_line in (path / "risky" / "runner.py").read_text(encoding="utf-8").splitlines():
         if source_line.strip():
             assert source_line.strip() not in raw
-    assert ("sk-" + "A" * 24) not in raw and '"evidence"' not in raw
+    assert make_risky.risky_key() not in raw and '"evidence"' not in raw
 
 
 def test_openai_compatible(stub):

@@ -1,14 +1,19 @@
 """Provider key shapes (AWS, Stripe, Slack, Hugging Face), *_KEY / *_TOKEN names with high-entropy values, and
 exec.dynamic FAIL when eval/exec run user input. Every key-shaped string is built by concatenation at runtime so this
 file stays clean under the privacy workflow and its own self-scan."""
+import string
+
 import pytest
 
 from code_guardian import report, scanners, score
+from make_risky import mixed_body
 
-AWS_ID = "AKIA" + "Q7XZ" * 4
+# Key bodies are mixed, like a real key: a low-variety body is graded INFO ("looks like a test value").
+AWS_BODY = mixed_body("safe_gaps_aws", 16, string.ascii_uppercase + string.digits)
+AWS_ID = "AKIA" + AWS_BODY
 AWS_SECRET = "Zk8vR2mQ+pL5/xN9" * 2 + "tW3cY6hB"          # 40 characters of [A-Za-z0-9/+]
 STRIPE_BODY = "a1B2c3D4e5F6g7H8"                          # 16 characters
-SLACK = "xox" + "b-" + "123456789012-123456789012-" + "aB3dE5fG7hJ9kL1mN3pQ5rS7"
+SLACK = "xox" + "b-" + "482916037524-715038269481-" + mixed_body("safe_gaps_slack", 24)
 HF = "hf" + "_" + "aBcDeFgHiJkLmNoPqRsTuVwXyZaBcDeFgH"  # 34 letters
 ANTHROPIC = "sk-" + "ant-api03-" + "Qm7Zr2Kp9Lx4" * 3
 HIGH = "aZ3kP9mQ2vR7tY5wX1bN8cL4dF6gH0jSaZ3k"            # 36 characters, entropy ~4.9
@@ -25,7 +30,7 @@ def levels(text, **kw):
 @pytest.mark.parametrize("text, expected", [
     # AWS access key ID: (AKIA|ASIA) + 16 of [0-9A-Z], a whole token
     ("key = %s\n" % AWS_ID, ["FAIL"]),
-    ("id: '%s'\n" % ("ASIA" + "Q7XZ" * 4), ["FAIL"]),
+    ("id: '%s'\n" % ("ASIA" + AWS_BODY), ["FAIL"]),
     ("key = %s\n" % AWS_ID[:-1], []),                                 # 15 characters after the prefix
     ("key = %s\n" % (AWS_ID + "Q"), []),                              # 17: not a whole token
     ("key = X%s\n" % AWS_ID, []),                                     # not at a token boundary
@@ -186,7 +191,7 @@ def test_near_miss_fixture_has_no_secret_or_exec_fail(tmp_path):
 
 
 def test_one_secret_finding_per_line(tmp_path):
-    put(tmp_path, "app/k.py", 'SLACK_TOKEN = "%s"\napi_key = "%s"\n' % (SLACK, "sk-" + "B" * 30))
+    put(tmp_path, "app/k.py", 'SLACK_TOKEN = "%s"\napi_key = "%s"\n' % (SLACK, "sk-" + mixed_body("safe_gaps_line", 30)))
     rep = report.scan(str(tmp_path))
     hits = [(f["node"], f["summary"].split(" ")[0]) for f in rep["findings"] if f["code"] == "secret.key"]
     assert hits == [("app/k.py:1", "Slack"), ("app/k.py:2", "sk-")]   # the shape wins over the name

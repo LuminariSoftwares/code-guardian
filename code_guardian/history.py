@@ -30,7 +30,7 @@ import tempfile
 import threading
 
 from .finding import make_finding, summarize
-from .scanners import KEY_SHAPE, key_values, scan_secret_text
+from .scanners import KEY_SHAPE, TEST_VALUE, key_values, scan_secret_text
 
 DEPTH = 500
 BYTE_CAP = 64 * 1024 * 1024
@@ -60,11 +60,19 @@ def _path(line):
     return target[2:] if target.startswith("b/") else target
 
 
-def _finding(sha, path, label):
+def _finding(sha, path, label, reason=None):
+    """reason: why the value looks like a test value (scanners.test_value_reason), or None for a key-shaped value that
+    reads like a real one."""
+    evidence = ["commit: %s" % sha[:7], "path: %s" % path, "matched: %s" % label, KEY_SHAPE]
+    if reason:
+        return make_finding("secret.history", "partial", "INFO", path,
+                            "a key shape that looks like a test value was committed in %s" % sha[:7],
+                            evidence=evidence + ["%s: %s" % (TEST_VALUE, reason)],
+                            try_=["keep test values out of the history too, or make them obviously fake"])
     return make_finding("secret.history", "partial", "FAIL", path,
                         "a key shape was committed in %s and may still be valid even if the file no longer has it"
                         % sha[:7],
-                        evidence=["commit: %s" % sha[:7], "path: %s" % path, "matched: %s" % label, KEY_SHAPE],
+                        evidence=evidence,
                         try_=["rotate the key now: deleting it from the file does not delete it from the history",
                               "then, if the repository is shared, consider rewriting the history (git filter-repo)"])
 
@@ -107,12 +115,17 @@ def scan(root, depth=DEPTH, byte_cap=BYTE_CAP, current=None):
                 path = _path(line)
             elif line.startswith("+") and sha and path:
                 values = key_values(line[1:])
-                hits = [f for f in scan_secret_text(path, line[1:], python=True) if f["level"] == "FAIL"]
+                # the line's worst hit: a FAIL, or a key shape graded INFO because the value looks like a test value
+                hits = [f for f in scan_secret_text(path, line[1:], python=True)
+                        if f["level"] == "FAIL" or KEY_SHAPE in f["evidence"]]
                 if not values or not hits or any(v in current.get(path, "") for v in values):
                     continue  # nothing key-shaped, or still in the working tree (secret.key reports it)
                 digest = hashlib.sha256("\0".join(sorted(values)).encode("utf-8")).hexdigest()
                 # log runs newest first, so the last write is the oldest commit that added this value here
-                found[(path, digest)] = _finding(sha, path, hits[0]["evidence"][0][len("matched: "):])
+                evidence = hits[0]["evidence"]
+                reason = next((e[len(TEST_VALUE) + 2:] for e in evidence if e.startswith(TEST_VALUE + ": ")), None)
+                found[(path, digest)] = _finding(sha, path, evidence[0][len("matched: "):],
+                                                 reason if hits[0]["level"] == "INFO" else None)
     finally:
         timer.cancel()
         proc.stdout.close()
@@ -142,6 +155,7 @@ def selftest():
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     f = _finding("a" * 40, "app/x.py", "sk- key shape")
+    g = _finding("b" * 40, "app/x.py", "sk- key shape", "is mostly one character")
     checks = [
         ("argv_list", cmd[:2] == ["git", "--no-pager"] and "--max-count=7" in cmd and cmd[-2:] == ["--", "."]
          and "--no-ext-diff" in cmd and "--no-textconv" in cmd and "log.showSignature=false" in cmd),
@@ -150,6 +164,8 @@ def selftest():
         ("not_a_repo_skips", found == [] and skipped in ("not a git repository", "git is not on PATH") and notes),
         ("finding", f["level"] == "FAIL" and f["node"] == "app/x.py" and "aaaaaaa" in f["summary"]
          and KEY_SHAPE in f["evidence"] and len(f["summary"]) <= 120),
+        ("finding_test_value", g["level"] == "INFO" and g["evidence"][-1] == "looks like a test value: is mostly one character"
+         and len(g["summary"]) <= 120),
     ]
     return summarize("history", checks)
 
