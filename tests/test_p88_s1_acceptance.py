@@ -16,6 +16,15 @@ Readings this file takes where the plan leaves a choice (the build follows them)
   - No goal file and a requested exclude: the "excluded by the goal file" note is not written (it would be false).
   - Every subcommand that takes --goal today (scan, baseline, plan, orphans) also takes --exclude.
 
+AMENDED by the overseer 2026-10-24 ~20:00 Central after review of PR #42 (deviation D10, pickup P88):
+  - A kept file that NAMES the folder in a string no longer holds the group: on the owner's own folder 46 scripts name
+    _archive/ because they WRITE their backups there, so the plan's rule held back the very copy (151 of 206 findings)
+    P88 exists for. Imports and risky findings still hold. Every offered group carries "named_by": the sorted kept
+    files that name its folder in a string ([] when none); the page shows them as a caution (S2).
+  - looks_like_backup covers the whole plan section 2.6 list, including the owner's own "<name>.pre-<change>-<date>".
+  - The text report's files line stays true: with a requested exclude it reads
+    "(N skipped, N excluded by the goal file, N left out at your request)"; without one it is unchanged.
+
 The 8 fixture digests were recorded on main on 2026-10-24 (code-guardian 0.4.0) with the overseer's recorder: the
 report of each fixture with top-level "version" and "path" dropped, json.dumps(sort_keys=True, indent=1), sha256.
 risky_repo is scanned as tests/make_risky.build makes it. Confirmed on Windows the same day (cg_review on main): the
@@ -125,6 +134,20 @@ def graph_of(files):
     ("_ARCHIVE/z.py", "_ARCHIVE/*"),         # case-insensitive; the glob keeps the segment as walked
     ("pkg/_backups/m.py", "pkg/_backups/*"),  # any depth: the glob names the folder's path
     ("app/main.py", None),
+    # amended: the rest of plan section 2.6
+    ("scripts/x.py.pre-p88-20261024", "*.pre-*"),
+    ("a/settings.py.orig", "*.orig"),
+    ("a/notes.txt~", "*~"),
+    ("tmp/a.py", "tmp/*"),
+    ("temp/a.py", "temp/*"),
+    ("scratch/a.py", "scratch/*"),
+    (".trash/a.py", ".trash/*"),
+    ("src_old/a.py", "src_old/*"),
+    ("backup_before_refactor/a.py", "backup_before_refactor/*"),
+    ("_to_delete_2026-10-24/a.py", "_to_delete_2026-10-24/*"),
+    ("archives/a.py", "archives/*"),
+    ("bold/a.py", None),                      # ends in "old" but is not "_old"
+    ("templates/a.py", None),                 # starts with "temp" but is not "temp"
 ])
 def test_looks_like_backup(rel, glob):
     from code_guardian import backups
@@ -185,14 +208,24 @@ def test_offer_holds_a_group_the_kept_code_imports():
     assert "app/main.py" in held[0]["why"]
 
 
-def test_offer_holds_a_group_a_kept_file_names_in_a_string():
+def test_offer_a_kept_file_naming_the_folder_is_a_caution_not_a_hold():
     from code_guardian import backups
-    files = {"app/main.py": 'DATA = "_archive/seed.json"\n', "_archive/a.py": "X = 1\n"}
+    files = {"app/main.py": 'DATA = "_archive/seed.json"\n', "tools/save.py": 'DEST = "_archive"\n',
+             "_archive/a.py": "X = 1\n"}
     inv = inventory(python=list(files))
     offered, held = backups.offer([finding("secret.key", "FAIL", "_archive/a.py:1")], inv, graph=graph_of(files),
                                   texts=files)
-    assert offered == [] and [h["glob"] for h in held] == ["_archive/*"]
-    assert "app/main.py" in held[0]["why"]
+    assert held == [] and [g["glob"] for g in offered] == ["_archive/*"], (offered, held)
+    assert offered[0]["named_by"] == ["app/main.py", "tools/save.py"]
+
+
+def test_offer_an_import_still_holds_even_when_also_named():
+    from code_guardian import backups
+    files = {"app/main.py": 'from old import helper\nP = "old/x"\n', "old/__init__.py": "", "old/helper.py": "X = 1\n"}
+    inv = inventory(python=list(files))
+    offered, held = backups.offer([finding("secret.key", "FAIL", "old/helper.py:1")], inv, graph=graph_of(files),
+                                  texts=files)
+    assert offered == [] and [h["glob"] for h in held] == ["old/*"] and "app/main.py" in held[0]["why"]
 
 
 def test_offer_a_bare_word_in_a_string_does_not_hold():
@@ -202,6 +235,7 @@ def test_offer_a_bare_word_in_a_string_does_not_hold():
     offered, held = backups.offer([finding("secret.key", "FAIL", "old/a.py:1")], inv, graph=graph_of(files),
                                   texts=files)
     assert [g["glob"] for g in offered] == ["old/*"] and held == []
+    assert offered[0]["named_by"] == []
 
 
 @pytest.mark.parametrize("code,level", [("exec.shell", "FAIL"), ("exec.dynamic", "FAIL"), ("obfuscation", "FAIL"),
@@ -350,6 +384,17 @@ def test_report_scan_unmatched_exclude_counts_zero(backup_repo):
 
 
 # ---- C2: the CLI -----------------------------------------------------------------------------------------------------
+
+def test_text_files_line_says_what_was_left_out_at_request(backup_repo):
+    r = run_cli("scan", str(backup_repo), "--exclude", "_archive/*")
+    line = [ln for ln in r.stdout.splitlines() if ln.startswith("files: ")]
+    assert line, r.stdout[:500]
+    m = re.search(r"\((\d+) skipped, (\d+) excluded by the goal file, (\d+) left out at your request\)$", line[0])
+    assert m and m.group(2) == "0" and int(m.group(3)) >= 1, line[0]
+    plain_run = run_cli("scan", str(backup_repo))
+    plain_line = [ln for ln in plain_run.stdout.splitlines() if ln.startswith("files: ")][0]
+    assert plain_line.endswith("excluded by the goal file)") and "at your request" not in plain_line, plain_line
+
 
 def test_scan_help_shows_exclude():
     r = run_cli("scan", "--help")

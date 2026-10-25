@@ -8,9 +8,10 @@ Only POST /api/scan reads a folder. GET /api/scan?id= hands back a stored result
 
 POST /api/scan takes "exclude": [glob] (at most EXCLUDE_MAX, each at most GLOB_MAX characters) to leave paths out at
 the person's request, or "again": "<scan id>" to re-check with the exclude that check used. Its answer carries the
-exclude used and "backup_offer": backups.offer() on the result ({"offered", "held"}), beside the report. A check
-with an exclude has the finding counts by code of each glob the server offered on the unexcluded check merged into
-the report's excluded_by_request, so a saved check keeps them (P88 C2).
+exclude used and "backup_offer": backups.offer() on the result ({"offered", "held"}), beside the report; each offered
+group's named_by lists the kept files that name its folder in a string, a caution for the page, never a hold (P88
+D10). A check with an exclude has the finding counts by code of each glob the server offered on the unexcluded check
+merged into the report's excluded_by_request, so a saved check keeps them (P88 C2).
 
     make_server(port=None) -> server bound to 127.0.0.1, not yet serving, with .token; server_close() also removes
                               every per-scan temp directory. None tries DEFAULT_PORTS in order, then any free port;

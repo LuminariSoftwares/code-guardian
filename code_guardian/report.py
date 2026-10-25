@@ -581,9 +581,11 @@ def render(report):
     s = report["scores"]
     fl = report["files"]
     name = os.path.basename(os.path.abspath(report["path"])) or report["path"]
+    asked = sum(g["files"] for g in report["excluded_by_request"]) if "excluded_by_request" in report else None
     lines = ["code-guardian %s  scan of %s" % (report["version"], name),
-             "files: %d Python, %d manifests, %d other (%d skipped, %d excluded by the goal file)"
-             % (fl["python"], fl["manifests"], fl["other"], fl["skipped"], fl["excluded"]),
+             "files: %d Python, %d manifests, %d other (%d skipped, %d excluded by the goal file%s)"
+             % (fl["python"], fl["manifests"], fl["other"], fl["skipped"], fl["excluded"] - (asked or 0),
+                "" if asked is None else ", %d left out at your request" % asked),
              status_line(report)]
     if report.get("coverage"):
         lines.append(coverage_line(report["coverage"]))
