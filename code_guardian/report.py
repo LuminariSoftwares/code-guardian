@@ -3,9 +3,11 @@ explain=True, and then only the URL in CODE_GUARDIAN_LLM_URL.
 
 Public contract:
     scan(path, goal_file=None, explain=False, env=None, online=False, baseline=None, history=False,
-         history_depth=500) -> report dict
+         history_depth=500, exclude=()) -> report dict
                                        # raises UsageError (bad PATH or baseline) / goal.GoalError
-    orphans(path, goal_file=None, infer=False) -> hygiene dict (+ "files")
+                                       # exclude: globs left out at the person's request, after the goal file's;
+                                       # non-empty adds excluded_by_request [{"glob", "files"}] and a note
+    orphans(path, goal_file=None, infer=False, exclude=()) -> hygiene dict (+ "files")
     render(report) -> text            render_orphans(hygiene) -> text       status_line(report) -> text
     coverage_of(inv, langs) -> coverage dict          coverage_line(coverage) -> 'coverage: ...'
     exit_code(findings, fail_on, status=None, baseline=None) -> 0, 1 or 3 (an incomplete scan: PARTIAL or INVALID);
@@ -179,13 +181,45 @@ def _baseline(path):
         raise UsageError("cannot read baseline %s: %s" % (path, exc)) from None
 
 
+def _asked(root, goal_globs, exclude):
+    """[(glob, n)]: what the walk left out for each requested glob, counted as the walk counts (a pruned folder once,
+    a path matched by the goal file or an earlier glob not again). Walks the names only; no file is opened."""
+    patterns, counts = walk.load_ignore(root), [0] * len(exclude)
+
+    def left_out(rel, is_dir):
+        if walk.ignored(rel, is_dir, patterns) or walk._excluded(rel, goal_globs):
+            return True
+        for i, glob in enumerate(exclude):
+            if walk._excluded(rel, (glob,)):
+                counts[i] += 1
+                return True
+        return False
+
+    for dirpath, dirnames, filenames in os.walk(root):
+        reldir = os.path.relpath(dirpath, root).replace(os.sep, "/")
+        reldir = "" if reldir == "." else reldir + "/"
+        dirnames[:] = [d for d in sorted(dirnames) if d not in walk.SKIP_DIRS
+                       and not os.path.islink(os.path.join(dirpath, d)) and not left_out(reldir + d, True)]
+        for name in filenames:
+            if not os.path.islink(os.path.join(dirpath, name)):
+                left_out(reldir + name, False)
+    return list(zip(exclude, counts))
+
+
+def _asked_note(asked):
+    return "%d path(s) left out at your request: %s" % (sum(n for _, n in asked), ", ".join(g for g, _ in asked))
+
+
 def scan(path, goal_file=None, explain=False, env=None, online=False, baseline=None, history=False,
-         history_depth=history_mod.DEPTH):
+         history_depth=history_mod.DEPTH, exclude=()):
     """baseline: a file written by `code-guardian baseline`; each finding is then marked new or known.
-    history: also run the key-shape rules over the lines the last history_depth commits added (git, read-only)."""
+    history: also run the key-shape rules over the lines the last history_depth commits added (git, read-only).
+    exclude: globs to leave out at the person's request, applied after the goal file's own."""
     root = _root(path)
     base = _baseline(baseline) if baseline else None
     contract, notes = _contract(root, goal_file)
+    exclude = [exclude] if isinstance(exclude, str) else list(exclude)  # one glob given bare is one glob
+    goal_globs = tuple(contract["exclude"]) if contract else ()
     out = Outcomes()
     findings, trees, entries, broken, texts, unreadable, invalid, sources = [], {}, [], {}, {}, [], [], {}
     try:
@@ -193,10 +227,11 @@ def scan(path, goal_file=None, explain=False, env=None, online=False, baseline=N
     except OSError as exc:
         invalid.append("PATH is unreadable (%s)" % type(exc).__name__)
     inv = _empty_inventory() if invalid else out.run(
-        "walk", lambda: walk.walk(root, exclude=contract["exclude"] if contract else ()), None, findings)
+        "walk", lambda: walk.walk(root, exclude=goal_globs + tuple(exclude)), None, findings)
     if inv is None:
         inv = _empty_inventory()
         invalid.append("the file walk crashed")
+    asked = _asked(root, goal_globs, exclude) if exclude and inv["excluded"] else [(g, 0) for g in exclude]
     if not invalid and not inv["python"] and not inv["manifests"]:
         invalid.append("no Python files and no manifests to judge")
 
@@ -286,8 +321,11 @@ def scan(path, goal_file=None, explain=False, env=None, online=False, baseline=N
         notes.append("skipped %s (%s)" % (rel, why))
     for rel in unreadable:
         notes.append("skipped %s (unreadable)" % rel)
-    if inv["excluded"]:
-        notes.append("%d path(s) excluded by the goal file" % inv["excluded"])
+    by_goal = inv["excluded"] - sum(n for _, n in asked)
+    if by_goal:
+        notes.append("%d path(s) excluded by the goal file" % by_goal)
+    if exclude:
+        notes.append(_asked_note(asked))
     if hygiene is None:
         hygiene = {"source": "none (the orphan check crashed)", "goal": "", "entry_points": [], "keep": [],
                    "findings": [], "notes": [], "counts": {"orphan.dead": 0, "orphan.test_only": 0,
@@ -320,6 +358,8 @@ def scan(path, goal_file=None, explain=False, env=None, online=False, baseline=N
     }
     if base is not None:
         report["baseline"] = {"file": baseline, "version": base["version"], "new": new, "known": known}
+    if exclude:
+        report["excluded_by_request"] = [{"glob": g, "files": n} for g, n in asked]
     _score(report)
     report = redact_report(report)  # before explain: the model sees what every output shows, nothing more
     if explain:
@@ -418,11 +458,16 @@ def _score(report):
     report["weights_rule"] = score.WEIGHTS_RULE
 
 
-def orphans(path, goal_file=None, infer=False):
-    """Hygiene only. infer=True ignores the contract's entry points and keep list (it still honours exclude)."""
+def orphans(path, goal_file=None, infer=False, exclude=()):
+    """Hygiene only. infer=True ignores the contract's entry points and keep list (it still honours exclude).
+    exclude: globs to leave out at the person's request, as for scan."""
     root = _root(path)
     contract, notes = _contract(root, goal_file)
-    inv = walk.walk(root, exclude=contract["exclude"] if contract else ())
+    exclude = [exclude] if isinstance(exclude, str) else list(exclude)  # one glob given bare is one glob
+    goal_globs = tuple(contract["exclude"]) if contract else ()
+    inv = walk.walk(root, exclude=goal_globs + tuple(exclude))
+    if exclude:
+        notes.append(_asked_note(_asked(root, goal_globs, exclude)))
     trees, entries = {}, []
     for rel in inv["python"]:
         try:
@@ -536,9 +581,11 @@ def render(report):
     s = report["scores"]
     fl = report["files"]
     name = os.path.basename(os.path.abspath(report["path"])) or report["path"]
+    asked = sum(g["files"] for g in report["excluded_by_request"]) if "excluded_by_request" in report else None
     lines = ["code-guardian %s  scan of %s" % (report["version"], name),
-             "files: %d Python, %d manifests, %d other (%d skipped, %d excluded by the goal file)"
-             % (fl["python"], fl["manifests"], fl["other"], fl["skipped"], fl["excluded"]),
+             "files: %d Python, %d manifests, %d other (%d skipped, %d excluded by the goal file%s)"
+             % (fl["python"], fl["manifests"], fl["other"], fl["skipped"], fl["excluded"] - (asked or 0),
+                "" if asked is None else ", %d left out at your request" % asked),
              status_line(report)]
     if report.get("coverage"):
         lines.append(coverage_line(report["coverage"]))

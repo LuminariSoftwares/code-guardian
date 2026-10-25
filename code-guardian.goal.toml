@@ -34,6 +34,7 @@ entry_points = [
   "code_guardian.plain:__main__",
   "code_guardian.refuse:__main__",
   "code_guardian.ui:__main__",
+  "code_guardian.backups:__main__",
 ]
 
 keep = []
