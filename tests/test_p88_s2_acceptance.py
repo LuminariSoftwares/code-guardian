@@ -431,10 +431,18 @@ def test_a_saved_check_reopens_with_the_left_out_line(page_and_server, tmp_path)
     from code_guardian import plain
     page, srv, posts = page_and_server
     folder = build_backup_folder(tmp_path / "proj")
+    # Amended 2026-10-24 ~22:15 (overseer): the real order -- a check without excludes makes the offer, then the
+    # banner's re-check leaves the copy out; the saved result keeps the offer's counts, files included (a pruned
+    # folder is ONE path to the walk, so the file count must come from the offer, which counts the files in it).
+    status, first = srv.call("POST", "/api/scan", {"path": str(folder), "goal_file": None})
+    assert status == 200, first
+    offered = {g["glob"]: g for g in first["backup_offer"]["offered"]}
+    assert "_archive/*" in offered, first["backup_offer"]
     status, got = srv.call("POST", "/api/scan", {"path": str(folder), "goal_file": None, "exclude": ["_archive/*"]})
     assert status == 200, got
     groups = got["report"]["excluded_by_request"]
     assert groups and "findings" in groups[0] and "by_code" in groups[0], groups
+    assert groups[0]["files"] == offered["_archive/*"]["files"], (groups[0], offered["_archive/*"])
     saved = tmp_path / "saved.json"
     saved.write_text(json.dumps(got["report"]), encoding="utf-8")
     page.set_input_files("#open-saved", str(saved))
