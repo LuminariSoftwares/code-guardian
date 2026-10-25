@@ -1,5 +1,15 @@
 # Changelog
 
+## code-guardian-mcp 0.4.2 (2026-10-25)
+
+The backup offer now counts exactly what leaving it out would skip, and releases are now published from GitHub with a signed record of where they came from.
+
+1. **The offer's numbers are exact.** On a real folder the page offered `*.backup-*` as 48 files while leaving it out skipped 177, and a glob such as `*.pre-*` also dropped dot files like `.pre-commit-config.yaml` whose findings were never counted or checked. Each file and finding is now counted once, under the first offered glob that drops it, so leaving out everything on offer skips exactly the files and findings the offer says.
+2. **Releases are published by GitHub, with provenance.** Publishing a GitHub Release runs `.github/workflows/release.yml`, which builds the package, checks it, and uploads it to PyPI by trusted publishing: no PyPI token is stored anywhere, and the upload carries an attestation pointing at the commit. Steps for the owner: [docs/RELEASING.md](docs/RELEASING.md).
+
+- **Exact attribution (P93 C1).** `backups.offer` orders its candidate globs folder globs first, then by findings dropped, then by glob; every inventory path (python, manifests, other, skipped) and every finding is counted under the first candidate whose glob drops it (`walk._excluded`, the rule `--exclude` applies). `files`, `findings`, `by_code` and `fail` count what is counted under a glob, and the held check (imports, `install.hook` at any level, `obfuscation` / `exec.dynamic` / `exec.shell` at FAIL) looks at those findings, so a risky dot file that a mark glob would drop holds that glob back. The offered list is sorted by findings, then glob. The return shape is unchanged: `ui.py`, `plain.py` and the page needed no change.
+- **Trusted publishing (P93 C2).** `release.yml` runs on `release: published`, on `workflow_dispatch` with a `dry_run` input (default on) and on pull requests that change it or `pyproject.toml`. Its build job checks the tag equals `v` plus `pyproject.toml`'s version, then runs `python -m build` and `twine check --strict`; the one publishing job runs in the `pypi` environment with `id-token: write` and `attestations: true`. Every action is pinned to a full commit SHA.
+
 ## code-guardian-mcp 0.4.1 (2026-10-25)
 
 Two changes, both about findings that are real but not the ones that matter.

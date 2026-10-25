@@ -11,7 +11,7 @@ import sys
 
 PROTOCOL = "2024-11-05"
 SERVER_NAME = "code-guardian"
-VERSION = "0.4.1"  # keep equal to code_guardian.__version__ and pyproject.toml (this module stays package-free)
+VERSION = "0.4.2"  # keep equal to code_guardian.__version__ and pyproject.toml (this module stays package-free)
 _PATH = {"type": "string", "minLength": 1,
          "description": "The project directory to read; must exist.", "examples": ["."]}
 _GOAL = {"type": "string", "minLength": 1,
