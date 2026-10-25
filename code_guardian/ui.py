@@ -222,7 +222,7 @@ class Server(http.server.ThreadingHTTPServer):
                 offered = {g["glob"]: g for g in self.offered.get((target, goal_file), ())}
                 for row in rep["excluded_by_request"]:
                     if row["glob"] in offered:
-                        row.update(findings=offered[row["glob"]]["findings"],
+                        row.update(files=offered[row["glob"]]["files"], findings=offered[row["glob"]]["findings"],
                                    by_code=dict(offered[row["glob"]]["by_code"]))
             else:
                 self.offered[(target, goal_file)] = offer["offered"]

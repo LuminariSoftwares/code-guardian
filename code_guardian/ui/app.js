@@ -1,11 +1,16 @@
 "use strict";
 // code-guardian ui: the page. It talks only to the local server's API (/api/scan, /api/scans, /api/files, /api/file,
 // /api/explain, /api/diff, /api/browse, /api/open) with the
-// token from the link's fragment (#t=...). Only POST /api/scan reads a folder, and the page calls it from four
-// places: the Open form, the Browse result and the two "Check again" buttons (a folder named on the command line was
-// checked by the server before the page opened). Loading the page, picking an earlier check and opening a saved check
-// only ask the server for what it already holds (GET /api/scan?id=, POST /api/open). It never computes a score or a sentence: every number and every sentence
-// on the page comes from the report and its plain-language layer. Text from the report is always set as text, never
+// token from the link's fragment (#t=...). Only POST /api/scan reads a folder, and the page calls it from six
+// places: the Open form, the Browse result, the two "Check again" buttons, and the two actions that change which
+// paths are left out (the backup banner's button and Put them back); a folder named on the command line was
+// checked by the server before the page opened. Only those two actions send a list of paths to leave out, and only
+// the banner's offers one. Loading the page, picking an earlier check and opening a saved check
+// only ask the server for what it already holds (GET /api/scan?id=, POST /api/open). It never computes a score: every
+// number on the page comes from the report, and every sentence from its plain-language layer, except the five
+// sentences about backup copies and test values (the "P88" block below), which are put together here from the
+// server's own counts and mirror plain.py word for word (tests/test_p88_s2_acceptance.py holds the two together).
+// Text from the report is always set as text, never
 // as markup. The only things it keeps in the browser are the person's own choices: the settings (theme, text size, the
 // Luminari name) under localStorage["cg.settings"] and whether the summary column is open or a slim rail under
 // localStorage["cg.rail"]; the token is never stored.
@@ -65,6 +70,7 @@
     files: {},        // "id\nrel" -> /api/file body
     scanning: false,
     again: false,     // a "Check again" is running
+    testValuesOnly: false,   // Findings lists only the key-shaped values graded as test values
     pick: null,       // rel of the file picked in the file list; names the drawer below 900 px
     listing: null,    // /api/files body for the check on screen, or null while it loads or if it could not be loaded
     range: null,      // {lo, hi}: the lines picked in the viewer, 1-based and inclusive
@@ -634,9 +640,12 @@
     });
   }
 
-  // One POST /api/scan. The path as asked is kept with the result, so "Check again" asks for the same thing.
-  function scan(path) {
-    return call(API_SCAN, { method: "POST", body: { path: path, goal_file: null } }).then(function (result) {
+  // One POST /api/scan. The path as asked is kept with the result, so "Check again" asks for the same thing. more is
+  // what else the request carries: nothing, the id of a check to repeat, or the paths to leave out.
+  function scan(path, more) {
+    var body = { path: path, goal_file: null };
+    Object.keys(more || {}).forEach(function (key) { body[key] = more[key]; });
+    return call(API_SCAN, { method: "POST", body: body }).then(function (result) {
       result.asked = path;
       hold(result);
       return result;
@@ -648,22 +657,26 @@
     if (err.body.error === "path") return "That folder was not found. Check the path and try again. (" + detail + ")";
     if (err.body.error === "refused") return detail;
     if (err.body.error === "goal") return "The project's goal file could not be read: " + detail;
+    if (err.body.error === "again") return "code-guardian no longer holds that check. Use New check to read the folder again.";
     if (err.body.error === "scan") return "The check stopped with an error (" + detail + "). Nothing was changed in the folder.";
     return "The check could not start (" + (err.body.error || err.status) + ").";
   }
 
   // "Check again": scan the same folder now, on demand only, and stay on the tab the reader is on. Every tab and
   // the rail are redrawn from the new response; an open file is opened again from the new scan.
-  function checkAgain() {
+  // more: the paths to leave out, from the banner or Put them back. Without it the check repeats the one on screen,
+  // and the server keeps whatever that check left out.
+  function checkAgain(more) {
     if (!state.current || state.again || state.scanning) return;
     var was = state.current;
+    var ask = more || (leftOutGlobs(was).length ? { again: was.id } : null);
     var path = was.asked || was.report.path;
     var screen = state.screen;
     var file = screen === "code" ? state.file : null;
     var line = file ? parseInt($("jump-line").value, 10) || null : null;
     againError("");
     setAgain(true, "Checking the folder again…");
-    return scan(path).then(function (result) {
+    return scan(path, ask).then(function (result) {
       setAgain(false, "");
       setResult(result);
       show(screen, false);
@@ -723,7 +736,7 @@
       var text = on ? "Checking…" : "Check again";
       var label = $(id).querySelector(".again-label");   // the rail's button keeps its icon; its label may be hidden
       $(id).disabled = on;
-      $(id).title = on ? text : AGAIN_TITLE;
+      $(id).title = on ? text : againTitle();
       if (label) {
         label.textContent = text;
         $(id).setAttribute("aria-label", text);
@@ -731,7 +744,151 @@
         $(id).textContent = text;
       }
     });
+    ["backup-exclude", "left-out-put-back"].forEach(function (id) { $(id).disabled = on; });
     if (text || on) $("rail-when").textContent = text;
+  }
+
+  // The tooltip of Check again: it names the paths a check on screen left out, because it leaves them out again.
+  function againTitle() {
+    var globs = state.current ? leftOutGlobs(state.current) : [];
+    return globs.length ? AGAIN_TITLE + " (without " + globs.join(", ") + ")" : AGAIN_TITLE;
+  }
+
+  // ---- P88: backup copies, paths left out at the person's request, key-shaped test values -------------------------
+  // The numbers are the server's (backup_offer, excluded_by_request, test_values_graded). The five sentences mirror
+  // plain.backup_offer_line, held_line, named_line, left_out_line and test_values_line.
+
+  function countOf(n, one, many) { return n + " " + (n === 1 ? one : many); }
+
+  function backupOfferLine(offered, total) {
+    var findings = 0;
+    var folders = 0;
+    var globs = [];
+    offered.forEach(function (g) {
+      findings += g.findings;
+      if (/\/\*$/.test(g.glob)) folders += 1;
+      globs.push(g.glob);
+    });
+    var kinds = [];
+    if (folders) kinds.push(countOf(folders, "folder", "folders"));
+    if (offered.length - folders) kinds.push(countOf(offered.length - folders, "set of files", "sets of files"));
+    return findings + " of " + total + (total === 1 ? " finding is in " : " findings are in ") + kinds.join(" and ") +
+      " that " + (offered.length === 1 ? "looks like a backup copy" : "look like backup copies") + ": " + globs.join(", ");
+  }
+
+  function heldLine(g) { return g.glob + " was not offered: " + g.why; }
+
+  function namedLine(g) {
+    var named = g.named_by || [];
+    if (!named.length) return null;
+    var names = named.slice(0, 3).join(", ") + (named.length > 3 ? " and " + (named.length - 3) + " more" : "");
+    return g.glob + " is named in a string by " + countOf(named.length, "file", "files") + " (" + names +
+      "): leave it out only if they just write copies there";
+  }
+
+  // groups: report.excluded_by_request. A group the server counted carries findings and by_code; one from the
+  // command line has only its glob and files, and then the line says the files only.
+  function leftOutLine(groups) {
+    var files = 0;
+    var found = 0;
+    var keys = 0;
+    var counted = true;
+    groups.forEach(function (g) {
+      files += typeof g.files === "number" ? g.files : 0;
+      if (typeof g.findings !== "number" || !g.by_code || typeof g.by_code !== "object") { counted = false; return; }
+      found += g.findings;
+      Object.keys(g.by_code).forEach(function (code) { if (code.split(" ")[0] === "secret.key") keys += g.by_code[code]; });
+    });
+    var head = "Left out at your request: " + groups.map(function (g) { return g.glob; }).join(", ");
+    if (!counted) return head + " (" + countOf(files, "file", "files") + ")";
+    return head + " (" + countOf(files, "file", "files") + ", " + countOf(found, "finding", "findings") + " left out: " +
+      keys + " secret.key, " + (found - keys) + " other)";
+  }
+
+  function testValuesLine(n) {
+    if (n === 1) return "1 key-shaped value was graded as a test value -- check it is fake";
+    return n + " key-shaped values were graded as test values -- check they are fake";
+  }
+
+  // The globs a check left out: the ones the server says it used, and any its report names (a saved check has only
+  // the report's).
+  function leftOutGlobs(result) {
+    var globs = (Array.isArray(result.exclude) ? result.exclude : []).filter(function (g) { return typeof g === "string"; });
+    var groups = result.report && result.report.excluded_by_request;
+    (Array.isArray(groups) ? groups : []).forEach(function (g) {
+      if (g && typeof g.glob === "string" && globs.indexOf(g.glob) < 0) globs.push(g.glob);
+    });
+    return globs;
+  }
+
+  // The banner shows when the check found findings in backup copies it would offer to leave out. Nothing here is kept:
+  // it is drawn again from every response, so Keep them in only hides it until the next check.
+  function renderBackup(result) {
+    var offered = (result.backup_offer && result.backup_offer.offered) || [];
+    var held = (result.backup_offer && result.backup_offer.held) || [];
+    var named = $("backup-named");
+    var holds = $("backup-held");
+    clear(named);
+    clear(holds);
+    $("backup-banner").hidden = !offered.length;
+    if (!offered.length) return;
+    $("backup-offer-text").textContent = backupOfferLine(offered, (result.report.findings || []).length);
+    offered.forEach(function (g) {
+      var line = namedLine(g);
+      if (line) named.appendChild(el("li", null, line));
+    });
+    held.forEach(function (g) { holds.appendChild(el("li", null, heldLine(g))); });
+    var globs = backupGlobs(result);
+    $("backup-exclude").title = "Checks again with " + globs.join(", ") + " left out";
+    $("backup-cli-text").textContent = "To leave the same paths out from the command line, add " +
+      globs.map(function (g) { return "--exclude '" + g + "'"; }).join(" ") + " to the scan.";
+  }
+
+  // What the banner's button leaves out: what the check on screen already left out, and the globs it now offers.
+  function backupGlobs(result) {
+    var globs = leftOutGlobs(result);
+    ((result.backup_offer && result.backup_offer.offered) || []).forEach(function (g) {
+      if (globs.indexOf(g.glob) < 0) globs.push(g.glob);
+    });
+    return globs;
+  }
+
+  function renderLeftOut(rep) {
+    var groups = Array.isArray(rep.excluded_by_request)
+      ? rep.excluded_by_request.filter(function (g) { return g && typeof g.glob === "string"; }) : [];
+    $("left-out").hidden = !groups.length;
+    if (groups.length) $("left-out-text").textContent = leftOutLine(groups);
+  }
+
+  function renderTestValues(rep) {
+    var n = rep.test_values_graded;
+    var on = typeof n === "number" && Number.isInteger(n) && n > 0;
+    $("test-values").hidden = !on;
+    if (on) $("test-values-text").textContent = testValuesLine(n);
+  }
+
+  // The fingerprints of the findings whose evidence says the value looks like a test value (the server's own words).
+  function testValuePrints(rep) {
+    var prints = {};
+    (rep.findings || []).forEach(function (f) {
+      if ((f.evidence || []).some(function (e) { return String(e).indexOf("looks like a test value") >= 0; })) {
+        prints[f.fingerprint] = true;
+      }
+    });
+    return prints;
+  }
+
+  function showTestValues() {
+    if (!state.current) return;
+    state.testValuesOnly = true;
+    renderFindings(state.current.report, state.current.plain);
+    show("findings");
+  }
+
+  function showAllFindings() {
+    if (!state.current) return;
+    state.testValuesOnly = false;
+    renderFindings(state.current.report, state.current.plain);
   }
 
   // ---- one result ----------------------------------------------------------------------------------------------
@@ -754,7 +911,12 @@
     renderRail(rep, plain);
     renderSummary(rep, plain);
     renderFixFirst(rep, plain);
+    state.testValuesOnly = false;
     renderFindings(rep, plain);
+    renderBackup(result);
+    renderLeftOut(rep);
+    renderTestValues(rep);
+    ["check-again", "check-again-summary"].forEach(function (id) { if (!state.again) $(id).title = againTitle(); });
     resetViewer();
     loadFiles(result);
   }
@@ -913,10 +1075,18 @@
 
   function renderFindings(rep, plain) {
     var cards = plain.cards || [];
+    var only = state.testValuesOnly ? testValuePrints(rep) : null;   // fingerprints of the findings graded as test values
+    if (only) cards = cards.filter(function (c) { return only[c.fingerprint]; });
+    var filter = $("findings-filter");
+    filter.hidden = !only;
+    if (only) {
+      $("findings-filter-text").textContent = "Showing only the " + plural(cards.length, "finding") +
+        " whose key-shaped value looks like a test value. Check that each one really is fake.";
+    }
     var groups = {};
     GROUPS.forEach(function (g) { groups[g.key] = []; });
     cards.forEach(function (c) { groups[groupOf(c, rep)].push(c); });
-    $("findings-intro").textContent = cards.length
+    $("findings-intro").textContent = only ? "" : cards.length
       ? plural(cards.length, "finding") + ". Each one says where it is, what the check saw, why that can matter and what to do."
       : "The checks reported nothing.";
     var box = $("groups");
@@ -926,7 +1096,7 @@
       if (!rows.length) return;
       // High and Medium start open; Low and Quality start folded so the phone page stays short.
       var sec = el("details", "group");
-      sec.open = g.key === "High" || g.key === "Medium";
+      sec.open = !!only || g.key === "High" || g.key === "Medium";
       var sum = el("summary", "group-title");
       sum.appendChild(el("span", "chip " + g.key, g.key));
       sum.appendChild(el("span", "count", plural(rows.length, "finding")));
@@ -1655,7 +1825,7 @@
     $("browse").addEventListener("click", browseClick);
     $("path").addEventListener("input", function () { showRefused(""); });
     $("new-check").addEventListener("click", function () { show("open"); $("path").focus(); });
-    $("check-again").addEventListener("click", checkAgain);
+    $("check-again").addEventListener("click", function () { checkAgain(); });
     $("save-check").addEventListener("click", saveCheck);
     $("open-saved").addEventListener("change", function (ev) {
       var file = ev.target.files[0];
@@ -1671,7 +1841,14 @@
     });
     $("file-filter").addEventListener("change", drawFileList);
     $("file-find").addEventListener("input", drawFileList);
-    $("check-again-summary").addEventListener("click", checkAgain);
+    $("check-again-summary").addEventListener("click", function () { checkAgain(); });
+    $("backup-exclude").addEventListener("click", function () {
+      if (state.current) checkAgain({ exclude: backupGlobs(state.current) });
+    });
+    $("backup-keep").addEventListener("click", function () { $("backup-banner").hidden = true; });
+    $("left-out-put-back").addEventListener("click", function () { checkAgain({ exclude: [] }); });
+    $("test-values-show").addEventListener("click", showTestValues);
+    $("findings-filter-clear").addEventListener("click", showAllFindings);
     var jumps = document.querySelectorAll("[data-screen]");
     for (var i = 0; i < jumps.length; i++) {
       jumps[i].addEventListener("click", function (ev) { show(ev.currentTarget.getAttribute("data-screen")); });
