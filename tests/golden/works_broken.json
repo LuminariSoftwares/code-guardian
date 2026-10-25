@@ -1,0 +1,525 @@
+{
+ "anchor": "pyproject.toml",
+ "coverage": {
+  "analysed": "python",
+  "other_source": {},
+  "other_source_files": 0,
+  "partial": false,
+  "python": 4,
+  "reason": null,
+  "safe_partial": false,
+  "works_scored": true
+ },
+ "dimensions": {
+  "complete": {
+   "checks": [
+    {
+     "code": "complete.license_missing",
+     "count": 1,
+     "deduction": 20,
+     "first": ".",
+     "level": "WARN",
+     "locations": [
+      "."
+     ],
+     "more": 0,
+     "weight": 20
+    },
+    {
+     "code": "complete.readme_missing",
+     "count": 1,
+     "deduction": 20,
+     "first": ".",
+     "level": "WARN",
+     "locations": [
+      "."
+     ],
+     "more": 0,
+     "weight": 20
+    },
+    {
+     "code": "complete.ci_missing",
+     "count": 1,
+     "deduction": 10,
+     "first": ".",
+     "level": "WARN",
+     "locations": [
+      "."
+     ],
+     "more": 0,
+     "weight": 10
+    },
+    {
+     "code": "complete.license_undeclared",
+     "count": 1,
+     "deduction": 5,
+     "first": "pyproject.toml:1",
+     "level": "WARN",
+     "locations": [
+      "pyproject.toml:1"
+     ],
+     "more": 0,
+     "weight": 5
+    }
+   ],
+   "deducted": 55,
+   "partial": false,
+   "score": 45,
+   "scored": true
+  },
+  "safe": {
+   "checks": [],
+   "deducted": 0,
+   "partial": false,
+   "score": 100,
+   "scored": true
+  },
+  "works": {
+   "checks": [
+    {
+     "code": "works.entry_missing",
+     "count": 2,
+     "deduction": 38,
+     "first": "pyproject.toml:9",
+     "level": "FAIL",
+     "locations": [
+      "pyproject.toml:9",
+      "pyproject.toml:10"
+     ],
+     "more": 0,
+     "weight": 30
+    },
+    {
+     "code": "works.syntax",
+     "count": 1,
+     "deduction": 30,
+     "first": "brokenpkg/legacy.py:1",
+     "level": "FAIL",
+     "locations": [
+      "brokenpkg/legacy.py:1"
+     ],
+     "more": 0,
+     "weight": 30
+    },
+    {
+     "code": "works.relative_missing",
+     "count": 1,
+     "deduction": 25,
+     "first": "brokenpkg/cli.py:9",
+     "level": "FAIL",
+     "locations": [
+      "brokenpkg/cli.py:9"
+     ],
+     "more": 0,
+     "weight": 25
+    },
+    {
+     "code": "works.tests_missing",
+     "count": 1,
+     "deduction": 15,
+     "first": ".",
+     "level": "WARN",
+     "locations": [
+      "."
+     ],
+     "more": 0,
+     "weight": 15
+    },
+    {
+     "code": "works.import_unresolved",
+     "count": 1,
+     "deduction": 10,
+     "first": "brokenpkg/cli.py:3",
+     "level": "WARN",
+     "locations": [
+      "brokenpkg/cli.py:3"
+     ],
+     "more": 0,
+     "weight": 10
+    }
+   ],
+   "deducted": 118,
+   "partial": false,
+   "score": 0,
+   "scored": true
+  }
+ },
+ "egress": [],
+ "files": {
+  "excluded": 0,
+  "ignored": 0,
+  "manifests": 1,
+  "other": 0,
+  "python": 4,
+  "skipped": 0,
+  "unparsed": 1
+ },
+ "findings": [
+  {
+   "code": "complete.ci_missing",
+   "confidence": "LIKELY",
+   "evidence": [
+    "looked for: .github/workflows/, .gitlab-ci.yml, .circleci/, and other CI files"
+   ],
+   "fingerprint": "82614cc74cd71f3da6532c94a455c16972f894ad2b07091d9f8566d157847cbe",
+   "fix": null,
+   "level": "WARN",
+   "node": ".",
+   "severity": "partial",
+   "summary": "no CI configuration: nothing runs the tests on each change",
+   "try": [
+    "add a CI workflow that runs the tests"
+   ]
+  },
+  {
+   "code": "complete.license_missing",
+   "confidence": "LIKELY",
+   "evidence": [
+    "looked for: LICENSE, LICENCE, COPYING, UNLICENSE (any extension)"
+   ],
+   "fingerprint": "930beae195cf4084bc0835387d1df2762d4f7f5b636e4ce39dcffd55c5eed80c",
+   "fix": null,
+   "level": "WARN",
+   "node": ".",
+   "severity": "partial",
+   "summary": "no licence file: nobody may legally reuse this code",
+   "try": [
+    "add a LICENSE file (choosealicense.com helps pick one)"
+   ]
+  },
+  {
+   "code": "complete.readme_missing",
+   "confidence": "LIKELY",
+   "evidence": [
+    "looked for: README, README.md, README.rst, README.txt"
+   ],
+   "fingerprint": "ed3b257121a6493e37b33e1961caf4d9b94cbfd123c7611c5dc77d03a427b67f",
+   "fix": null,
+   "level": "WARN",
+   "node": ".",
+   "severity": "partial",
+   "summary": "no README: nobody can tell what this is or how to run it",
+   "try": [
+    "add a README.md"
+   ]
+  },
+  {
+   "code": "works.tests_missing",
+   "confidence": "LIKELY",
+   "evidence": [
+    "looked for: tests/, test_*.py, *_test.py, tests.py, conftest.py"
+   ],
+   "fingerprint": "af61c7db491aa0f6f1c07962bd6797e96d8114856e6d6c2a8a93154dcf2e05d4",
+   "fix": null,
+   "level": "WARN",
+   "node": ".",
+   "severity": "partial",
+   "summary": "no test files: nothing checks that the code works",
+   "try": [
+    "add a tests/ folder with at least one test per entry point"
+   ]
+  },
+  {
+   "code": "works.import_unresolved",
+   "confidence": "LIKELY",
+   "evidence": [
+    "module: numpy",
+    "declared dependencies: 3"
+   ],
+   "fingerprint": "da072263ab920343cc12d682c3ee64be8e9e21e0b9c995e0c8514c8f9b40dc28",
+   "fix": null,
+   "level": "WARN",
+   "node": "brokenpkg/cli.py:3",
+   "severity": "partial",
+   "summary": "import numpy: not in the standard library, the repo, or a declared dependency",
+   "try": [
+    "add the distribution that provides numpy to your dependencies",
+    "or guard the import with try/except ImportError if it is optional"
+   ]
+  },
+  {
+   "code": "works.relative_missing",
+   "confidence": "LIKELY",
+   "evidence": [
+    "why: no module brokenpkg/gone in the repo"
+   ],
+   "fingerprint": "44912cdbba97ba7f87950bd2415974e4bf96c4d673d45d21d9b2ee21b8ca08a7",
+   "fix": null,
+   "level": "FAIL",
+   "node": "brokenpkg/cli.py:9",
+   "severity": "partial",
+   "summary": "relative import .gone points at nothing in the repo",
+   "try": [
+    "fix the module path or add the missing module"
+   ]
+  },
+  {
+   "code": "works.syntax",
+   "confidence": "LIKELY",
+   "evidence": [
+    "SyntaxError: Missing parentheses in call to 'print'. Did you mean print(...)?"
+   ],
+   "fingerprint": "e80aadf6a60e8b7c620cbd8edc5e77380d7fc6f3795629c9f58822a15ab25027",
+   "fix": null,
+   "level": "FAIL",
+   "node": "brokenpkg/legacy.py:1",
+   "severity": "partial",
+   "summary": "Python file does not parse: it cannot be imported or run",
+   "try": [
+    "fix the syntax error (Python 2 code needs porting to Python 3)"
+   ]
+  },
+  {
+   "code": "complete.license_undeclared",
+   "confidence": "LIKELY",
+   "evidence": [
+    "no license / license-files / License classifier"
+   ],
+   "fingerprint": "c5772dbbd3e346e368c05641ff50cc5131e8ea3fabf53700395cfb9e8a47d025",
+   "fix": null,
+   "level": "WARN",
+   "node": "pyproject.toml:1",
+   "severity": "partial",
+   "summary": "the package metadata declares no licence",
+   "try": [
+    "add license = \"MIT\" (or your licence) to [project]"
+   ]
+  },
+  {
+   "code": "works.entry_missing",
+   "confidence": "LIKELY",
+   "evidence": [
+    "the installed command would crash on start"
+   ],
+   "fingerprint": "4b5db54c76f9137af81f883028cebf191292a28333228e6124a7e2d0285f1cf5",
+   "fix": null,
+   "level": "FAIL",
+   "node": "pyproject.toml:9",
+   "severity": "partial",
+   "summary": "script 'ghost' points at brokenpkg.missing:run, but module brokenpkg.missing is not in the repo",
+   "try": [
+    "point the script at an existing module:function"
+   ]
+  },
+  {
+   "code": "works.entry_missing",
+   "confidence": "LIKELY",
+   "evidence": [
+    "the installed command would crash on start"
+   ],
+   "fingerprint": "4ef72aa946258ec84eb71d08b61c50529314a9ac65fba7e98cf9cf9debfdd734",
+   "fix": null,
+   "level": "FAIL",
+   "node": "pyproject.toml:10",
+   "severity": "partial",
+   "summary": "script 'nofunc' points at brokenpkg.cli:nope, but brokenpkg.cli defines no nope",
+   "try": [
+    "point the script at an existing module:function"
+   ]
+  }
+ ],
+ "goal_file": null,
+ "hygiene": {
+  "counts": {
+   "orphan.dead": 0,
+   "orphan.test_only": 0,
+   "orphan.uncertain": 0
+  },
+  "entry_points": [
+   "brokenpkg.cli:main",
+   "brokenpkg.missing:run",
+   "brokenpkg.cli:nope"
+  ],
+  "findings": [],
+  "goal": "",
+  "keep": [],
+  "notes": [
+   "entry point brokenpkg.missing:run: module brokenpkg.missing is not among the scanned Python files",
+   "entry point brokenpkg.cli:nope: nope is not a function or class; rooted the whole module"
+  ],
+  "source": "inferred (library public API)"
+ },
+ "notes": [],
+ "other_languages": {},
+ "outcomes": [
+  {
+   "check": "walk",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "secrets",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "secret.key",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "exec.dynamic",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "exec.shell",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "deser.unsafe",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "net.egress",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "net.bind_all",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "tls.off",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "obfuscation",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "fs.outside",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "privacy.pii_log",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "privacy.pii_prompt",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "manifests",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "works",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "complete",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "supply",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "orphans",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "leftovers",
+   "outcome": "ran",
+   "reason": null
+  }
+ ],
+ "scores": {
+  "cap_reason": "the scan is PARTIAL: the grade is at most B",
+  "capped": true,
+  "complete": 45,
+  "grade": "D",
+  "grade_uncapped": "D",
+  "overall": 59,
+  "safe": 100,
+  "works": 0
+ },
+ "status": "PARTIAL",
+ "status_reasons": [
+  "1 Python file(s) did not parse: brokenpkg/legacy.py"
+ ],
+ "tool": "code-guardian",
+ "top": [
+  {
+   "code": "works.entry_missing",
+   "count": 2,
+   "deduction": 38,
+   "dimension": "works",
+   "first": "pyproject.toml:9",
+   "level": "FAIL",
+   "locations": [
+    "pyproject.toml:9",
+    "pyproject.toml:10"
+   ],
+   "more": 0,
+   "weight": 30
+  },
+  {
+   "code": "works.syntax",
+   "count": 1,
+   "deduction": 30,
+   "dimension": "works",
+   "first": "brokenpkg/legacy.py:1",
+   "level": "FAIL",
+   "locations": [
+    "brokenpkg/legacy.py:1"
+   ],
+   "more": 0,
+   "weight": 30
+  },
+  {
+   "code": "works.relative_missing",
+   "count": 1,
+   "deduction": 25,
+   "dimension": "works",
+   "first": "brokenpkg/cli.py:9",
+   "level": "FAIL",
+   "locations": [
+    "brokenpkg/cli.py:9"
+   ],
+   "more": 0,
+   "weight": 25
+  },
+  {
+   "code": "complete.license_missing",
+   "count": 1,
+   "deduction": 20,
+   "dimension": "complete",
+   "first": ".",
+   "level": "WARN",
+   "locations": [
+    "."
+   ],
+   "more": 0,
+   "weight": 20
+  },
+  {
+   "code": "complete.readme_missing",
+   "count": 1,
+   "deduction": 20,
+   "dimension": "complete",
+   "first": ".",
+   "level": "WARN",
+   "locations": [
+    "."
+   ],
+   "more": 0,
+   "weight": 20
+  }
+ ],
+ "weights_rule": "each check (code + level) deducts its weight once, plus a quarter of the weight per extra occurrence (rounded up), at most 2x the weight; INFO is never scored"
+}

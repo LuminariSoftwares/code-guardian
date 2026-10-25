@@ -1,0 +1,12 @@
+{
+  "name": "js-risky-example",
+  "version": "0.0.1",
+  "description": "A deliberately unsafe JavaScript server: a code-guardian test fixture. Never run it.",
+  "main": "server.js",
+  "scripts": {
+    "postinstall": "node server.js"
+  },
+  "dependencies": {
+    "left-pad": "*"
+  }
+}

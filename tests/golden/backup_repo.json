@@ -1,0 +1,388 @@
+{
+ "anchor": "README.md",
+ "coverage": {
+  "analysed": "python",
+  "other_source": {},
+  "other_source_files": 0,
+  "partial": false,
+  "python": 5,
+  "reason": null,
+  "safe_partial": false,
+  "works_scored": true
+ },
+ "dimensions": {
+  "complete": {
+   "checks": [
+    {
+     "code": "complete.license_missing",
+     "count": 1,
+     "deduction": 20,
+     "first": ".",
+     "level": "WARN",
+     "locations": [
+      "."
+     ],
+     "more": 0,
+     "weight": 20
+    },
+    {
+     "code": "complete.ci_missing",
+     "count": 1,
+     "deduction": 10,
+     "first": ".",
+     "level": "WARN",
+     "locations": [
+      "."
+     ],
+     "more": 0,
+     "weight": 10
+    },
+    {
+     "code": "complete.readme_sections",
+     "count": 1,
+     "deduction": 5,
+     "first": "README.md:1",
+     "level": "WARN",
+     "locations": [
+      "README.md:1"
+     ],
+     "more": 0,
+     "weight": 5
+    }
+   ],
+   "deducted": 35,
+   "partial": false,
+   "score": 65,
+   "scored": true
+  },
+  "safe": {
+   "checks": [
+    {
+     "code": "exec.shell",
+     "count": 1,
+     "deduction": 10,
+     "first": "old/helper.py:10",
+     "level": "WARN",
+     "locations": [
+      "old/helper.py:10"
+     ],
+     "more": 0,
+     "weight": 10
+    }
+   ],
+   "deducted": 10,
+   "partial": false,
+   "score": 90,
+   "scored": true
+  },
+  "works": {
+   "checks": [
+    {
+     "code": "works.tests_missing",
+     "count": 1,
+     "deduction": 15,
+     "first": ".",
+     "level": "WARN",
+     "locations": [
+      "."
+     ],
+     "more": 0,
+     "weight": 15
+    }
+   ],
+   "deducted": 15,
+   "partial": false,
+   "score": 85,
+   "scored": true
+  }
+ },
+ "egress": [],
+ "files": {
+  "excluded": 0,
+  "ignored": 0,
+  "manifests": 0,
+  "other": 1,
+  "python": 5,
+  "skipped": 0,
+  "unparsed": 0
+ },
+ "findings": [
+  {
+   "code": "complete.ci_missing",
+   "confidence": "LIKELY",
+   "evidence": [
+    "looked for: .github/workflows/, .gitlab-ci.yml, .circleci/, and other CI files"
+   ],
+   "fingerprint": "82614cc74cd71f3da6532c94a455c16972f894ad2b07091d9f8566d157847cbe",
+   "fix": null,
+   "level": "WARN",
+   "node": ".",
+   "severity": "partial",
+   "summary": "no CI configuration: nothing runs the tests on each change",
+   "try": [
+    "add a CI workflow that runs the tests"
+   ]
+  },
+  {
+   "code": "complete.license_missing",
+   "confidence": "LIKELY",
+   "evidence": [
+    "looked for: LICENSE, LICENCE, COPYING, UNLICENSE (any extension)"
+   ],
+   "fingerprint": "930beae195cf4084bc0835387d1df2762d4f7f5b636e4ce39dcffd55c5eed80c",
+   "fix": null,
+   "level": "WARN",
+   "node": ".",
+   "severity": "partial",
+   "summary": "no licence file: nobody may legally reuse this code",
+   "try": [
+    "add a LICENSE file (choosealicense.com helps pick one)"
+   ]
+  },
+  {
+   "code": "works.tests_missing",
+   "confidence": "LIKELY",
+   "evidence": [
+    "looked for: tests/, test_*.py, *_test.py, tests.py, conftest.py"
+   ],
+   "fingerprint": "af61c7db491aa0f6f1c07962bd6797e96d8114856e6d6c2a8a93154dcf2e05d4",
+   "fix": null,
+   "level": "WARN",
+   "node": ".",
+   "severity": "partial",
+   "summary": "no test files: nothing checks that the code works",
+   "try": [
+    "add a tests/ folder with at least one test per entry point"
+   ]
+  },
+  {
+   "code": "complete.readme_sections",
+   "confidence": "LIKELY",
+   "evidence": [
+    "missing heading: install, usage"
+   ],
+   "fingerprint": "bebafb3a3c9effdb7297028b98f57cc0740a89fdd11740bccc3185ae38b2facc",
+   "fix": null,
+   "level": "WARN",
+   "node": "README.md:1",
+   "severity": "partial",
+   "summary": "README has no install or usage section",
+   "try": [
+    "add an 'Install' and a 'Usage' heading"
+   ]
+  },
+  {
+   "code": "exec.shell",
+   "confidence": "LIKELY",
+   "evidence": [
+    "call: subprocess.run(shell=True)"
+   ],
+   "fingerprint": "40f904d7e300867ec1beacaea2924aafcbdd74a86326f601fb9ff9b431d0ed3f",
+   "fix": null,
+   "level": "WARN",
+   "node": "old/helper.py:10",
+   "severity": "partial",
+   "summary": "subprocess.run(shell=True) runs a command through the shell",
+   "try": [
+    "pass an argument list without shell=True"
+   ]
+  }
+ ],
+ "goal_file": null,
+ "hygiene": {
+  "counts": {
+   "orphan.dead": 0,
+   "orphan.test_only": 0,
+   "orphan.uncertain": 0
+  },
+  "entry_points": [
+   "_archive.main_v1:__main__",
+   "app.main:__main__"
+  ],
+  "findings": [],
+  "goal": "",
+  "keep": [],
+  "notes": [],
+  "source": "inferred"
+ },
+ "notes": [],
+ "other_languages": {},
+ "outcomes": [
+  {
+   "check": "walk",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "secrets",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "secret.key",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "exec.dynamic",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "exec.shell",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "deser.unsafe",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "net.egress",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "net.bind_all",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "tls.off",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "obfuscation",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "fs.outside",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "privacy.pii_log",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "privacy.pii_prompt",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "manifests",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "works",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "complete",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "supply",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "orphans",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "leftovers",
+   "outcome": "ran",
+   "reason": null
+  }
+ ],
+ "scores": {
+  "cap_reason": null,
+  "capped": false,
+  "complete": 65,
+  "grade": "B",
+  "grade_uncapped": "B",
+  "overall": 84,
+  "safe": 90,
+  "works": 85
+ },
+ "status": "COMPLETE",
+ "status_reasons": [],
+ "tool": "code-guardian",
+ "top": [
+  {
+   "code": "complete.license_missing",
+   "count": 1,
+   "deduction": 20,
+   "dimension": "complete",
+   "first": ".",
+   "level": "WARN",
+   "locations": [
+    "."
+   ],
+   "more": 0,
+   "weight": 20
+  },
+  {
+   "code": "works.tests_missing",
+   "count": 1,
+   "deduction": 15,
+   "dimension": "works",
+   "first": ".",
+   "level": "WARN",
+   "locations": [
+    "."
+   ],
+   "more": 0,
+   "weight": 15
+  },
+  {
+   "code": "exec.shell",
+   "count": 1,
+   "deduction": 10,
+   "dimension": "safe",
+   "first": "old/helper.py:10",
+   "level": "WARN",
+   "locations": [
+    "old/helper.py:10"
+   ],
+   "more": 0,
+   "weight": 10
+  },
+  {
+   "code": "complete.ci_missing",
+   "count": 1,
+   "deduction": 10,
+   "dimension": "complete",
+   "first": ".",
+   "level": "WARN",
+   "locations": [
+    "."
+   ],
+   "more": 0,
+   "weight": 10
+  },
+  {
+   "code": "complete.readme_sections",
+   "count": 1,
+   "deduction": 5,
+   "dimension": "complete",
+   "first": "README.md:1",
+   "level": "WARN",
+   "locations": [
+    "README.md:1"
+   ],
+   "more": 0,
+   "weight": 5
+  }
+ ],
+ "weights_rule": "each check (code + level) deducts its weight once, plus a quarter of the weight per extra occurrence (rounded up), at most 2x the weight; INFO is never scored"
+}

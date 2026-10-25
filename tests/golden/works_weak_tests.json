@@ -1,0 +1,345 @@
+{
+ "anchor": "tests/test_add.py",
+ "coverage": {
+  "analysed": "python",
+  "other_source": {},
+  "other_source_files": 0,
+  "partial": false,
+  "python": 2,
+  "reason": null,
+  "safe_partial": false,
+  "works_scored": true
+ },
+ "dimensions": {
+  "complete": {
+   "checks": [
+    {
+     "code": "complete.license_missing",
+     "count": 1,
+     "deduction": 20,
+     "first": ".",
+     "level": "WARN",
+     "locations": [
+      "."
+     ],
+     "more": 0,
+     "weight": 20
+    },
+    {
+     "code": "complete.readme_missing",
+     "count": 1,
+     "deduction": 20,
+     "first": ".",
+     "level": "WARN",
+     "locations": [
+      "."
+     ],
+     "more": 0,
+     "weight": 20
+    },
+    {
+     "code": "complete.ci_missing",
+     "count": 1,
+     "deduction": 10,
+     "first": ".",
+     "level": "WARN",
+     "locations": [
+      "."
+     ],
+     "more": 0,
+     "weight": 10
+    }
+   ],
+   "deducted": 50,
+   "partial": false,
+   "score": 50,
+   "scored": true
+  },
+  "safe": {
+   "checks": [],
+   "deducted": 0,
+   "partial": false,
+   "score": 100,
+   "scored": true
+  },
+  "works": {
+   "checks": [
+    {
+     "code": "works.test_no_assert",
+     "count": 1,
+     "deduction": 5,
+     "first": "tests/test_add.py:12",
+     "level": "WARN",
+     "locations": [
+      "tests/test_add.py:12"
+     ],
+     "more": 0,
+     "weight": 5
+    }
+   ],
+   "deducted": 5,
+   "partial": false,
+   "score": 95,
+   "scored": true
+  }
+ },
+ "egress": [],
+ "files": {
+  "excluded": 0,
+  "ignored": 0,
+  "manifests": 0,
+  "other": 0,
+  "python": 2,
+  "skipped": 0,
+  "unparsed": 0
+ },
+ "findings": [
+  {
+   "code": "complete.ci_missing",
+   "confidence": "LIKELY",
+   "evidence": [
+    "looked for: .github/workflows/, .gitlab-ci.yml, .circleci/, and other CI files"
+   ],
+   "fingerprint": "82614cc74cd71f3da6532c94a455c16972f894ad2b07091d9f8566d157847cbe",
+   "fix": null,
+   "level": "WARN",
+   "node": ".",
+   "severity": "partial",
+   "summary": "no CI configuration: nothing runs the tests on each change",
+   "try": [
+    "add a CI workflow that runs the tests"
+   ]
+  },
+  {
+   "code": "complete.license_missing",
+   "confidence": "LIKELY",
+   "evidence": [
+    "looked for: LICENSE, LICENCE, COPYING, UNLICENSE (any extension)"
+   ],
+   "fingerprint": "930beae195cf4084bc0835387d1df2762d4f7f5b636e4ce39dcffd55c5eed80c",
+   "fix": null,
+   "level": "WARN",
+   "node": ".",
+   "severity": "partial",
+   "summary": "no licence file: nobody may legally reuse this code",
+   "try": [
+    "add a LICENSE file (choosealicense.com helps pick one)"
+   ]
+  },
+  {
+   "code": "complete.readme_missing",
+   "confidence": "LIKELY",
+   "evidence": [
+    "looked for: README, README.md, README.rst, README.txt"
+   ],
+   "fingerprint": "ed3b257121a6493e37b33e1961caf4d9b94cbfd123c7611c5dc77d03a427b67f",
+   "fix": null,
+   "level": "WARN",
+   "node": ".",
+   "severity": "partial",
+   "summary": "no README: nobody can tell what this is or how to run it",
+   "try": [
+    "add a README.md"
+   ]
+  },
+  {
+   "code": "works.test_no_assert",
+   "confidence": "LIKELY",
+   "evidence": [
+    "without an assertion: test_runs, test_nothing, TestAdd.test_silent"
+   ],
+   "fingerprint": "d42dc9e7ee5a2bc8303b9213e886725ac925bed18af406d7ff428ccc752601ae",
+   "fix": null,
+   "level": "WARN",
+   "node": "tests/test_add.py:12",
+   "severity": "partial",
+   "summary": "3 of 7 test functions in this file make no assertion",
+   "try": [
+    "assert on the result, or use pytest.raises for the expected error"
+   ]
+  }
+ ],
+ "goal_file": null,
+ "hygiene": {
+  "counts": {
+   "orphan.dead": 0,
+   "orphan.test_only": 0,
+   "orphan.uncertain": 0
+  },
+  "entry_points": [],
+  "findings": [],
+  "goal": "",
+  "keep": [],
+  "notes": [
+   "no entry points found, so nothing is reported: run `code-guardian init` and edit the goal file"
+  ],
+  "source": "inferred"
+ },
+ "notes": [],
+ "other_languages": {},
+ "outcomes": [
+  {
+   "check": "walk",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "secrets",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "secret.key",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "exec.dynamic",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "exec.shell",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "deser.unsafe",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "net.egress",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "net.bind_all",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "tls.off",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "obfuscation",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "fs.outside",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "privacy.pii_log",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "privacy.pii_prompt",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "manifests",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "works",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "complete",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "supply",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "orphans",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "leftovers",
+   "outcome": "ran",
+   "reason": null
+  }
+ ],
+ "scores": {
+  "cap_reason": null,
+  "capped": false,
+  "complete": 50,
+  "grade": "B",
+  "grade_uncapped": "B",
+  "overall": 89,
+  "safe": 100,
+  "works": 95
+ },
+ "status": "COMPLETE",
+ "status_reasons": [],
+ "tool": "code-guardian",
+ "top": [
+  {
+   "code": "complete.license_missing",
+   "count": 1,
+   "deduction": 20,
+   "dimension": "complete",
+   "first": ".",
+   "level": "WARN",
+   "locations": [
+    "."
+   ],
+   "more": 0,
+   "weight": 20
+  },
+  {
+   "code": "complete.readme_missing",
+   "count": 1,
+   "deduction": 20,
+   "dimension": "complete",
+   "first": ".",
+   "level": "WARN",
+   "locations": [
+    "."
+   ],
+   "more": 0,
+   "weight": 20
+  },
+  {
+   "code": "complete.ci_missing",
+   "count": 1,
+   "deduction": 10,
+   "dimension": "complete",
+   "first": ".",
+   "level": "WARN",
+   "locations": [
+    "."
+   ],
+   "more": 0,
+   "weight": 10
+  },
+  {
+   "code": "works.test_no_assert",
+   "count": 1,
+   "deduction": 5,
+   "dimension": "works",
+   "first": "tests/test_add.py:12",
+   "level": "WARN",
+   "locations": [
+    "tests/test_add.py:12"
+   ],
+   "more": 0,
+   "weight": 5
+  }
+ ],
+ "weights_rule": "each check (code + level) deducts its weight once, plus a quarter of the weight per extra occurrence (rounded up), at most 2x the weight; INFO is never scored"
+}

@@ -1,0 +1,387 @@
+{
+ "anchor": "code-guardian.goal.toml",
+ "coverage": {
+  "analysed": "python",
+  "other_source": {},
+  "other_source_files": 0,
+  "partial": false,
+  "python": 6,
+  "reason": null,
+  "safe_partial": false,
+  "works_scored": true
+ },
+ "dimensions": {
+  "complete": {
+   "checks": [
+    {
+     "code": "complete.license_missing",
+     "count": 1,
+     "deduction": 20,
+     "first": ".",
+     "level": "WARN",
+     "locations": [
+      "."
+     ],
+     "more": 0,
+     "weight": 20
+    },
+    {
+     "code": "complete.readme_missing",
+     "count": 1,
+     "deduction": 20,
+     "first": ".",
+     "level": "WARN",
+     "locations": [
+      "."
+     ],
+     "more": 0,
+     "weight": 20
+    },
+    {
+     "code": "complete.ci_missing",
+     "count": 1,
+     "deduction": 10,
+     "first": ".",
+     "level": "WARN",
+     "locations": [
+      "."
+     ],
+     "more": 0,
+     "weight": 10
+    }
+   ],
+   "deducted": 50,
+   "partial": false,
+   "score": 50,
+   "scored": true
+  },
+  "safe": {
+   "checks": [],
+   "deducted": 0,
+   "partial": false,
+   "score": 100,
+   "scored": true
+  },
+  "works": {
+   "checks": [
+    {
+     "code": "orphan.dead",
+     "count": 1,
+     "deduction": 3,
+     "first": "greeter/core.py:5",
+     "level": "WARN",
+     "locations": [
+      "greeter/core.py:5"
+     ],
+     "more": 0,
+     "weight": 3
+    }
+   ],
+   "deducted": 3,
+   "partial": false,
+   "score": 97,
+   "scored": true
+  }
+ },
+ "egress": [],
+ "files": {
+  "excluded": 0,
+  "ignored": 0,
+  "manifests": 0,
+  "other": 1,
+  "python": 6,
+  "skipped": 0,
+  "unparsed": 0
+ },
+ "findings": [
+  {
+   "code": "complete.ci_missing",
+   "confidence": "LIKELY",
+   "evidence": [
+    "looked for: .github/workflows/, .gitlab-ci.yml, .circleci/, and other CI files"
+   ],
+   "fingerprint": "82614cc74cd71f3da6532c94a455c16972f894ad2b07091d9f8566d157847cbe",
+   "fix": null,
+   "level": "WARN",
+   "node": ".",
+   "severity": "partial",
+   "summary": "no CI configuration: nothing runs the tests on each change",
+   "try": [
+    "add a CI workflow that runs the tests"
+   ]
+  },
+  {
+   "code": "complete.license_missing",
+   "confidence": "LIKELY",
+   "evidence": [
+    "looked for: LICENSE, LICENCE, COPYING, UNLICENSE (any extension)"
+   ],
+   "fingerprint": "930beae195cf4084bc0835387d1df2762d4f7f5b636e4ce39dcffd55c5eed80c",
+   "fix": null,
+   "level": "WARN",
+   "node": ".",
+   "severity": "partial",
+   "summary": "no licence file: nobody may legally reuse this code",
+   "try": [
+    "add a LICENSE file (choosealicense.com helps pick one)"
+   ]
+  },
+  {
+   "code": "complete.readme_missing",
+   "confidence": "LIKELY",
+   "evidence": [
+    "looked for: README, README.md, README.rst, README.txt"
+   ],
+   "fingerprint": "ed3b257121a6493e37b33e1961caf4d9b94cbfd123c7611c5dc77d03a427b67f",
+   "fix": null,
+   "level": "WARN",
+   "node": ".",
+   "severity": "partial",
+   "summary": "no README: nobody can tell what this is or how to run it",
+   "try": [
+    "add a README.md"
+   ]
+  }
+ ],
+ "goal_file": "code-guardian.goal.toml",
+ "hygiene": {
+  "counts": {
+   "orphan.dead": 1,
+   "orphan.test_only": 1,
+   "orphan.uncertain": 1
+  },
+  "entry_points": [
+   "greeter.cli:main"
+  ],
+  "findings": [
+   {
+    "code": "orphan.uncertain",
+    "confidence": "LIKELY",
+    "evidence": [
+     "name: greeter.cli.cmd_hello",
+     "kind: function",
+     "entry points: 1 (contract)",
+     "why uncertain: getattr with a computed name in greeter.cli.main may reach it"
+    ],
+    "fingerprint": "2196854754dcc3a2331e64c51aaf70c414ef7538ba2ec002e127722598349255",
+    "fix": null,
+    "level": "INFO",
+    "node": "greeter/cli.py:6",
+    "severity": "partial",
+    "summary": "function greeter.cli.cmd_hello may be reached dynamically",
+    "try": [
+     "list it in keep if it is loaded by name; otherwise delete it"
+    ]
+   },
+   {
+    "code": "orphan.dead",
+    "confidence": "LIKELY",
+    "evidence": [
+     "name: greeter.core.shout",
+     "kind: function",
+     "entry points: 1 (contract)"
+    ],
+    "fingerprint": "09c2f1cd4cd57a2a9779461dc04a2e1226a010a85b545f71bab2afb828b0675e",
+    "fix": null,
+    "level": "WARN",
+    "node": "greeter/core.py:5",
+    "severity": "partial",
+    "summary": "function greeter.core.shout is never reached from the entry points",
+    "try": [
+     "delete it, or list it in keep if something loads it by name"
+    ]
+   },
+   {
+    "code": "orphan.test_only",
+    "confidence": "LIKELY",
+    "evidence": [
+     "name: greeter.core.format_for_tests",
+     "kind: function",
+     "entry points: 1 (contract)"
+    ],
+    "fingerprint": "aa3f613a6507479bcb2109ae1e51477efd2297812642cebd1ead43b42be07d3d",
+    "fix": null,
+    "level": "INFO",
+    "node": "greeter/core.py:9",
+    "severity": "partial",
+    "summary": "function greeter.core.format_for_tests is reached only from tests",
+    "try": [
+     "delete it with its tests, or call it from the product"
+    ]
+   }
+  ],
+  "goal": "Greet people from the command line.",
+  "keep": [
+   "greeter.plugins.*"
+  ],
+  "notes": [],
+  "source": "contract"
+ },
+ "notes": [],
+ "other_languages": {},
+ "outcomes": [
+  {
+   "check": "walk",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "secrets",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "secret.key",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "exec.dynamic",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "exec.shell",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "deser.unsafe",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "net.egress",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "net.bind_all",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "tls.off",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "obfuscation",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "fs.outside",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "privacy.pii_log",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "privacy.pii_prompt",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "manifests",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "works",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "complete",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "supply",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "orphans",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "leftovers",
+   "outcome": "ran",
+   "reason": null
+  }
+ ],
+ "scores": {
+  "cap_reason": null,
+  "capped": false,
+  "complete": 50,
+  "grade": "B",
+  "grade_uncapped": "B",
+  "overall": 89,
+  "safe": 100,
+  "works": 97
+ },
+ "status": "COMPLETE",
+ "status_reasons": [],
+ "tool": "code-guardian",
+ "top": [
+  {
+   "code": "complete.license_missing",
+   "count": 1,
+   "deduction": 20,
+   "dimension": "complete",
+   "first": ".",
+   "level": "WARN",
+   "locations": [
+    "."
+   ],
+   "more": 0,
+   "weight": 20
+  },
+  {
+   "code": "complete.readme_missing",
+   "count": 1,
+   "deduction": 20,
+   "dimension": "complete",
+   "first": ".",
+   "level": "WARN",
+   "locations": [
+    "."
+   ],
+   "more": 0,
+   "weight": 20
+  },
+  {
+   "code": "complete.ci_missing",
+   "count": 1,
+   "deduction": 10,
+   "dimension": "complete",
+   "first": ".",
+   "level": "WARN",
+   "locations": [
+    "."
+   ],
+   "more": 0,
+   "weight": 10
+  },
+  {
+   "code": "orphan.dead",
+   "count": 1,
+   "deduction": 3,
+   "dimension": "works",
+   "first": "greeter/core.py:5",
+   "level": "WARN",
+   "locations": [
+    "greeter/core.py:5"
+   ],
+   "more": 0,
+   "weight": 3
+  }
+ ],
+ "weights_rule": "each check (code + level) deducts its weight once, plus a quarter of the weight per extra occurrence (rounded up), at most 2x the weight; INFO is never scored"
+}

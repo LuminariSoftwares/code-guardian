@@ -1,0 +1,177 @@
+{
+ "anchor": "pyproject.toml",
+ "coverage": {
+  "analysed": "python",
+  "other_source": {},
+  "other_source_files": 0,
+  "partial": false,
+  "python": 3,
+  "reason": null,
+  "safe_partial": false,
+  "works_scored": true
+ },
+ "dimensions": {
+  "complete": {
+   "checks": [],
+   "deducted": 0,
+   "partial": false,
+   "score": 100,
+   "scored": true
+  },
+  "safe": {
+   "checks": [],
+   "deducted": 0,
+   "partial": false,
+   "score": 100,
+   "scored": true
+  },
+  "works": {
+   "checks": [],
+   "deducted": 0,
+   "partial": false,
+   "score": 100,
+   "scored": true
+  }
+ },
+ "egress": [],
+ "files": {
+  "excluded": 0,
+  "ignored": 0,
+  "manifests": 1,
+  "other": 6,
+  "python": 3,
+  "skipped": 0,
+  "unparsed": 0
+ },
+ "findings": [],
+ "goal_file": null,
+ "hygiene": {
+  "counts": {
+   "orphan.dead": 0,
+   "orphan.test_only": 0,
+   "orphan.uncertain": 0
+  },
+  "entry_points": [],
+  "findings": [],
+  "goal": "",
+  "keep": [],
+  "notes": [
+   "no entry points found, so nothing is reported: run `code-guardian init` and edit the goal file"
+  ],
+  "source": "inferred"
+ },
+ "notes": [],
+ "other_languages": {},
+ "outcomes": [
+  {
+   "check": "walk",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "secrets",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "secret.key",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "exec.dynamic",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "exec.shell",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "deser.unsafe",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "net.egress",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "net.bind_all",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "tls.off",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "obfuscation",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "fs.outside",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "privacy.pii_log",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "privacy.pii_prompt",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "manifests",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "works",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "complete",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "supply",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "orphans",
+   "outcome": "ran",
+   "reason": null
+  },
+  {
+   "check": "leftovers",
+   "outcome": "ran",
+   "reason": null
+  }
+ ],
+ "scores": {
+  "cap_reason": null,
+  "capped": false,
+  "complete": 100,
+  "grade": "A",
+  "grade_uncapped": "A",
+  "overall": 100,
+  "safe": 100,
+  "works": 100
+ },
+ "status": "COMPLETE",
+ "status_reasons": [],
+ "tool": "code-guardian",
+ "top": [],
+ "weights_rule": "each check (code + level) deducts its weight once, plus a quarter of the weight per extra occurrence (rounded up), at most 2x the weight; INFO is never scored"
+}

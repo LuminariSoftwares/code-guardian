@@ -1,0 +1,13 @@
+{
+  "name": "js-clean-example",
+  "version": "1.0.0",
+  "description": "A small, complete JavaScript package: a code-guardian test fixture.",
+  "license": "MIT",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "lodash": "4.17.21"
+  }
+}

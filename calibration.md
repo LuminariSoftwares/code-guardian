@@ -206,3 +206,114 @@ Fixtures and pinned repositories:
 |---|---|---|
 | the 8 fixture repos (tests/fixtures, risky_repo as built by tests/make_risky.py) | scan report, sha256 of the canonical JSON | 0 delta against 0.4.0 (tests/test_p88_s4_acceptance.py), on Linux and Windows |
 | the 5 pinned 0.2.0 repos (requests, click, rich, httpx, flask) and the three guardian repos, re-scanned with 0.4.1 (tools/calibrate.py commits) | every finding by node, code and level | 0 findings changed: no new FAIL and no FAIL moved to INFO |
+
+### JavaScript / TypeScript calibration set (P81)
+
+Pinned for P81 S0b on 2026-10-25. Scanned from clones outside this repository at the commits below; nothing of them is committed or shipped.
+
+| repo | commit | path scanned | commit date |
+|---|---|---|---|
+| expressjs/express | `1c6f1b0fe4000977b9a7b4f34097e4d527dd9824` | `.` | 2026-10-23 |
+| fastify/fastify | `d40c30d2a68051a35c2ded4d4b2db114784e2d6c` | `.` | 2026-10-25 |
+| vitejs/vite | `82e7aa0374a15e1c67594557ab5893c91578f897` | `packages/create-vite/template-react-ts` | 2026-10-23 |
+| vercel/next.js | `cbf49db30a655ac17c92c2951885c4256db14b9e` | `packages/create-next-app/templates/app/ts` | 2026-10-24 |
+| juice-shop/juice-shop | `399fba76194305a312693eee44f4df64bdf0c3ce` | `.` | 2026-10-15 |
+
+The create-vite template is React + TypeScript (`.tsx`); the create-next-app template is the TypeScript app-router app (JSX in `.tsx`, and `tsconfig.json` maps the `@/*` path alias), so the JSX rules run on real code. OWASP Juice Shop is deliberately vulnerable; it is read, never installed or run.
+
+**Juice Shop `vuln-code-snippet` markers at `399fba76`: present.** 20 `vuln-code-snippet start` lines in 11 `.ts` files; 2 of those files only carry the marker text (the snippet parser `lib/codingChallenges.ts` and its unit test), so the real snippets are 16 start lines in 9 files, naming 25 challenges, with 27 `vuln-line` lines.
+
+**Ground truth, list (a): marked `vuln-line`s.** In a category the JavaScript checks claim (2) -- the marker recall denominator; the sample is tiny, so it shows whether the Angular sanitizer bypass is caught, nothing more:
+
+- `frontend/src/app/search-result/search-result.component.ts:113` -- restfulXssChallenge (XSS) -> `dom.html_sink`
+- `frontend/src/app/search-result/search-result.component.ts:146` -- localXssChallenge, xssBonusChallenge (XSS) -> `dom.html_sink`
+
+Outside those categories (25; listed so nobody counts them as misses):
+
+- `frontend/src/app/app.routing.ts:79` -- adminSectionChallenge (Broken Access Control)
+- `frontend/src/app/app.routing.ts:186` -- scoreBoardChallenge (Miscellaneous)
+- `frontend/src/app/app.routing.ts:239` -- web3SandboxChallenge (Broken Access Control)
+- `frontend/src/app/app.routing.ts:261` -- tokenSaleChallenge (Security through Obscurity)
+- `frontend/src/app/app.routing.ts:300` -- tokenSaleChallenge (Security through Obscurity)
+- `models/user.ts:73` -- weakPasswordChallenge (Broken Authentication)
+- `server.ts:290` -- directoryListingChallenge (Sensitive Data Exposure)
+- `server.ts:291` -- directoryListingChallenge (Sensitive Data Exposure)
+- `server.ts:302` -- accessLogDisclosureChallenge (Observability Failures)
+- `server.ts:304` -- accessLogDisclosureChallenge (Observability Failures)
+- `server.ts:374` -- resetPasswordMortyChallenge (Broken Anti Automation)
+- `server.ts:398` -- changeProductChallenge (Broken Access Control)
+- `server.ts:539` -- registerAdminChallenge (Improper Input Validation)
+- `server.ts:759` -- exposedMetricsChallenge (Observability Failures)
+- `lib/insecurity.ts:124` -- redirectCryptoCurrencyChallenge (Unvalidated Redirects)
+- `lib/insecurity.ts:125` -- redirectCryptoCurrencyChallenge (Unvalidated Redirects)
+- `lib/insecurity.ts:126` -- redirectCryptoCurrencyChallenge (Unvalidated Redirects)
+- `lib/insecurity.ts:136` -- redirectChallenge (Unvalidated Redirects)
+- `routes/search.ts:23` -- unionSqlInjectionChallenge, dbSchemaChallenge (Injection)
+- `routes/chat.ts:179` -- chatbotPromptInjectionChallenge, chatbotGreedyInjectionChallenge (Injection)
+- `routes/chat.ts:184` -- chatbotPromptInjectionChallenge (Injection)
+- `routes/updateProductReviews.ts:16` -- forgedReviewChallenge (Broken Access Control)
+- `routes/updateProductReviews.ts:18` -- noSqlReviewsChallenge, forgedReviewChallenge (Broken Access Control, Injection)
+- `routes/updateProductReviews.ts:20` -- noSqlReviewsChallenge (Injection)
+- `routes/login.ts:34` -- loginAdminChallenge, loginBenderChallenge, loginJimChallenge (Injection)
+
+**Ground truth, list (b): the fixed grep** over `routes/ lib/ server.ts frontend/src`:
+
+```
+grep -nE "\beval\(|new Function\(|vm\.runIn|child_process|\.innerHTML\s*=|bypassSecurityTrust|rejectUnauthorized|'0\.0\.0\.0'"
+```
+
+48 hits; 17 in category (the lexer-loss denominator: each must be found; expected misses 0):
+
+- `routes/captcha.ts:22` `eval(` -- exec.dynamic: eval( on a variable
+- `routes/b2bOrder.ts:23` `vm.runInContext` -- exec.dynamic: vm.runInContext( with vm imported from node:vm
+- `routes/userProfile.ts:65` `eval(` -- exec.dynamic: eval( on a variable
+- `routes/fileUpload.ts:114` `vm.runInContext` -- exec.dynamic: vm.runInContext( with vm imported from node:vm
+- `lib/xml.ts:12` `new Function(` -- exec.dynamic: new Function( (literal args -> WARN)
+- `lib/xml.ts:38` `vm.runInContext` -- exec.dynamic: vm.runInContext( with vm imported from node:vm
+- `frontend/src/assets/private/three.js:11375` `.innerHTML =` -- dom.html_sink: non-literal value assigned to .innerHTML (WARN, FAIL if a source)
+- `frontend/src/app/score-board/score-board.component.ts:83` `bypassSecurityTrustHtml` -- dom.html_sink: Angular sanitizer bypass called with a non-literal value
+- `frontend/src/app/administration/administration.component.ts:74` `bypassSecurityTrustHtml` -- dom.html_sink: Angular sanitizer bypass called with a non-literal value
+- `frontend/src/app/administration/administration.component.ts:92` `bypassSecurityTrustHtml` -- dom.html_sink: Angular sanitizer bypass called with a non-literal value
+- `frontend/src/app/search-result/search-result.component.ts:113` `bypassSecurityTrustHtml` -- dom.html_sink: Angular sanitizer bypass called with a non-literal value
+- `frontend/src/app/search-result/search-result.component.ts:146` `bypassSecurityTrustHtml` -- dom.html_sink: Angular sanitizer bypass called with a non-literal value
+- `frontend/src/app/data-export/data-export.component.ts:58` `bypassSecurityTrustHtml` -- dom.html_sink: Angular sanitizer bypass called with a non-literal value
+- `frontend/src/app/track-result/track-result.component.ts:49` `bypassSecurityTrustHtml` -- dom.html_sink: Angular sanitizer bypass called with a non-literal value
+- `frontend/src/app/last-login-ip/last-login-ip.component.ts:40` `bypassSecurityTrustHtml` -- dom.html_sink: Angular sanitizer bypass called with a non-literal value
+- `frontend/src/app/about/about.component.ts:120` `bypassSecurityTrustHtml` -- dom.html_sink: Angular sanitizer bypass called with a non-literal value
+- `frontend/src/hacking-instructor/index.ts:126` `.innerHTML =` -- dom.html_sink: non-literal value assigned to .innerHTML (WARN, FAIL if a source)
+
+Not in category (31):
+
+- `frontend/src/assets/private/dat.gui.min.js:1` `.innerHTML=` -- *.min.js is a generated file: only secret/obfuscation/exec.dynamic run there (C4), and the sink is innerHTML
+- `frontend/src/assets/private/dat.gui.min.js:13` `.innerHTML=` -- *.min.js is a generated file: only secret/obfuscation/exec.dynamic run there (C4), and the sink is innerHTML
+- `frontend/src/assets/private/dat.gui.min.js:23` `.innerHTML=` -- *.min.js is a generated file: only secret/obfuscation/exec.dynamic run there (C4), and the sink is innerHTML
+- `frontend/src/assets/private/dat.gui.min.js:33` `.innerHTML=` -- *.min.js is a generated file: only secret/obfuscation/exec.dynamic run there (C4), and the sink is innerHTML
+- `frontend/src/assets/private/dat.gui.min.js:35` `.innerHTML=` -- *.min.js is a generated file: only secret/obfuscation/exec.dynamic run there (C4), and the sink is innerHTML
+- `frontend/src/assets/private/dat.gui.min.js:39` `.innerHTML=` -- *.min.js is a generated file: only secret/obfuscation/exec.dynamic run there (C4), and the sink is innerHTML
+- `frontend/src/assets/private/dat.gui.min.js:40` `.innerHTML=` -- *.min.js is a generated file: only secret/obfuscation/exec.dynamic run there (C4), and the sink is innerHTML
+- `frontend/src/assets/private/dat.gui.min.js:41` `.innerHTML=` -- *.min.js is a generated file: only secret/obfuscation/exec.dynamic run there (C4), and the sink is innerHTML
+- `frontend/src/assets/private/dat.gui.min.js:44` `.innerHTML=` -- *.min.js is a generated file: only secret/obfuscation/exec.dynamic run there (C4), and the sink is innerHTML
+- `frontend/src/assets/private/dat.gui.min.js:48` `.innerHTML=` -- *.min.js is a generated file: only secret/obfuscation/exec.dynamic run there (C4), and the sink is innerHTML
+- `frontend/src/assets/private/dat.gui.min.js:49` `.innerHTML=` -- *.min.js is a generated file: only secret/obfuscation/exec.dynamic run there (C4), and the sink is innerHTML
+- `frontend/src/assets/private/dat.gui.min.js:55` `.innerHTML=` -- *.min.js is a generated file: only secret/obfuscation/exec.dynamic run there (C4), and the sink is innerHTML
+- `frontend/src/assets/private/three.js:11354` `.innerHTML =` -- assigned a string literal: dom.html_sink reports nothing
+- `frontend/src/assets/private/stats.min.js:3` `.innerHTML=` -- *.min.js is a generated file: only secret/obfuscation/exec.dynamic run there (C4), and the sink is innerHTML
+- `frontend/src/assets/private/stats.min.js:4` `.innerHTML=` -- *.min.js is a generated file: only secret/obfuscation/exec.dynamic run there (C4), and the sink is innerHTML
+- `frontend/src/app/search-result/search-result.component.spec.ts:109` `bypassSecurityTrustHtml` -- test double (property key / mock reference), not a call of the sanitizer
+- `frontend/src/app/search-result/search-result.component.spec.ts:112` `bypassSecurityTrustHtml` -- test double (property key / mock reference), not a call of the sanitizer
+- `frontend/src/app/search-result/search-result.component.spec.ts:169` `bypassSecurityTrustHtml` -- test double (property key / mock reference), not a call of the sanitizer
+- `frontend/src/app/search-result/search-result.component.spec.ts:221` `bypassSecurityTrustHtml` -- test double (property key / mock reference), not a call of the sanitizer
+- `frontend/src/app/track-result/track-result.component.spec.ts:31` `bypassSecurityTrustHtml` -- test double (property key / mock reference), not a call of the sanitizer
+- `frontend/src/app/track-result/track-result.component.spec.ts:34` `bypassSecurityTrustHtml` -- test double (property key / mock reference), not a call of the sanitizer
+- `frontend/src/app/track-result/track-result.component.spec.ts:68` `bypassSecurityTrustHtml` -- test double (property key / mock reference), not a call of the sanitizer
+- `frontend/src/app/last-login-ip/last-login-ip.component.spec.ts:22` `bypassSecurityTrustHtml` -- test double (property key / mock reference), not a call of the sanitizer
+- `frontend/src/app/last-login-ip/last-login-ip.component.spec.ts:25` `bypassSecurityTrustHtml` -- test double (property key / mock reference), not a call of the sanitizer
+- `frontend/src/app/last-login-ip/last-login-ip.component.spec.ts:74` `bypassSecurityTrustHtml` -- test double (property key / mock reference), not a call of the sanitizer
+- `frontend/src/app/last-login-ip/last-login-ip.component.spec.ts:80` `bypassSecurityTrustHtml` -- test double (property key / mock reference), not a call of the sanitizer
+- `frontend/src/app/about/about.component.spec.ts:56` `bypassSecurityTrustHtml` -- test double (property key / mock reference), not a call of the sanitizer
+- `frontend/src/app/about/about.component.spec.ts:176` `bypassSecurityTrustHtml` -- test double (property key / mock reference), not a call of the sanitizer
+- `frontend/src/app/about/about.component.spec.ts:177` `bypassSecurityTrustHtml` -- test double (property key / mock reference), not a call of the sanitizer
+- `frontend/src/hacking-instructor/helpers/helpers.ts:138` `.innerHTML ===` -- a comparison (===), not an assignment
+- `frontend/src/hacking-instructor/index.ts:142` `.innerHTML =` -- assigned a string literal: dom.html_sink reports nothing
+
+The two numbers are reported separately and never summed: **marker recall** = found / 2, **lexer-loss** = in-category grep hits not found (of 17).
