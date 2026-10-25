@@ -227,10 +227,16 @@ def test_contrast_ok():
     assert re.search(r"^ok: \d+ pairs in 2 palettes", r.stdout, re.M), r.stdout
 
 
+# Amended by the overseer 2026-10-25 (0.4.1 release prep, PR #46): the overseer amended test_p76_s7_acceptance.py so
+# it reads the current version instead of pinning 0.4.0; that amended copy is accepted too.
+OVERSEER_AMENDED = {"test_p76_s7_acceptance.py": "dbd16025f8a121ddbb0c3796a10904b5935e19a446df5ba6deeb29601654655b"}
+
+
 def test_old_acceptance_files_untouched():
     for name, digest in sorted(OLD_ACCEPTANCE.items()):
         data = (HERE / name).read_bytes().replace(b"\r\n", b"\n")
-        assert hashlib.sha256(data).hexdigest() == digest, "%s was edited" % name
+        got = hashlib.sha256(data).hexdigest()
+        assert got in (digest, OVERSEER_AMENDED.get(name)), "%s was edited" % name
 
 
 def _png_size(path):
