@@ -1,11 +1,12 @@
 """code-guardian command line.
 
-    code-guardian scan PATH [--json | --sarif | --markdown] [--goal FILE] [--explain] [--online] [--fail-on LEVEL]
-                           [--baseline FILE] [--history [--history-depth N]]
-    code-guardian baseline PATH [--out FILE] [--goal FILE]     # default FILE: PATH/code-guardian.baseline.json
+    code-guardian scan PATH [--json | --sarif | --markdown] [--goal FILE] [--exclude GLOB ...] [--explain]
+                           [--online] [--fail-on LEVEL] [--baseline FILE] [--history [--history-depth N]]
+    code-guardian baseline PATH [--out FILE] [--goal FILE] [--exclude GLOB ...]
+                                                               # default FILE: PATH/code-guardian.baseline.json
     code-guardian diff BEFORE.json AFTER.json [--json]         # exit 1 when anything regressed
-    code-guardian plan PATH [--top 10] [--json] [--goal FILE]  # Markdown by default
-    code-guardian orphans PATH [--json] [--goal FILE] [--fail-on LEVEL]
+    code-guardian plan PATH [--top 10] [--json] [--goal FILE] [--exclude GLOB ...]  # Markdown by default
+    code-guardian orphans PATH [--json] [--goal FILE] [--exclude GLOB ...] [--fail-on LEVEL]
     code-guardian init [PATH] [--force]
     code-guardian ui [PATH] [--port N] [--no-browser] [--selftest]   # the local page, on 127.0.0.1 only
     code-guardian mcp                      # the MCP server on stdio (same as code-guardian-mcp)
@@ -34,6 +35,9 @@ def _parser():
     sub = p.add_subparsers(dest="command")
     fail_on = {"default": "FAIL", "type": str.upper, "choices": ["INFO", "WARN", "FAIL"],
                "help": "exit 1 when any finding is at or above this level (default FAIL)"}
+    exclude = {"action": "append", "default": None, "metavar": "GLOB",
+               "help": "leave out the paths matching GLOB, relative to PATH (e.g. '_archive/*'); repeat it for more. "
+                       "Applied after the goal file's exclude list; the report says what it left out"}
     s = sub.add_parser("scan", help="Safe, Works and Complete scores, findings, egress inventory and orphan hygiene")
     s.add_argument("path")
     fmt = s.add_mutually_exclusive_group()
@@ -41,6 +45,7 @@ def _parser():
     fmt.add_argument("--sarif", action="store_true", help="print SARIF 2.1.0 (for GitHub code scanning)")
     fmt.add_argument("--markdown", action="store_true", help="print a Markdown report (for a PR comment or job summary)")
     s.add_argument("--goal", metavar="FILE", help="goal contract (default PATH/%s if present)" % goal.FILENAME)
+    s.add_argument("--exclude", **exclude)
     s.add_argument("--explain", action="store_true", help="add a plain-English explanation from a local model")
     s.add_argument("--online", action="store_true",
                    help="ask PyPI whether unknown dependency names exist (network; off by default)")
@@ -56,6 +61,7 @@ def _parser():
     b.add_argument("path")
     b.add_argument("--out", metavar="FILE", help="where to write it (default PATH/%s)" % baseline.FILENAME)
     b.add_argument("--goal", metavar="FILE")
+    b.add_argument("--exclude", **exclude)
     d = sub.add_parser("diff", help="what a change fixed and broke: compare two scan --json reports by fingerprint")
     d.add_argument("before")
     d.add_argument("after")
@@ -65,10 +71,12 @@ def _parser():
     pl.add_argument("--top", type=int, default=10, help="how many rows (default 10)")
     pl.add_argument("--json", action="store_true", help="JSON instead of Markdown")
     pl.add_argument("--goal", metavar="FILE")
+    pl.add_argument("--exclude", **exclude)
     o = sub.add_parser("orphans", help="code nothing reachable from the entry points uses")
     o.add_argument("path")
     o.add_argument("--json", action="store_true")
     o.add_argument("--goal", metavar="FILE")
+    o.add_argument("--exclude", **exclude)
     o.add_argument("--fail-on", **fail_on)
     i = sub.add_parser("init", help="write a starter %s with the inferred entry points" % goal.FILENAME)
     i.add_argument("path", nargs="?", default=".")
@@ -104,9 +112,9 @@ def init(path, force=False, out=print):
     return 0
 
 
-def write_baseline(path, out=None, goal_file=None, echo=print):
+def write_baseline(path, out=None, goal_file=None, echo=print, exclude=()):
     """Scan PATH and write the sorted fingerprints of every finding (scored and hygiene) to out."""
-    rep = report.scan(path, goal_file)
+    rep = report.scan(path, goal_file, exclude=exclude)
     target = out or os.path.join(report._root(path), baseline.FILENAME)
     doc = baseline.document(rep["findings"] + rep["hygiene"]["findings"], __version__)
     with open(target, "w", encoding="utf-8", newline="\n") as fh:
@@ -128,7 +136,7 @@ def main(argv=None):
             if args.history_depth < 1:
                 raise report.UsageError("--history-depth must be at least 1")
             rep = report.scan(args.path, args.goal, explain=args.explain, online=args.online, baseline=args.baseline,
-                              history=args.history, history_depth=args.history_depth)
+                              history=args.history, history_depth=args.history_depth, exclude=args.exclude or ())
             if args.json:
                 sys.stdout.write(json.dumps(redact_report(rep), indent=1) + "\n")
             elif args.sarif:
@@ -147,13 +155,13 @@ def main(argv=None):
                              else verify.render_diff(redact_report(result)))
             return verify.diff_exit(result)
         if args.command == "plan":
-            result = redact_report(verify.plan(report.scan(args.path, args.goal), args.top))
+            result = redact_report(verify.plan(report.scan(args.path, args.goal, exclude=args.exclude or ()), args.top))
             sys.stdout.write(json.dumps(result, indent=1) + "\n" if args.json else verify.plan_markdown(result))
             return 0
         if args.command == "baseline":
-            return write_baseline(args.path, args.out, args.goal)
+            return write_baseline(args.path, args.out, args.goal, exclude=args.exclude or ())
         if args.command == "orphans":
-            hyg = report.orphans(args.path, args.goal)
+            hyg = report.orphans(args.path, args.goal, exclude=args.exclude or ())
             sys.stdout.write(json.dumps(redact_report(hyg), indent=1) + "\n" if args.json else report.render_orphans(hyg))
             return report.exit_code(hyg["findings"], args.fail_on)
         if args.command == "init":
@@ -215,6 +223,9 @@ def selftest():
             ("diff_self", run("diff", os.path.join(tmp, "s.json"), os.path.join(tmp, "s.json"))[0] == 0
              and run("diff", os.path.join(tmp, "s.json"), os.path.join(tmp, "s.json"))[1].startswith("verdict: unchanged")),
             ("bad_goal_exit_2", run("scan", tmp, "--goal", os.path.join(tmp, "missing.toml"))[0] == 2),
+            ("exclude", run("scan", tmp, "--json", "--exclude", "app/*", "--exclude", "none/*")[0] == 3
+             and [(g["glob"], g["files"]) for g in json.loads(run("scan", tmp, "--json", "--exclude", "app/*")[1])
+                  ["excluded_by_request"]] == [("app/*", 1)]),
         ]
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

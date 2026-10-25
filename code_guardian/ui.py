@@ -6,6 +6,12 @@ The server calls report.scan() and builds every sentence with plain.py; it never
 Only POST /api/scan reads a folder. GET /api/scan?id= hands back a stored result and POST /api/open stores a saved
 `scan --json` (P78 C7); neither touches the disk.
 
+POST /api/scan takes "exclude": [glob] (at most EXCLUDE_MAX, each at most GLOB_MAX characters) to leave paths out at
+the person's request, or "again": "<scan id>" to re-check with the exclude that check used. Its answer carries the
+exclude used and "backup_offer": backups.offer() on the result ({"offered", "held"}), beside the report. A check
+with an exclude has the finding counts by code of each glob the server offered on the unexcluded check merged into
+the report's excluded_by_request, so a saved check keeps them (P88 C2).
+
     make_server(port=None) -> server bound to 127.0.0.1, not yet serving, with .token; server_close() also removes
                               every per-scan temp directory. None tries DEFAULT_PORTS in order, then any free port;
                               0 is any free port; any other number is that port or an OSError
@@ -37,7 +43,7 @@ import time
 import webbrowser
 from urllib.parse import parse_qsl
 
-from . import explain, goal, plain, refuse, report, verify, walk
+from . import backups, explain, goal, orphans, plain, refuse, report, verify, walk
 from .finding import summarize
 from .scanners import redact_report
 
@@ -56,6 +62,10 @@ EXPLAIN_SETUP = "set CODE_GUARDIAN_LLM_URL and CODE_GUARDIAN_LLM_MODEL, then res
 REPORTS_KEPT = 20  # finished reports (and their file inventories) held for /api/diff and /api/files; the oldest goes first
 DIALOG_TIMEOUT = 600  # seconds a folder window may stay open; no answer by then is a cancel
 DIALOG_DETAIL = {3: "this Python has no tkinter", 4: "no display to open a window on"}
+EXCLUDE_MAX = 50  # globs one check may leave out
+GLOB_MAX = 200  # characters in one of them
+EXCLUDE_DETAIL = "exclude must be a list of at most %d globs, each a string of 1 to %d characters" % (EXCLUDE_MAX,
+                                                                                                    GLOB_MAX)
 
 # The folder window, run as `python -I -c DIALOG_SOURCE START` (ADR 0009): tkinter wants the main thread of its own
 # process, so the server's threads never import it. Exit 0 and the folder on stdout as UTF-8 whatever the console's
@@ -124,10 +134,12 @@ class Server(http.server.ThreadingHTTPServer):
 
     def __init__(self, port=0):
         self.token = secrets.token_urlsafe(24)
-        self.scans = []  # entries, oldest first: id, path, when, state, grade, overall, status (+ saved for POST /api/open)
+        self.scans = []  # entries, oldest first: id, path, when, state, grade, overall, status, exclude (+ saved)
         self.roots = {}  # scan id -> the directory /api/file may read under
         self.reports = collections.OrderedDict()  # scan id -> its (redacted) report, the last REPORTS_KEPT
         self.inventories = collections.OrderedDict()  # scan id -> the walk the scan saw, trimmed with reports
+        self.backup_offers = collections.OrderedDict()  # scan id -> its backup_offer, trimmed with reports
+        self.offered = {}  # (folder, goal file) -> the groups offered on its last check without an exclude
         self.temp_dirs = []
         self.lock = threading.Lock()
         super().__init__((HOST, port), Handler)
@@ -158,12 +170,20 @@ class Server(http.server.ThreadingHTTPServer):
     def allowed_origins(self):
         return {SCHEME + "://" + h for h in self.allowed_hosts()}
 
-    def scan(self, path, goal_file=None):
-        """Scan a directory, or a copy of a single file, and return {"id", "report", "plain"}."""
+    def scan(self, path, goal_file=None, exclude=None, again=None):
+        """Scan a directory, or a copy of a single file, and return {"id", "report", "plain", "exclude",
+        "backup_offer"}. exclude: globs to leave out; None with again (a scan id) reuses that check's exclude."""
         target = os.path.abspath(os.path.expanduser(_unquote(path)))
         sentence = refuse.refused(target)  # before anything is read or listed; a single file is never refused
         if sentence:
             raise ScanRefused("refused", sentence)
+        if exclude is None and again is not None:
+            with self.lock:
+                was = [e for e in self.scans if e["id"] == again]
+            if not was:
+                raise ScanRefused("again", "code-guardian does not hold the check %s" % again)
+            exclude = was[0]["exclude"]
+        exclude = list(exclude or ())
         made = None
         if os.path.isfile(target):
             made = tempfile.mkdtemp(prefix="cg-ui-")
@@ -176,18 +196,20 @@ class Server(http.server.ThreadingHTTPServer):
         else:
             raise ScanRefused("path", "not an existing directory or file: %s" % path)
         entry = {"id": secrets.token_hex(6), "path": target, "when": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                 "state": "scanning", "grade": None, "overall": None, "status": None}
+                 "state": "scanning", "grade": None, "overall": None, "status": None, "exclude": exclude}
         with self.lock:
             self.scans.append(entry)
         goal_file = _unquote(goal_file) if goal_file else None
         try:
-            # The files the scan will see: its own goal-file excludes, walked just before it walks (report.scan).
+            # The files the scan will see: its own goal-file excludes, then the requested ones, walked just before it
+            # walks (report.scan).
             contract, _ = report._contract(root, goal_file)
             try:
-                inventory = walk.walk(root, exclude=contract["exclude"] if contract else ())
+                inventory = walk.walk(root, exclude=(tuple(contract["exclude"]) if contract else ()) + tuple(exclude))
             except Exception:  # the scan reports a crashed walk itself; the file list is simply absent
                 inventory = None
-            rep = redact_report(report.scan(root, goal_file))
+            rep = redact_report(report.scan(root, goal_file, exclude=exclude))
+            offer = backup_offer(root, rep, inventory)
         except (report.UsageError, goal.GoalError) as exc:
             self._forget(entry, made)
             raise ScanRefused("goal", str(exc)) from None
@@ -195,40 +217,56 @@ class Server(http.server.ThreadingHTTPServer):
             self._forget(entry, made)
             raise
         with self.lock:
+            if exclude:  # the counts the person saw when the globs were offered, from the check without them
+                offered = {g["glob"]: g for g in self.offered.get((target, goal_file), ())}
+                for row in rep["excluded_by_request"]:
+                    if row["glob"] in offered:
+                        row.update(findings=offered[row["glob"]]["findings"],
+                                   by_code=dict(offered[row["glob"]]["by_code"]))
+            else:
+                self.offered[(target, goal_file)] = offer["offered"]
             self.roots[entry["id"]] = os.path.realpath(root)
             entry.update(state="done", grade=rep["scores"]["grade"], overall=rep["scores"]["overall"],
                          status=rep["status"])
             self.reports[entry["id"]] = rep
+            self.backup_offers[entry["id"]] = offer
             if inventory is not None:
                 self.inventories[entry["id"]] = inventory
             self._trim()
-        return {"id": entry["id"], "report": rep, "plain": plain_of(rep)}
+        return {"id": entry["id"], "report": rep, "plain": plain_of(rep), "exclude": exclude, "backup_offer": offer}
 
     def _trim(self):
-        """Keep the last REPORTS_KEPT reports; a report that goes takes its file inventory with it. Caller holds the lock."""
+        """Keep the last REPORTS_KEPT reports; a report that goes takes its file inventory and backup offer with it.
+        Caller holds the lock."""
         while len(self.reports) > REPORTS_KEPT:
             gone, _ = self.reports.popitem(last=False)
             self.inventories.pop(gone, None)
+            self.backup_offers.pop(gone, None)
 
     def stored(self, scan_id):
         """(status, body) for GET /api/scan: the result of a finished check held in memory, exactly what the POST that
         made it returned, plus its file list (None for a saved check, or one without an inventory). Reads no folder."""
         with self.lock:
             rep = self.reports.get(scan_id)
-            saved = any(e["id"] == scan_id and e.get("saved") for e in self.scans)
+            entry = ([e for e in self.scans if e["id"] == scan_id] or [{}])[0]
+            offer = self.backup_offers.get(scan_id)
         if rep is None:
             return 404, {"error": "scan"}
+        saved = bool(entry.get("saved"))
         status, files = (404, None) if saved else self.files_of(scan_id)
         return 200, {"id": scan_id, "report": rep, "plain": plain_of(rep), "files": files if status == 200 else None,
-                     "saved": saved}
+                     "saved": saved, "exclude": entry.get("exclude", []), "backup_offer": offer}
 
     def open_saved(self, rep):
         """Hold a report read from a saved `scan --json` file (already validated and redacted) as a finished check with
         no folder behind it: no root, no inventory. Returns {"id", "report", "plain", "files", "saved"}."""
+        asked = rep.get("excluded_by_request")
+        exclude = [row["glob"] for row in asked if isinstance(row, dict) and isinstance(row.get("glob"), str)] \
+            if isinstance(asked, list) else []
         entry = {"id": secrets.token_hex(6), "path": rep["path"], "when": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                  "state": "done", "grade": rep["scores"].get("grade"), "overall": rep["scores"].get("overall"),
-                 "status": rep.get("status"), "saved": True}
-        out = {"id": entry["id"], "report": rep, "plain": plain_of(rep), "files": None, "saved": True}
+                 "status": rep.get("status"), "exclude": exclude, "saved": True}
+        out = {"id": entry["id"], "report": rep, "plain": plain_of(rep), "files": None, "saved": True, "exclude": exclude}
         with self.lock:
             self.scans.append(entry)
             self.reports[entry["id"]] = rep
@@ -312,6 +350,32 @@ class Server(http.server.ThreadingHTTPServer):
         if lines and lines[-1] == "":
             lines.pop()
         return 200, {"rel": rel, "lines": lines, "truncated": truncated}
+
+
+def backup_offer(root, rep, inventory):
+    """{"offered", "held"}: backups.offer() on a finished scan. The walked files are read and parsed again only when a
+    finding sits in a backup copy, which is the only time the import and string checks have anything to decide."""
+    if inventory is None or not backups.wanted(rep["findings"]):
+        return {"offered": [], "held": []}
+    texts, trees = {}, {}
+    for rel in inventory["python"] + inventory["manifests"] + inventory["other"]:
+        try:
+            raw, texts[rel] = walk.read(root, rel)
+        except OSError:
+            continue
+        if rel.endswith(".py"):
+            try:
+                trees[rel] = report._parse(rel, raw)
+            except report.PARSE_ERRORS:
+                pass
+    offered, held = backups.offer(rep["findings"], inventory, graph=orphans.Graph(trees), texts=texts)
+    return {"offered": offered, "held": held}
+
+
+def _globs(value):
+    """True when a requested exclude is a list of at most EXCLUDE_MAX strings of 1 to GLOB_MAX characters."""
+    return (isinstance(value, list) and len(value) <= EXCLUDE_MAX
+            and all(isinstance(g, str) and 0 < len(g) <= GLOB_MAX for g in value))
 
 
 def plain_of(rep):
@@ -416,13 +480,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self._json(400, {"error": "json"})
         if not isinstance(req, dict):
             return self._json(400, {"error": "json"})
-        path, goal_file = req.get("path"), req.get("goal_file")
+        path, goal_file, exclude, again = (req.get(k) for k in ("path", "goal_file", "exclude", "again"))
         if not isinstance(path, str) or not path.strip():
             return self._json(400, {"error": "path", "detail": "path must be a non-empty string"})
         if goal_file is not None and not isinstance(goal_file, str):
             return self._json(400, {"error": "goal", "detail": "goal_file must be a string or null"})
+        if exclude is not None and not _globs(exclude):
+            return self._json(400, {"error": "exclude", "detail": EXCLUDE_DETAIL})
+        if again is not None and not isinstance(again, str):
+            return self._json(400, {"error": "again", "detail": "again must be the id of a check, or null"})
         try:
-            return self._json(200, self.server.scan(path, goal_file))
+            return self._json(200, self.server.scan(path, goal_file, exclude, again))
         except ScanRefused as exc:
             return self._json(400, {"error": exc.error, "detail": exc.detail})
         except Exception as exc:  # the scanner crashed: say so, never the traceback
