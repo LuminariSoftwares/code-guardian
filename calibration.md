@@ -181,3 +181,25 @@ justified WARN.
 ### LuminariSoftwares/code-guardian
 
 None.
+
+### Backup folders and test values (0.4.1)
+
+Two changes in 0.4.1 move findings, so they are calibrated the same way: counts on a real project folder before and
+after, no change on the fixtures, and no change on the five pinned repositories. The counts are written when the
+section is built (P88 S5), from `cg_review.py` on the release candidate; a blank cell is not measured yet.
+
+A real Windows scripts folder (the maintainer's own, scanned as a whole, then with its backup copies left out at the
+person's request, then with test values graded):
+
+| scan | FAIL | INFO (looks like a test value) |
+|---|---:|---:|
+| 0.4.0, every file | | |
+| 0.4.1, backup copies left out with `--exclude` | | |
+| 0.4.1, and key-shaped test values graded | | |
+
+Fixtures and pinned repositories:
+
+| set | what changed | result |
+|---|---|---|
+| the 8 fixture repos (`tests/fixtures`, `risky_repo` as built by `tests/make_risky.py`) | scan report, sha256 of the canonical JSON | 0 delta against 0.4.0 (`tests/test_p88_s4_acceptance.py`) |
+| the 5 pinned 0.2.0 repos (requests, click, rich, httpx, flask) re-scanned with 0.4.1 | | no new FAIL and no FAIL moved to INFO: they carry no key shapes today, so any move would be a bug |
