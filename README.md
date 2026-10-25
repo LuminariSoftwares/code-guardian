@@ -176,13 +176,15 @@ Downloads folder, which **Open a saved check** shows again later and **Compare**
 
 AI-written projects collect copies: an `_archive/` folder, `old/`, `main.py.backup-20260824`. Their findings are real
 findings in files nobody runs, and they can bury the ones that matter. code-guardian never leaves a copy out on its
-own: the check counts every file, and leaving one out is something you ask for. On the command line that is
-`--exclude '_archive/*'`, and the report says how many files that was ("N left out at your request") and lists the
-glob under `excluded_by_request`. For the app, a check's reply also says which copies it could offer to leave out
-(`backup_offer`: a copy that has findings and that the code you keep does not import or name) and which it holds back,
-with the reason in plain words: a copy that kept code imports, or one with an install hook, an obfuscated payload or
-an `exec` risk, is never offered, because a risk that runs code is not left out on a suggestion. The page's own
-buttons for that offer are not part of this release; until then use `--exclude`.
+own; leaving one out is something you choose. In the app, after a check, a banner says how many findings sit in
+folders that look like backup copies, with one button, **Check again without them**. A copy is offered only when it
+has findings and the code you keep does not import it. A copy that kept code imports, or that holds a risk that runs
+code (an install hook, an obfuscated payload, an `exec` risk), is not offered: it is listed under the banner with the
+reason in plain words. A copy that kept files only name in a string is offered with a caution line naming those
+files, because leaving a folder out only hides its findings and never breaks code. The new result then says **Left
+out at your request: …** with **Put them back**. When key-shaped values were graded as test values, the summary says
+how many, with a link to them. On the command line the same choice is `--exclude '_archive/*'`; the report says how
+many files that left out ("N left out at your request") and lists the glob under `excluded_by_request`.
 
 ### From a phone
 

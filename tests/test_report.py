@@ -145,3 +145,10 @@ def test_no_graded_key_means_no_summary_key(tmp_path):
     (tmp_path / "app" / "a.py").write_text('API_VALUE = "%s"\n' % key(), encoding="utf-8")
     rep = report.scan(str(tmp_path))
     assert "test_values_graded" not in rep and "look like test values" not in report.render(rep)
+
+
+@pytest.mark.parametrize("scope", ["stub_client", "fixture_keys", "StubClient", "make_fixtures"])
+def test_stub_and_fixture_scopes_count_for_l2(scope):
+    f = graded("app/a.py", 'def %s():\n    test_key = "%s"\n' % (scope, key(scope)))
+    assert f["level"] == "INFO"
+    assert f["evidence"][-1] == "looks like a test value: assigned to test_key and inside %s()" % scope

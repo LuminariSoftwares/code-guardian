@@ -434,7 +434,7 @@ TEST_VALUE_FIX = "keep test values out of the source too, or make them obviously
 TEST_VALUE_HINT = ("if this is a test value, make it say so (FAKE or TEST in the value, or one character repeated, "
                    "like 000000) and it is reported as information")
 _NAME_WORDS = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+")
-FAKE_NAME_WORDS = scanners.PLACEHOLDER_WORDS | {"selftest"}
+FAKE_NAME_WORDS = scanners.PLACEHOLDER_WORDS | {"selftest", "stub", "fixture"}
 
 
 def _fake_named(name):
