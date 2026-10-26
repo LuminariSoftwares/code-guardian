@@ -976,8 +976,15 @@
       if (c.files) head.appendChild(el("span", "chip depth-chip", depthWord(c.depth)));
       li.appendChild(head);
       // The sentence starts with the label, which the head line already shows.
-      var prefix = c.label + ": ";
-      li.appendChild(el("span", "checked-text", c.text.indexOf(prefix) === 0 ? c.text.slice(prefix.length) : c.text));
+      if (c.looked_at && c.looked_at.length) {
+        li.appendChild(el("span", "checked-sub", "Looked at"));
+        li.appendChild(checkedList(c.looked_at));
+        li.appendChild(el("span", "checked-sub", "Not looked at"));
+        li.appendChild(checkedList(c.not_looked_at || []));
+      } else {
+        var prefix = c.label + ": ";
+        li.appendChild(el("span", "checked-text", c.text.indexOf(prefix) === 0 ? c.text.slice(prefix.length) : c.text));
+      }
       ul.appendChild(li);
     });
   }
@@ -1016,10 +1023,19 @@
     $("rail-quality").textContent = String(counts.Quality);
   }
 
+  // A bullet list under "Looked at" / "Not looked at": the wording comes from the server in lower case.
+  function checkedList(items) {
+    var ul = el("ul", "checked-list");
+    items.forEach(function (text) {
+      ul.appendChild(el("li", null, text.charAt(0).toUpperCase() + text.slice(1)));
+    });
+    return ul;
+  }
+
   // The chip beside each "What was checked" label: how deep the scan went into that kind of file.
   function depthWord(depth) {
     if (depth === "full") return "in depth";
-    if (depth === "tokens") return "token level";
+    if (depth === "tokens") return "line by line";
     if (depth === "secrets+manifests") return "keys and install settings only";
     if (depth === "secrets only") return "keys only";
     if (depth === "not read") return "not read";
