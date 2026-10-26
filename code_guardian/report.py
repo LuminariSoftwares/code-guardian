@@ -11,7 +11,10 @@ Public contract:
                                        # top-level key test_values_graded: n (only when n > 0)
     orphans(path, goal_file=None, infer=False, exclude=()) -> hygiene dict (+ "files")
     render(report) -> text            render_orphans(hygiene) -> text       status_line(report) -> text
-    coverage_of(inv, langs) -> coverage dict          coverage_line(coverage) -> 'coverage: ...'
+    coverage_of(inv, langs, not_run=()) -> coverage dict          coverage_line(coverage) -> 'coverage: ...'
+                                       # JavaScript / TypeScript (walk's inv["javascript"], tokens and Safe + Works checks,
+                                       # inv["generated"] only the secret, obfuscation and exec.dynamic checks) are
+                                       # analysed; coverage.languages says at what depth
     exit_code(findings, fail_on, status=None, baseline=None) -> 0, 1 or 3 (an incomplete scan: PARTIAL or INVALID);
                                        # with a baseline block only findings marked new count
     gate_status(report) -> the status exit_code uses: a PARTIAL that is only about coverage gates as COMPLETE
@@ -31,14 +34,14 @@ import tempfile
 import warnings
 
 from . import (__version__, baseline as baseline_mod, complete, explain as explain_mod, history as history_mod,
-               leftovers, goal, manifests, orphans as orphans_mod, scanners, score,
-               supply, walk, works)
+               leftovers, goal, manifests, orphans as orphans_mod, scanners, scanners_js, score,
+               supply, walk, works, works_js)
 from .finding import LEVELS, crash_finding, summarize
 from .scanners import redact_report
 
 SOURCE_EXT = frozenset({".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx", ".go", ".rs", ".java", ".kt", ".rb", ".php",
                         ".sh", ".bash", ".ps1", ".bat", ".c", ".h", ".cc", ".cpp", ".hpp", ".cs", ".swift", ".lua",
-                        ".pl", ".r", ".scala", ".dart"})
+                        ".pl", ".r", ".scala", ".dart", ".vue", ".svelte", ".astro"})
 PARSE_ERRORS = (SyntaxError, ValueError, RecursionError, MemoryError)
 
 
@@ -69,47 +72,85 @@ def _parse(rel, raw):
 
 
 def _languages(files):
+    """{extension: files} of the source files that only get the secret scan: JavaScript / TypeScript is analysed now."""
     counts = {}
     for rel in files:
         ext = os.path.splitext(rel)[1].lower()
-        if ext in SOURCE_EXT:
+        if ext in SOURCE_EXT and ext not in walk.JS_EXT:
             counts[ext] = counts.get(ext, 0) + 1
     return dict(sorted(counts.items()))
 
 
-# Coverage. Only Python is analysed; other source files get the secret scan only. With no Python source, Works is not
-# scored and Safe is partial. Other-language source is material (the scan is PARTIAL) when there are at least
-# COVERAGE_MIN_OTHER such files and more than COVERAGE_RATIO times as many as Python files: Python is under a third
-# of the source. Calibrated so the nine repos in calibration.md stay COMPLETE (the most JS-heavy has 37 .js/.mjs
-# files to 33 Python files).
+# Coverage. Python is analysed in full; JavaScript / TypeScript at token level (a lexer, not a parser: the Safe checks
+# of scanners_js and the Works checks of works_js, and generated or minified files only the secret, obfuscation and
+# exec.dynamic checks); other source files get the secret scan only. With neither Python nor JavaScript / TypeScript
+# source, Works is not scored and Safe is partial. Other-language source is material (the scan is PARTIAL) when there
+# are at least COVERAGE_MIN_OTHER such files and more than COVERAGE_RATIO times as many as Python and JavaScript /
+# TypeScript files together: the analysed languages are under a third of the source. Calibrated so the nine repos in
+# calibration.md stay COMPLETE (the most JS-heavy has 37 .js/.mjs files to 33 Python files).
 COVERAGE_MIN_OTHER = 5
 COVERAGE_RATIO = 2
+JS_DEPTH = "tokens"
+JS_GENERATED_CHECKS = ["secret.key", "obfuscation", "exec.dynamic"]
+JS_WORKS_CODES = ("works.syntax", "works.import_unresolved", "works.relative_missing", "works.entry_missing",
+                  "works.tests_missing")
 
 
-def coverage_of(inv, langs):
+def _js_checked(not_run=()):
+    """The check codes that ran on the JavaScript / TypeScript files, in a fixed order."""
+    codes = ["secret.key"] + [code for code, _fn in scanners_js.JS_SCANNERS] + list(JS_WORKS_CODES)
+    return [code for code in codes if code not in not_run]
+
+
+def _js_not_checked():
+    """What the Python side checks and the JavaScript side does not (the C2 and C3 lists)."""
+    ported = set(_js_checked())
+    return [code for code, _fn in scanners.PY_SCANNERS if code not in ported] + list(works_js.NOT_CHECKED)
+
+
+def coverage_of(inv, langs, not_run=()):
+    """not_run: check codes that crashed on the JavaScript / TypeScript side; they are left out of languages.checks."""
     python, other = len(inv["python"]), sum(langs.values())
-    material = other >= COVERAGE_MIN_OTHER and other > COVERAGE_RATIO * python
-    if not python:
-        reason = "no Python source: Works not scored, Safe partial"
+    js, generated = len(inv.get("javascript", ())), len(inv.get("generated", ()))
+    material = other >= COVERAGE_MIN_OTHER and other > COVERAGE_RATIO * (python + js)
+    if not (python or js):
+        reason = "no Python or JavaScript source: Works not scored, Safe partial"
     elif material:
-        reason = ("Python is under a third of the source: %d file(s) in other languages got the secret scan only"
-                  % other)
+        reason = ("%s under a third of the source: %d file(s) in other languages got the secret scan only"
+                  % ("Python is" if not js else "Python and JavaScript/TypeScript are", other))
     else:
         reason = None
-    return {"analysed": "python", "python": python, "other_source": langs, "other_source_files": other,
-            "works_scored": bool(python), "safe_partial": not python, "partial": reason is not None,
-            "reason": reason}
+    languages = {}
+    if python:
+        languages["python"] = {"files": python, "depth": "full"}
+    if js or generated:
+        languages["javascript"] = {"files": js, "generated": generated, "depth": JS_DEPTH,
+                                   "checks": _js_checked(not_run), "generated_checks": list(JS_GENERATED_CHECKS),
+                                   "not_checked": _js_not_checked()}
+    return {"analysed": "python+javascript" if python and js else "javascript" if js else "python",
+            "python": python, "other_source": langs, "other_source_files": other,
+            "works_scored": bool(python or js), "safe_partial": not (python or js), "partial": reason is not None,
+            "reason": reason, "languages": languages}
 
 
 def coverage_line(cov):
-    """'coverage: 40 Python analysed; 112 .ts, 9 .go secret-scan only' (most files first)."""
+    """'coverage: 40 Python analysed; 112 JavaScript/TypeScript analysed (token level); 9 .go secret-scan only'
+    (each part only when there is something to say; the other languages most files first)."""
+    parts = []
+    if cov["python"]:
+        parts.append("%d Python analysed" % cov["python"])
+    js = ((cov.get("languages") or {}).get("javascript") or {}).get("files", 0)
+    if js:
+        parts.append("%d JavaScript/TypeScript analysed (token level)" % js)
     other = sorted(cov["other_source"].items(), key=lambda kv: (-kv[1], kv[0]))
-    return "coverage: %d Python analysed%s" % (cov["python"], "; %s secret-scan only"
-                                               % ", ".join("%d %s" % (n, ext) for ext, n in other) if other else "")
+    if other:
+        parts.append("%s secret-scan only" % ", ".join("%d %s" % (n, ext) for ext, n in other))
+    return "coverage: " + ("; ".join(parts) if parts else "0 Python analysed")
 
 
 STATUSES = ("COMPLETE", "PARTIAL", "INVALID")
-SCHEMA_VERSION = 2  # 1 was v0.2's shape; 2 adds keys (status, outcomes...) and never changes an existing one
+SCHEMA_VERSION = 3  # 1 was v0.2's shape; 2 adds keys (status, outcomes...); 3 adds files.javascript / .generated and
+#                     coverage.languages (JavaScript / TypeScript analysis); a version never changes an existing key's meaning
 
 
 class Outcomes:
@@ -151,8 +192,8 @@ def _listing(rels, limit=5):
 
 
 def status_of(outcomes, inv, unparsed, unreadable, invalid, coverage=None):
-    """(status, reasons). INVALID: nothing could be judged. PARTIAL: there is no Python source, or most source is in
-    languages code-guardian does not analyse (coverage), a check crashed or was skipped, or a file that would have
+    """(status, reasons). INVALID: nothing could be judged. PARTIAL: there is no Python or JavaScript / TypeScript source,
+    or most source is in languages code-guardian does not analyse (coverage), a check crashed or was skipped, or a file that would have
     been analysed was not (did not parse, too large, unreadable). Binary files, symlinks and large non-source assets
     (only ever secret-scanned) do not make a scan PARTIAL; the notes still list them."""
     if invalid:
@@ -174,7 +215,8 @@ def status_of(outcomes, inv, unparsed, unreadable, invalid, coverage=None):
 
 
 def _empty_inventory():
-    return {"python": [], "manifests": [], "other": [], "skipped": [], "excluded": 0, "ignored": 0}
+    return {"python": [], "manifests": [], "other": [], "javascript": [], "generated": [], "skipped": [], "excluded": 0,
+            "ignored": 0}
 
 
 def _baseline(path):
@@ -235,8 +277,8 @@ def scan(path, goal_file=None, explain=False, env=None, online=False, baseline=N
         inv = _empty_inventory()
         invalid.append("the file walk crashed")
     asked = _asked(root, goal_globs, exclude) if exclude and inv["excluded"] else [(g, 0) for g in exclude]
-    if not invalid and not inv["python"] and not inv["manifests"]:
-        invalid.append("no Python files and no manifests to judge")
+    if not invalid and not (inv["python"] or inv["javascript"] or inv["generated"] or inv["manifests"]):
+        invalid.append("no Python files, no JavaScript/TypeScript files and no manifests to judge")
 
     def read(rel):
         try:
@@ -302,7 +344,25 @@ def scan(path, goal_file=None, explain=False, env=None, online=False, baseline=N
     else:
         for check in ("works", "complete", "supply"):
             out.skipped(check, "no Python files and no manifests")
-        notes.append("no Python source or manifest found: Works and Complete have nothing to check")
+        notes.append("no Python source or manifest found: %s have nothing to check"
+                     % ("Complete and Supply" if inv["javascript"] or inv["generated"] else "Works and Complete"))
+    js_crashed, js_works_ran = [], False
+    if inv["javascript"] or inv["generated"]:
+        out.ran("javascript")
+        generated = set(inv["generated"])
+        for rel in sorted(inv["javascript"] + inv["generated"]):
+            text = sources.get(rel)  # the secret scan above read it; an unreadable file is not analysed
+            if text is not None:
+                findings.extend(out.run("javascript", lambda: scanners_js.scan_js(
+                    scanners_js.JsFile(rel, text, _flavour(rel), generated=rel in generated), crashed=js_crashed),
+                    [], findings, rel))
+        for code, crash in js_crashed:
+            out.crashed("javascript", "%s on %s" % (crash["evidence"][0].split(":", 1)[0], crash["node"]))
+        found, has_tests = out.run("js_works", lambda: _js_works(project, inv["javascript"], notes), ([], False), findings)
+        findings.extend(found)
+        if has_tests:  # one works.tests_missing for the repo: the JavaScript side has tests, so works.py's is wrong
+            findings = [f for f in findings if f["code"] != "works.tests_missing"]
+        js_works_ran = out.rows.get("js_works", ("ran",))[0] == "ran"
     if history and not invalid:
         found, history_notes, skipped = out.run(
             "history", lambda: history_mod.scan(root, history_depth, current=sources), ([], [], None), findings)
@@ -320,7 +380,8 @@ def scan(path, goal_file=None, explain=False, env=None, online=False, baseline=N
     findings = score.sort_findings(scanners.dedupe(_test_code_to_info(
         _test_key_context(_one_secret_per_line(findings), trees, sources))))
     langs = _languages(inv["other"])
-    coverage = coverage_of(inv, langs)
+    coverage = coverage_of(inv, langs, [code for code, _crash in js_crashed]
+                           + ([] if js_works_ran or not (inv["javascript"] or inv["generated"]) else list(JS_WORKS_CODES)))
     for rel, why in inv["skipped"]:
         notes.append("skipped %s (%s)" % (rel, why))
     for rel in unreadable:
@@ -348,9 +409,11 @@ def scan(path, goal_file=None, explain=False, env=None, online=False, baseline=N
         "tool": "code-guardian", "version": __version__, "schema_version": SCHEMA_VERSION, "path": path,
         "goal_file": os.path.relpath(contract["path"], root).replace(os.sep, "/") if contract else None,
         "status": status, "status_reasons": reasons, "outcomes": outcomes,
-        "files": {"python": len(inv["python"]), "manifests": len(inv["manifests"]), "other": len(inv["other"]),
+        "files": {"python": len(inv["python"]), "manifests": len(inv["manifests"]),
+                  "other": len(inv["other"]) - len(inv["javascript"]) - len(inv["generated"]),
                   "skipped": len(inv["skipped"]), "ignored": inv["ignored"], "excluded": inv["excluded"],
-                  "unparsed": len(inv["python"]) - len(trees)},
+                  "unparsed": len(inv["python"]) - len(trees), "javascript": len(inv["javascript"]),
+                  "generated": len(inv["generated"])},
         "other_languages": langs,
         "coverage": coverage,
         "anchor": _anchor(inv),
@@ -376,6 +439,17 @@ def scan(path, goal_file=None, explain=False, env=None, online=False, baseline=N
             report["explanation"] = {"label": explain_mod.LABEL, "text": text}
         report["notes"].append(note)
     return report
+
+
+def _flavour(rel):
+    return works_js.FLAVOURS[os.path.splitext(rel)[1].lower()]
+
+
+def _js_works(project, javascript, notes):
+    """([works_js findings], whether the JavaScript side has a test signal). The generated files are left out."""
+    js_project = dict(project, **works_js.load(project["root"], project["files"], javascript=javascript))
+    notes.extend(js_project["notes"])
+    return works_js.check(js_project), works_js.has_test_signal(js_project)
 
 
 def _is_library(project):
@@ -644,14 +718,14 @@ def _hygiene_lines(h):
 
 LABELS = {"safe": "Safe", "works": "Works", "complete": "Complete"}
 QUESTIONS = {"safe": "is it safe to run?", "works": "will it work?", "complete": "does it have what it needs?"}
-NOT_SCORED = "n/a (Python only)"
+NOT_SCORED = "n/a (no Python or JavaScript)"
 PARTIAL_LABEL = "partial: language-neutral checks only"
 
 
 def overall_notes(report):
     """What the Overall line must say beside the grade: the dimensions left out, then the cap."""
     s, dims = report["scores"], report.get("dimensions") or {}
-    out = ["%s not scored: no Python source" % LABELS[d] for d in score.DIMENSIONS
+    out = ["%s not scored: no Python or JavaScript source" % LABELS[d] for d in score.DIMENSIONS
            if not dims.get(d, {}).get("scored", True)]
     if s["capped"]:
         out.append(("capped: %s" if s["grade"] != s["grade_uncapped"] else "%s") % s["cap_reason"])
@@ -772,7 +846,7 @@ def main(argv=None):
 
 
 def selftest():
-    tmp = tempfile.mkdtemp()
+    tmp, js_tmp = tempfile.mkdtemp(), tempfile.mkdtemp()
 
     def put(rel, text):
         full = os.path.join(tmp, *rel.split("/"))
@@ -786,7 +860,9 @@ def selftest():
                           "if __name__ == '__main__':\n    main()\n")
         put("app/broken.py", "def (:\n")
         put("tests/test_run.py", "from app import run\ndef test_main():\n    assert run.main\n")
-        put("web/x.js", "fetch('/');\n")
+        put("web/x.go", "package main\n")
+        with open(os.path.join(js_tmp, "x.js"), "w", encoding="utf-8") as fh:
+            fh.write("fetch('/');\n")
         put("web2/package.json", '{"name": "w"}\n')
         first, second = scan(tmp), scan(tmp)
         text = render(scan(tmp))
@@ -795,10 +871,16 @@ def selftest():
             ("score", first["scores"]["safe"] == 90 and first["scores"]["works"] == 67 and first["scores"]["grade"] == "B"),
             ("unparsed", first["files"]["unparsed"] == 1 and any(f["code"] == "works.syntax" for f in first["findings"])),
             ("hygiene", [f["evidence"][0] for f in first["hygiene"]["findings"]] == ["name: app.run.unused"]),
-            ("languages", first["other_languages"] == {".js": 1} and first["coverage"]["python"] == 4
-             and not first["coverage"]["partial"] and "coverage: 4 Python analysed; 1 .js secret-scan only" in text),
-            ("coverage_line", coverage_line({"python": 40, "other_source": {".go": 9, ".ts": 112}})
-             == "coverage: 40 Python analysed; 112 .ts, 9 .go secret-scan only"),
+            ("languages", first["other_languages"] == {".go": 1} and first["coverage"]["python"] == 4
+             and not first["coverage"]["partial"] and "coverage: 4 Python analysed; 1 .go secret-scan only" in text
+             and first["coverage"]["languages"] == {"python": {"files": 4, "depth": "full"}}),
+            ("coverage_line", coverage_line({"python": 40, "other_source": {".go": 9, ".rs": 112},
+                                             "languages": {"javascript": {"files": 112}}})
+             == "coverage: 40 Python analysed; 112 JavaScript/TypeScript analysed (token level); 112 .rs, 9 .go secret-scan only"
+             and coverage_line({"python": 0, "other_source": {}}) == "coverage: 0 Python analysed"),
+            ("javascript", scan(js_tmp)["coverage"]["analysed"] == "javascript" and scan(js_tmp)["status"] != "INVALID"
+             and [o["check"] for o in scan(js_tmp)["outcomes"] if o["check"] in ("javascript", "js_works")]
+             == ["javascript", "js_works"]),
             ("no_python", scan(os.path.join(tmp, "web2"))["scores"]["works"] is None),
             ("gate_status", gate_status({"status": "PARTIAL", "status_reasons": ["r"], "coverage": {"reason": "r"}})
              == "COMPLETE" and gate_status({"status": "PARTIAL", "status_reasons": ["r", "x"],
@@ -811,7 +893,9 @@ def selftest():
                 "1 Python file(s) did not parse: app/broken.py"] and "status: PARTIAL (1 Python file(s)" in text),
             ("exit_3", exit_code([], "FAIL", "PARTIAL") == 3 and exit_code([], "FAIL", "INVALID") == 3
              and exit_code([], "FAIL", "COMPLETE") == 0),
-            ("invalid", scan(os.path.join(tmp, "web"))["status"] == "INVALID"),
+            ("invalid", scan(os.path.join(tmp, "web"))["status"] == "INVALID"
+             and scan(os.path.join(tmp, "web"))["status_reasons"]
+             == ["no Python files, no JavaScript/TypeScript files and no manifests to judge"]),
             ("fingerprints", all(len(f["fingerprint"]) == 64 for f in first["findings"] + first["hygiene"]["findings"])),
             ("baseline_gate", exit_code([dict(f, new=False) for f in first["findings"]], "INFO", None, {"new": 0}) == 0),
         ]
@@ -822,6 +906,7 @@ def selftest():
             checks.append(("usage_error", True))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+        shutil.rmtree(js_tmp, ignore_errors=True)
     return summarize("report", checks)
 
 

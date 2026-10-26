@@ -23,6 +23,7 @@ Public contract:
     load(root, files, javascript=None) -> {"javascript": [rel], "js_tokens": {rel: tokens}, "package_json": {rel: dict},
                                            "tsconfig": {rel: dict}, "notes": [str]}
     check(project) -> [finding]    # project: report.scan's dict plus the five load() keys; reads root, python, files
+    has_test_signal(project) -> bool   # a test file or a real scripts.test (same project dict)
 """
 
 import json
@@ -488,15 +489,26 @@ def _is_test(rel):
             or fnmatchcase(parts[-1], "*.spec.*"))
 
 
-def _tests_missing(project, tree):
-    if not project.get("javascript") or project.get("python"):
-        return []
+def _has_tests(tree):
+    """A test file, or a package.json with a scripts.test that is not npm's placeholder."""
     if any(_is_test(rel) for rel in tree.files):
-        return []
+        return True
     for manifest in tree.packages.values():
         script = _scripts(manifest).get("test")
         if isinstance(script, str) and script.strip() and NO_TEST_SCRIPT not in script:
-            return []
+            return True
+    return False
+
+
+def has_test_signal(project):
+    """True when the project has a test file or a real scripts.test (report.scan uses it to report
+    works.tests_missing once for a repo with both Python and JavaScript)."""
+    return _has_tests(_Tree(project))
+
+
+def _tests_missing(project, tree):
+    if not project.get("javascript") or project.get("python") or _has_tests(tree):
+        return []
     return [_finding("works.tests_missing", "WARN", ".", "no test files: nothing checks that the code works",
                      ["looked for: *.test.*, *.spec.*, __tests__/, test/, tests/, cypress/, e2e/ and scripts.test"],
                      ["add a test folder, or a test script in package.json that runs one"])]
@@ -539,15 +551,14 @@ def main(argv=None):
     return 2
 
 
-def _bad_manifest_notes():
-    with tempfile.TemporaryDirectory() as root:
-        with open(os.path.join(root, "tsconfig.json"), "w", encoding="utf-8") as fh:
-            fh.write("{ nope")
-        loaded = load(root, ["tsconfig.json"])
-    return loaded["tsconfig"] == {} and len(loaded["notes"]) == 1 and "tsconfig.json" in loaded["notes"][0]
-
-
 def selftest():
+    def _bad_manifest_notes():
+        with tempfile.TemporaryDirectory() as root:
+            with open(os.path.join(root, "tsconfig.json"), "w", encoding="utf-8") as fh:
+                fh.write("{ nope")
+            loaded = load(root, ["tsconfig.json"])
+        return loaded["tsconfig"] == {} and len(loaded["notes"]) == 1 and "tsconfig.json" in loaded["notes"][0]
+
     def run(files, **extra):
         with tempfile.TemporaryDirectory() as root:
             for rel, text in files.items():

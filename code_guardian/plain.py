@@ -93,6 +93,9 @@ LANGUAGES = {
     ".r": "R",
     ".scala": "Scala",
     ".dart": "Dart",
+    ".vue": "Vue",
+    ".svelte": "Svelte",
+    ".astro": "Astro",
 }
 
 # One sentence per catalogue code, for a reader who does not write code: what the check saw, and why that can

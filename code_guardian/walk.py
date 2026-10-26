@@ -7,8 +7,12 @@ Public contract:
     SKIP_DIRS, MAX_BYTES
     load_ignore(root) -> list of patterns from PATH/.gitignore
     ignored(relpath, is_dir, patterns) -> bool
-    walk(root, exclude=()) -> {"python": [rel], "manifests": [rel], "other": [rel],
-                               "skipped": [(rel, reason)], "excluded": int, "ignored": int}
+    walk(root, exclude=()) -> {"python": [rel], "manifests": [rel], "other": [rel], "javascript": [rel],
+                               "generated": [rel], "skipped": [(rel, reason)], "excluded": int, "ignored": int}
+                                 # javascript / generated list the JS / TS files again (they stay in "other" too, so
+                                 # the file inventory the other callers see is unchanged): "generated" holds the
+                                 # declaration, minified and bundled files and any file with a line over LONG_LINE
+                                 # characters in its first SNIFF_BYTES
     read(root, rel) -> (bytes, text)
     is_manifest(rel) -> bool      # requirements*.txt, pyproject.toml, setup.py/cfg, package.json, Pipfile
 """
@@ -26,6 +30,9 @@ SKIP_DIRS = frozenset({".git", "venv", ".venv", "node_modules", "__pycache__", "
 MANIFEST_NAMES = frozenset({"package.json", "setup.py", "setup.cfg", "pyproject.toml", "Pipfile"})
 MAX_BYTES = 2_000_000
 SNIFF_BYTES = 8192
+JS_EXT = frozenset({".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx"})
+GENERATED_SUFFIXES = (".d.ts", ".min.js", ".min.mjs", ".bundle.js")
+LONG_LINE = 2000
 
 
 def _compile(line):
@@ -77,10 +84,18 @@ def is_manifest(rel):
             or (len(parts) > 1 and parts[-2] == "requirements" and name.endswith(".txt")))
 
 
+def is_generated(name, head):
+    """True for a declaration file, a minified or bundled file by name, or a file whose first bytes (`head`) hold a line
+    longer than LONG_LINE characters."""
+    return name.lower().endswith(GENERATED_SUFFIXES) or any(
+        len(line) > LONG_LINE for line in head.decode("utf-8", errors="replace").split("\n"))
+
+
 def walk(root, exclude=()):
     """Sorted, deterministic inventory of the files under root."""
     patterns = load_ignore(root)
-    out = {"python": [], "manifests": [], "other": [], "skipped": [], "excluded": 0, "ignored": 0}
+    out = {"python": [], "manifests": [], "other": [], "javascript": [], "generated": [], "skipped": [], "excluded": 0,
+           "ignored": 0}
     for dirpath, dirnames, filenames in os.walk(root):
         reldir = os.path.relpath(dirpath, root).replace(os.sep, "/")
         reldir = "" if reldir == "." else reldir + "/"
@@ -128,7 +143,9 @@ def walk(root, exclude=()):
                 out["manifests"].append(rel)
             elif not name.endswith(".py"):
                 out["other"].append(rel)
-    for key in ("python", "manifests", "other", "skipped"):
+                if os.path.splitext(name)[1].lower() in JS_EXT:
+                    out["generated" if is_generated(name, head) else "javascript"].append(rel)
+    for key in ("python", "manifests", "other", "javascript", "generated", "skipped"):
         out[key].sort()
     return out
 
@@ -159,6 +176,9 @@ def selftest():
 
     try:
         put(".gitignore", b"# comment\n*.log\nsecret_dir/\n/only_root.py\n!keep.log\n")
+        put("web/lib.min.js", b"x = 1\n")
+        put("web/t.d.ts", b"x = 1\n")
+        put("web/wide.ts", b"a;" * 1500 + b"\n")
         for rel in ("a.py", "pkg/b.py", "pkg/setup.py", "web/app.js", "x.log", "secret_dir/s.py", "only_root.py",
                     "deep/only_root.py", "node_modules/m.js", ".venv/v.py", "pyproject.toml", "requirements-dev.txt",
                     "fixtures/f.py"):
@@ -168,7 +188,9 @@ def selftest():
         checks = [
             ("python", inv["python"] == ["a.py", "deep/only_root.py", "pkg/b.py", "pkg/setup.py"]),
             ("manifests", inv["manifests"] == ["pkg/setup.py", "pyproject.toml", "requirements-dev.txt"]),
-            ("other", inv["other"] == [".gitignore", "web/app.js"]),
+            ("other", inv["other"] == [".gitignore", "web/app.js", "web/lib.min.js", "web/t.d.ts", "web/wide.ts"]),
+            ("javascript", inv["javascript"] == ["web/app.js"]),
+            ("generated", inv["generated"] == ["web/lib.min.js", "web/t.d.ts", "web/wide.ts"]),
             ("binary_skipped", inv["skipped"] == [("blob.bin", "binary")]),
             ("ignored_count", inv["ignored"] == 3),
             ("excluded_count", inv["excluded"] == 1),

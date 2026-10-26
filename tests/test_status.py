@@ -29,7 +29,7 @@ def clean(tmp_path):
 def test_a_normal_repo_is_complete(clean):
     rep = report.scan(str(clean))
     assert rep["status"] == "COMPLETE" and rep["status_reasons"] == []
-    assert rep["schema_version"] == 2
+    assert rep["schema_version"] == 3
     assert rep["scores"]["grade"] == "A"
     outcomes = {o["check"]: o for o in rep["outcomes"]}
     assert {"walk", "secrets", "manifests", "works", "complete", "supply", "orphans"} <= set(outcomes)
@@ -65,11 +65,11 @@ def test_a_crashing_python_scanner_gives_partial(clean, monkeypatch):
 def test_an_empty_directory_is_invalid_and_has_no_grade(tmp_path):
     rep = report.scan(str(tmp_path))
     assert rep["status"] == "INVALID"
-    assert rep["status_reasons"] == ["no Python files and no manifests to judge"]
+    assert rep["status_reasons"] == ["no Python files, no JavaScript/TypeScript files and no manifests to judge"]
     assert rep["scores"]["grade"] is None and rep["scores"]["grade_uncapped"] is None
     text = report.render(rep)
     assert not re.search(r"grade [A-F]\b", text) and "/100" not in text
-    assert "status: INVALID (no Python files and no manifests to judge)" in text and "no grade" in text
+    assert "status: INVALID (no Python files, no JavaScript/TypeScript files and no manifests to judge)" in text and "no grade" in text
     md = outputs.to_markdown(rep)
     assert "INVALID" in md and "grade **" not in md
     r = cli("scan", tmp_path)
@@ -136,4 +136,4 @@ def test_status_over_mcp(clean, tmp_path):
 def test_cli_exit_codes(clean):
     assert cli("scan", clean).returncode == 0
     body = json.loads(cli("scan", clean, "--json").stdout)
-    assert body["status"] == "COMPLETE" and body["schema_version"] == 2
+    assert body["status"] == "COMPLETE" and body["schema_version"] == 3
