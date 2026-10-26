@@ -462,7 +462,10 @@ legend { padding: 0; margin-bottom: 0.5rem; font-weight: 700; }
 }
 .sentences li:first-child, .checked li:first-child { border-top: 0; }
 .sentences .dim { display: block; color: var(--muted); font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.06em; }
-.checked .depth { display: block; color: var(--muted); font-size: 0.8125rem; }
+.checked .checked-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; }
+.checked .checked-label { font-weight: 700; }
+.checked .checked-text { display: block; }
+.chip.depth-chip { color: var(--muted); font-weight: 400; }
 
 .section-title { margin-top: 1.5rem; }
 

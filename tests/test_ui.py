@@ -260,7 +260,7 @@ def test_files_lists_what_the_scan_saw_with_counts_derived_from_the_rows(server,
     assert body["counts"] == ui.plain.file_counts(body["files"])
     assert (body["ignored"], body["excluded"]) == (1, 0)
     assert {r["rel"]: r["risk"] for r in body["files"]} == {
-        ".gitignore": "Partly checked", "a.py": "No known risks found", "app.js": "Partly checked",
+        ".gitignore": "Partly checked", "a.py": "No known risks found", "app.js": "No known risks found",  # analysed since P81 S5
         "blob.bin": "Not read", "broken.py": "Partly checked"}
 
 
