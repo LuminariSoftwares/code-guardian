@@ -147,7 +147,7 @@ def test_risky_repo_lists_every_file_the_scan_saw(srv):
     assert [r["rel"] for r in js["files"]] == want, "one row per distinct file, sorted by rel"
     assert js["counts"]["all"] == len(want) == 9
     rows = _by_rel(js)
-    assert rows["web/setup.js"]["risk"] == "Partly checked" and rows["web/setup.js"]["kind"] == "other"
+    assert rows["web/setup.js"]["risk"] == "Low" and rows["web/setup.js"]["kind"] == "other"  # analysed (P81 S4)
     assert rows["setup.py"]["kind"] in ("python", "manifest")
     assert rows["risky/runner.py"]["risk"] == "High"
     for r in js["files"]:

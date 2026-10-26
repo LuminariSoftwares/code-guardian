@@ -139,14 +139,14 @@ def test_golden_rederived_by_the_overseer(name, tmp_path):
     for k in FOUR_KEYS:
         rep.pop(k, None)
     golden = json.loads((GOLDEN / ("%s.json" % name)).read_text(encoding="utf-8"))
-    assert rep == golden, "%s: the recorded golden is not today's report" % name
+    assert not _golden_mod().differences(golden, rep), "%s: the recorded golden is not today's report" % name
 
 
 def test_canonical_does_not_depend_on_line_endings(tmp_path):
     g = _golden_mod()
     crlf = _copy(FIXTURES / "complete_bare", tmp_path / "complete_bare", "crlf")
     golden = json.loads((GOLDEN / "complete_bare.json").read_text(encoding="utf-8"))
-    assert g.canonical(crlf) == golden
+    assert not g.differences(golden, g.canonical(crlf))
 
 
 def test_golden_catches_a_change_in_every_report(tmp_path):
