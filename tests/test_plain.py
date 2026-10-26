@@ -568,10 +568,12 @@ def test_file_rows_over_every_fixture_never_calls_an_unread_file_clean(tmp_path)
     assert roots
     for root in roots:
         scanned = report.scan(str(root))
-        rows = plain.file_rows(scanned, walk.walk(str(root)))
+        inventory = walk.walk(str(root))
+        rows = plain.file_rows(scanned, inventory)
         counts = plain.file_counts(rows)
+        analysed_js = set(inventory["javascript"])  # JavaScript / TypeScript is analysed at token level since P81 S5
         for row in rows:
-            if row["kind"] in ("other", "not_read"):
+            if row["kind"] == "not_read" or (row["kind"] == "other" and row["rel"] not in analysed_js):
                 assert row["risk"] in ("Partly checked", "Not read", "High", "Medium", "Low"), (root.name, row)
         hml = sum(1 for row in rows if row["risk"] in ("High", "Medium", "Low"))
         assert counts["no_known_risks"] + counts["partly_checked"] + counts["not_read"] == counts["all"] - hml
