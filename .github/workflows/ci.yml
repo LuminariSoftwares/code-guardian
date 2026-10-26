@@ -73,6 +73,14 @@ jobs:
           echo "scan exit code: $rc"
           test "$rc" = 1
           python -c "import json;r=json.load(open('/tmp/report.json'));codes=sorted({f['code'] for f in r['findings']});print(len(codes),'codes:',codes);safe={'deps.unpinned','deser.unsafe','exec.dynamic','exec.shell','fs.outside','install.hook','net.bind_all','net.egress','obfuscation','secret.key','tls.off'};assert safe<=set(codes),safe-set(codes);assert r['dimensions']['safe']['deducted']==237,r['dimensions']['safe'];assert (r['scores']['safe'],r['scores']['overall'],r['scores']['grade'])==(0,33,'F'),r['scores'];print('scores ok',r['scores'])"
+          python tests/make_risky_js.py /tmp/js_risky
+          set +e
+          /tmp/wv/bin/code-guardian scan /tmp/js_risky --json > /tmp/js_report.json
+          rc=$?
+          set -e
+          echo "js_risky scan exit code: $rc"
+          test "$rc" = 1
+          python -c "import json;r=json.load(open('/tmp/js_report.json'));js=r['coverage']['languages']['javascript'];assert js['depth']=='tokens' and js['files']==2,js;assert r['status']=='COMPLETE',r['status_reasons'];found={(f['code'],f['level'],f['node']) for f in r['findings']};want={('exec.dynamic','FAIL','server.js:14'),('secret.key','FAIL','config.js:1'),('dom.html_sink','FAIL','server.js:21')};assert want<=found,want-found;assert (r['scores']['safe'],r['scores']['grade'])==(0,'F'),r['scores'];print('js_risky ok from the wheel',r['scores'])"
           /tmp/wv/bin/code-guardian ui --selftest
           printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | /tmp/wv/bin/code-guardian-mcp mcp | python -c "import json,sys;r=json.loads(sys.stdin.readline());assert r['result']['serverInfo']['name']=='code-guardian',r;print('mcp ok',r['result']['serverInfo'])"
 
@@ -105,15 +113,16 @@ jobs:
           echo "overall=$OVERALL grade=$GRADE exit-code=$RC"
           test "$OVERALL" = 100 && test "$GRADE" = A && test "$RC" = 0
           python -c "import json;s=json.load(open('code-guardian.sarif'));assert s['version']=='2.1.0';print(len(s['runs'][0]['tool']['driver']['rules']),'rules')"
-      - name: A JavaScript-only repo (no Python source)
+      - name: A JavaScript-only repo (no Python source, one eval of request input)
         run: |
           mkdir -p /tmp/js_only/src
           printf '%s\n' '{"name": "demo", "version": "1.0.0"}' > /tmp/js_only/package.json
           printf '%s\n' 'const app = require("express")();' 'app.get("/", (q, r) => r.send(eval(q.query.x)));' > /tmp/js_only/src/index.js
           printf '# demo\n' > /tmp/js_only/README.md
-      - name: The action reports it PARTIAL with Works not scored, and coverage alone does not fail the job
+      - name: The action analyses it (COMPLETE, Works scored) and fails the job on the eval of request input
         id: cgjs
         uses: ./
+        continue-on-error: true  # the action's last step exits 1 on a FAIL finding; the next step asserts that exit code
         with:
           path: /tmp/js_only
           sarif-file: /tmp/js_only.sarif
@@ -125,8 +134,12 @@ jobs:
           CLEAN_STATUS: ${{ steps.cg.outputs.status }}
         run: |
           echo "status=$STATUS exit-code=$RC (clean_repo status=$CLEAN_STATUS)"
-          test "$STATUS" = PARTIAL && test "$RC" = 0 && test "$CLEAN_STATUS" = COMPLETE
-          python -c "import json;p=json.load(open('/tmp/js_only.sarif'))['runs'][0]['properties'];assert p['scores']['works'] is None,p['scores'];assert p['coverage']['other_source']=={'.js':1},p['coverage'];print('works not scored;',p['coverage'])"
+          test "$STATUS" = COMPLETE
+          test "$RC" = 1
+          test "$CLEAN_STATUS" = COMPLETE
+          python -c "import json;p=json.load(open('/tmp/js_only.sarif'))['runs'][0]['properties'];assert p['scores']['works'] is not None,p['scores'];assert p['coverage']['languages']['javascript']['depth']=='tokens',p['coverage'];assert p['coverage']['other_source']=={},p['coverage'];print('works scored;',p['coverage']['languages']['javascript']['depth'])"
+          python -m code_guardian scan /tmp/js_only --json > /tmp/js_only.json || true
+          python -c "import json;r=json.load(open('/tmp/js_only.json'));found={(f['code'],f['level'],f['node']) for f in r['findings']};assert ('exec.dynamic','FAIL','src/index.js:2') in found,found;print('exec.dynamic FAIL src/index.js:2 found')"
       - name: Write a baseline for the risky fixture
         run: |
           python tests/make_risky.py /tmp/risky_repo

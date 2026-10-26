@@ -16,5 +16,6 @@ costs. Format: context, decision, alternatives, consequences.
 | [0008](0008-settings-live-in-the-browser.md) | Settings live in the browser; dark is the default; the address is stable | unreleased |
 | [0009](0009-folder-dialog-refusals-reopen-loopback.md) | The folder window runs in a child process; some folders are refused; re-open never reads; loopback only | unreleased |
 | [0010](0010-test-values-are-graded-by-value-and-use.md) | Key-shaped values are graded by their value and their use, never by where the file sits | 0.4.1 |
+| [0011](0011-javascript-typescript-at-token-level.md) | JavaScript and TypeScript are analysed at token level, in the standard library; the golden test guards every Python result | unreleased |
 
 A new record is added when a change alters one of these, or makes a choice of the same weight.

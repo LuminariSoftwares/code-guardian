@@ -22,8 +22,8 @@ from deterministic checks with fixed weights: same repo, same version, same outp
 - A **verify loop** for AI-assisted changes: run it before and after every change to learn what the change fixed,
   what it broke, what to fix next, and whether the scan itself can be trusted (see [The verify loop](#the-verify-loop)).
 
-It parses the code (`ast` for Python; `json`, `tomllib` and `configparser` for manifests; regular expressions for
-secrets) and never executes, imports or installs it. A scan makes
+It parses the code (`ast` for Python; a small lexer for JavaScript and TypeScript; `json`, `tomllib` and
+`configparser` for manifests; regular expressions for secrets) and never executes, imports or installs it. A scan makes
 no network calls. Python 3.11+, standard library only. Status: **0.4.2 is the current release.**
 
 **Who it is for.** Anyone running local AI models, or code an AI assistant wrote, on their own machine: you cloned a
@@ -47,15 +47,37 @@ and pull requests get a reply when evenings allow, and there is no paid support
 
 ## What it analyses
 
-**Python is analysed in depth**; every Safe, Works and Complete check runs on it. **Other languages** (JavaScript,
-TypeScript, Go, Rust, shell and the rest) **get the secret scan and the repo-hygiene checks only**: key shapes,
-manifest and install-hook reading (`package.json`, `setup.py`, `pyproject.toml`, ...) and the Complete checks
-(licence, README, CI, `.env.example`). Every report prints a `coverage:` line saying which files were analysed, e.g.
-`coverage: 40 Python analysed; 112 .ts, 9 .go secret-scan only`. When there is no Python source at all, Works is
-**not scored** (`n/a (Python only)`, `null` in JSON), Safe is labelled **partial**, Overall comes from the scored
-dimensions only, and the status is **PARTIAL**. A repo whose source is mostly another language is also PARTIAL with
-the same scores (rule in [Scan status](#scan-status)). PARTIAL means "do not read this grade as covering the whole
-repo"; it never fails `--fail-on` on its own.
+**Python is analysed in full, JavaScript and TypeScript at token level, and every other language gets the secret scan
+and the repo-hygiene checks only.** Every report prints a `coverage:` line saying which files were analysed and how,
+e.g. `coverage: 40 Python analysed; 112 JavaScript/TypeScript analysed (token level); 9 .go secret-scan only`, and
+`coverage.languages` in the JSON gives the same with the checks that ran.
+
+| language | files | depth | what runs |
+|---|---|---|---|
+| Python | `.py` | `full` | every Safe, Works and Complete check, from the parse tree (`ast`) |
+| JavaScript / TypeScript | `.js .mjs .cjs .jsx .ts .tsx` | `tokens` | the secret scan, the Safe checks and the Works checks marked JavaScript / TypeScript in the tables below, run on a token list |
+| everything else | Go, Rust, shell, `.vue`, `.svelte` and the rest | secret scan only | key shapes, manifest and install-hook reading (`package.json`, `setup.py`, `pyproject.toml`, ...) and the Complete checks (licence, README, CI, `.env.example`) |
+
+**What "token level" means.** A lexer cuts each JavaScript or TypeScript file into tokens, telling strings, template
+literals, comments, regular expressions and JSX text from code, so a sink named in a string or a comment is never a
+finding. It is a lexer, not a parser: a check reads call sites, imports, assignments and object-literal properties off
+the tokens, one statement deep, and follows nothing between statements or functions. The checks are `exec.dynamic`,
+`exec.shell`, `deser.unsafe`, `net.egress`, `net.bind_all`, `tls.off`, `obfuscation`, `fs.outside`, `privacy.pii_log`
+and `dom.html_sink` (Safe) and `works.syntax`, `works.import_unresolved`, `works.relative_missing`,
+`works.entry_missing` and `works.tests_missing` (Works). Not ported from the Python side: `privacy.pii_prompt`,
+`works.test_no_assert`, `works.todo_stub`, `works.commented_code`, `works.dead_flag` and the orphan (dead code) check;
+`coverage.languages.javascript.not_checked` lists them. Nothing is installed, imported or run: no `npm`, no `node`.
+
+**Generated files.** A declaration file (`*.d.ts`), a minified or bundled file (`*.min.js`, `*.min.mjs`,
+`*.bundle.js`) and any JavaScript or TypeScript file with a line longer than 2,000 characters in its first 8 KB are
+counted as generated (`files.generated`). They get the secret scan and the `obfuscation` and `exec.dynamic` token
+checks only, an `exec.dynamic` WARN there is reported at INFO, and they get no Works check.
+
+When there is **neither Python nor JavaScript / TypeScript source**, Works is **not scored** (`n/a (no Python or
+JavaScript)`, `null` in JSON), Safe is labelled **partial**, Overall comes from the scored dimensions only, and the
+status is **PARTIAL**. A repo whose source is mostly in other languages is also PARTIAL with the same scores (rule in
+[Scan status](#scan-status)). PARTIAL means "do not read this grade as covering the whole repo"; it never fails
+`--fail-on` on its own. What the token level cannot see is in [Limitations](#limitations).
 
 ## Install
 
@@ -209,9 +231,9 @@ Real output:
 
 ```
 code-guardian 0.4.2  scan of risky_repo
-files: 7 Python, 3 manifests, 2 other (0 skipped, 0 excluded by the goal file)
+files: 7 Python, 3 manifests, 1 other (0 skipped, 0 excluded by the goal file)
 status: COMPLETE
-coverage: 7 Python analysed; 1 .js secret-scan only
+coverage: 7 Python analysed; 1 JavaScript/TypeScript analysed (token level)
 
   Safe       0/100  is it safe to run?           -237
   Works     85/100  will it work?                -15
@@ -225,7 +247,7 @@ biggest deductions:
   -25  Safe     tls.off FAIL             x1   at risky/network.py:11
   -23  Safe     install.hook WARN        x3   at package.json:5, setup.py:5, setup.py:14
 
-findings (6 FAIL, 19 WARN, 7 INFO; egress listed below):
+findings (6 FAIL, 19 WARN, 8 INFO; egress listed below):
   Safe:
     FAIL  secret.key    deploy/id_rsa:1  private-key block in the source; value redacted
     WARN  install.hook  package.json:5  npm postinstall script runs on install
@@ -258,11 +280,12 @@ findings (6 FAIL, 19 WARN, 7 INFO; egress listed below):
     WARN  complete.metadata pyproject.toml:1  pyproject.toml [project] is missing: requires-python
     INFO  deps.declared_unused pyproject.toml:4  dependency flask is declared but never imported
 
-egress inventory (4):
+egress inventory (5):
   WARN  risky/network.py:5  url   http://{host}:8080/upload
   INFO  risky/network.py:6  url   https://example.com/docs
   INFO  risky/network.py:7  ip    100.64.0.5
   INFO  risky/network.py:11  call  requests.post
+  INFO  web/setup.js:1  call  https://example.com/hello
 
 hygiene (inferred (library public API) entry points: 1): 0 dead, 0 test-only, 0 uncertain
 
@@ -376,7 +399,7 @@ Key design decisions, each with its trade-off (full records in [docs/adr](docs/a
 
 | decision | why | trade-off |
 |---|---|---|
-| [Static analysis only, standard library only](docs/adr/0001-static-analysis-stdlib-only.md) | scanning a repo you do not trust must not run it; nothing to install or audit | cannot see runtime behaviour; Python only in depth |
+| [Static analysis only, standard library only](docs/adr/0001-static-analysis-stdlib-only.md) | scanning a repo you do not trust must not run it; nothing to install or audit | cannot see runtime behaviour; Python in depth, JavaScript and TypeScript at token level only |
 | [Fixed weights, no model in the score](docs/adr/0002-deterministic-fixed-weight-scoring.md) | same repo, same version, same grade; a CI gate needs that | weights are judgement calls, published and calibrated rather than learned |
 | [Hand-written MCP stdio server](docs/adr/0003-hand-written-mcp-stdio-server.md) | keeps the zero-dependency install; five read-only tools need little protocol | follows the protocol by hand; only stdio, protocol `2024-11-05` |
 | [Scan status and exit code 3](docs/adr/0004-scan-status-and-exit-code-3.md) | a crashed or skipped check must not read as a clean A | one more exit code and status for callers to handle |
@@ -396,7 +419,8 @@ Complete.
 - **Dimension score** = max(0, 100 − its deductions). Safe is 100 minus the v0.1 threat score; its weights are the
   v0.1 weights, unchanged.
 - **Overall** = 0.5 × Safe + 0.3 × Works + 0.2 × Complete, rounded half up. A dimension that is not scored (Works
-  when there is no Python source) is left out and the others keep their relative weights: (5 × Safe + 2 × Complete)
+  when there is no Python or JavaScript / TypeScript source) is left out and the others keep their relative weights:
+  (5 × Safe + 2 × Complete)
   / 7. The Overall line names the dimension left out.
 - **Grade**: **A** ≥ 90 · **B** ≥ 75 · **C** ≥ 60 · **D** ≥ 40 · **F** below 40.
 - **FAIL cap**: any Safe finding at FAIL caps the grade at **D**, whatever the average. One leaked key never hides
@@ -419,18 +443,21 @@ check and the file walk (`ran`, `skipped` with a reason, or `crashed` with the e
 | status | when | effect |
 |---|---|---|
 | `COMPLETE` | everything ran | none |
-| `PARTIAL` | a check crashed or was skipped, a Python file did not parse, or a Python file or manifest was too large (over 2 MB) or unreadable | the grade is capped at **B** and the report says why; exit 3 unless a finding already gives exit 1 |
-| `PARTIAL` (coverage) | there is no Python source, or the source is mostly in other languages (rule below) | the grade is capped at **B** and the `coverage:` line says what was not analysed; **the exit code is unchanged** (0 or 1 from the findings, never 3) |
-| `INVALID` | PATH is unreadable, or there are no Python files and no manifests to judge | no grade (`scores.grade` is `null`); exit 3 |
+| `PARTIAL` | a check crashed or was skipped (the `javascript` and `js_works` rows count), a Python file did not parse, or a Python file or manifest was too large (over 2 MB) or unreadable | the grade is capped at **B** and the report says why; exit 3 unless a finding already gives exit 1 |
+| `PARTIAL` (coverage) | there is no Python or JavaScript / TypeScript source, or the source is mostly in languages that are only secret-scanned (rule below) | the grade is capped at **B** and the `coverage:` line says what was not analysed; **the exit code is unchanged** (0 or 1 from the findings, never 3) |
+| `INVALID` | PATH is unreadable, or there are no Python files, no JavaScript / TypeScript files and no manifests to judge | no grade (`scores.grade` is `null`); exit 3 |
 
-**Coverage rule.** Source files are counted by extension (`.js`, `.mjs`, `.ts`, `.tsx`, `.go`, `.rs`, `.java`,
-`.rb`, `.php`, `.sh`, `.c`, `.cs` and other common languages; data, docs and config files are not source). With
-**no Python source**, Works is not scored, Safe is partial (it can only see secrets, manifests and install hooks),
-Overall is the weighted mean of Safe and Complete, and the scan is PARTIAL. With Python present, the scan is PARTIAL
-when there are **at least 5 other-language source files and more than twice as many as Python files** (Python is
-under a third of the source); the scores are computed as usual. A Python project with a few build, docs or shell
-helpers stays COMPLETE: in [calibration](calibration.md) the most JS-heavy repo has 37 `.js`/`.mjs` files to 33
-Python files and is COMPLETE. `tests/test_coverage.py` pins both sides of the line.
+**Coverage rule.** Source files are counted by extension (`.go`, `.rs`, `.java`, `.rb`, `.php`, `.sh`, `.c`, `.cs`,
+`.vue`, `.svelte`, `.astro` and other common languages; data, docs and config files are not source). `.js`, `.mjs`,
+`.cjs`, `.jsx`, `.ts` and `.tsx` are analysed, so they never count as "other source". With **neither Python nor
+JavaScript / TypeScript source**, Works is not scored, Safe is partial (it can only see secrets, manifests and install
+hooks), Overall is the weighted mean of Safe and Complete, and the scan is PARTIAL. With either present, the scan is
+PARTIAL when there are **at least 5 source files in other languages and more than twice as many as the Python and
+JavaScript / TypeScript files together** (the analysed languages are under a third of the source); the scores are
+computed as usual. A Python or JavaScript project with a few build, docs or shell helpers stays COMPLETE: in
+[calibration](calibration.md) the most JS-heavy Python repo has 37 `.js`/`.mjs` files to 33 Python files and is
+COMPLETE. A JavaScript / TypeScript repo with a `package.json` is COMPLETE with Works scored. `tests/test_coverage.py`
+pins both sides of the line.
 
 Binary files, symlinks and large non-source files (images, design files) are only ever secret-scanned; skipping them
 is listed in the notes but does not make a scan PARTIAL.
@@ -439,13 +466,20 @@ is listed in the notes but does not make a scan PARTIAL.
 
 ```
 {
-  "tool", "version", "schema_version": 2, "path", "goal_file",
+  "tool", "version", "schema_version": 3, "path", "goal_file",
   "status": "COMPLETE" | "PARTIAL" | "INVALID", "status_reasons": [...],
   "outcomes": [{"check", "outcome": "ran" | "skipped" | "crashed", "reason"}],
-  "files": {"python", "manifests", "other", "skipped", "ignored", "excluded", "unparsed"},
-  "other_languages": {".js": 1, ...},
-  "coverage": {"analysed": "python", "python", "other_source": {".js": 1, ...}, "other_source_files",
-               "works_scored", "safe_partial", "partial", "reason"},
+  "files": {"python", "manifests", "other", "skipped", "ignored", "excluded", "unparsed",
+            "javascript", "generated"},           (JavaScript / TypeScript files are counted in javascript or
+                                                    generated, never in other)
+  "other_languages": {".go": 1, ...},               (secret-scanned source only; never .js, .ts and the like)
+  "coverage": {"analysed": "python" | "python+javascript" | "javascript", "python",
+               "other_source": {".go": 1, ...}, "other_source_files",
+               "works_scored", "safe_partial", "partial", "reason",
+               "languages": {"python": {"files", "depth": "full"},
+                             "javascript": {"files", "generated", "depth": "tokens", "checks": [codes that ran],
+                                            "generated_checks": ["secret.key", "obfuscation", "exec.dynamic"],
+                                            "not_checked": [codes the Python side has and this does not]}}},
   "anchor": "pyproject.toml",                (the file repo-level findings are attached to in SARIF)
   "scores": {"safe", "works", "complete", "overall", "grade", "grade_uncapped", "capped", "cap_reason"},
                                              (a dimension that is not scored is null)
@@ -468,10 +502,13 @@ is listed in the notes but does not make a scan PARTIAL.
 }
 ```
 
-The MCP `scan` reply adds `exit_code`. Nothing in the report depends on the clock. `schema_version` 2 only adds
-keys to the v0.2 shape (which had no `schema_version`); every v0.2 key keeps its meaning. `scores.grade` (and
-`grade_uncapped`) is `null` for an INVALID scan; `capped` and `cap_reason` also cover the PARTIAL cap. With no Python
-source, `scores.works` is `null` and `dimensions.works` is `{"score": null, "scored": false, ...}`;
+The MCP `scan` reply adds `exit_code`. Nothing in the report depends on the clock. `schema_version` 2 only added
+keys to the v0.2 shape (which had no `schema_version`) and 3 only adds keys to 2: `files.javascript`,
+`files.generated` (both always present, 0 when none) and `coverage.languages` (a language appears only when it has
+files, so a Python-only report gains only `languages.python`); every earlier key keeps its meaning. A repo with
+JavaScript / TypeScript files adds two rows to `outcomes` (`javascript`, `js_works`); a Python-only report has neither. `scores.grade` (and
+`grade_uncapped`) is `null` for an INVALID scan; `capped` and `cap_reason` also cover the PARTIAL cap. With neither Python
+nor JavaScript / TypeScript source, `scores.works` is `null` and `dimensions.works` is `{"score": null, "scored": false, ...}`;
 `dimensions.safe.partial` is `true`. SARIF carries `status`, `status_reasons` and `coverage` in the run properties;
 the text and Markdown reports print the status and the coverage line above the scores.
 
@@ -502,6 +539,11 @@ the text and Markdown reports print the status and the coverage line above the s
 | `dom.html_sink` | JavaScript / TypeScript only: a value that is not a literal reaches `.innerHTML` / `.outerHTML` (`=` or `+=`), `insertAdjacentHTML(`, `document.write(` / `writeln(`, React's `dangerouslySetInnerHTML`, jQuery's `$(...).html(v)` or one of Angular's `bypassSecurityTrustHtml` / `Script` / `ResourceUrl` / `Url` calls | WARN | 10 |
 | `dom.html_sink` | …when the value is read from a request, the address bar (`location.hash`, `window.location.search`), `document.cookie` or `window.name` (the same one-statement taint rule as `exec.shell`): the Juice Shop XSS sites | FAIL | 30 |
 | `deps.unpinned` | dependencies with no pin or upper bound (`pyproject.toml`, `setup.py`, `setup.cfg`, `requirements*.txt`, `package.json`) | INFO | 0 |
+
+Every Safe code above except `privacy.pii_prompt` also runs on JavaScript and TypeScript, at the same levels and
+weights; the rows marked JavaScript / TypeScript only say what is specific to them. The sinks are read off tokens, one
+statement deep (see [What it analyses](#what-it-analyses)), and a name inside a string, comment, template or regular
+expression is never a sink. `dom.html_sink` is JavaScript / TypeScript only.
 
 `net.egress` targets that stay in the inventory at INFO: https to a named host, loopback, the local network
 (non-global addresses such as 10/8, 192.168/16 and 100.64/10, single-label names like `gpu-box`, `.local`, `.lan`,
@@ -574,7 +616,8 @@ proof it is safe**: these checks flag names worth a second look; they do not vou
 
 ## Works checks
 
-Will it work? Read from the parse and the manifests, never by importing or running anything.
+Will it work? Read from the parse (the token list for JavaScript and TypeScript) and the manifests, never by importing
+or running anything.
 
 | code | what it looks for | level | weight |
 |---|---|---|---|
@@ -590,7 +633,27 @@ Will it work? Read from the parse and the manifests, never by importing or runni
 | `works.commented_code` | 5+ consecutive comment lines that parse as Python (found with `tokenize` + `ast.parse`); once per file, with the count of blocks | INFO | 0 |
 | `works.dead_flag` | a module-level ALL_CAPS boolean (`DEBUG = False`) that no file reads, imports or names | INFO | 0 |
 
-How `works.import_unresolved` decides:
+**JavaScript and TypeScript.** Five of these run on the token list and on `package.json` / `tsconfig.json` (read as
+JSON with comments and trailing commas allowed). Same weights as above:
+
+| code | what it looks for | level | weight |
+|---|---|---|---|
+| `works.syntax` | a template literal or block comment that never closes: the file does not tokenise | FAIL | 30 |
+| `works.syntax` | `(`, `[` or `{` that do not balance at the end of the file | INFO | 0 |
+| `works.import_unresolved` | a bare import (`import x from 'pkg'`, `require('pkg')`) that is not a Node builtin and not declared in the nearest `package.json` (`dependencies`, `devDependencies`, `peerDependencies`, `optionalDependencies`) | WARN | 10 |
+| `works.import_unresolved` | the same where a tsconfig `paths` / `baseUrl` alias or a monorepo package may explain it (once per file), and an import loaded from a URL or a registry scheme | INFO | 0 |
+| `works.relative_missing` | a relative import that points at a file or folder that is not there | FAIL | 25 |
+| `works.relative_missing` | the same when it points into built output (`dist`, `build`, `out`, `lib`, `.next`) and the package has `scripts.build` | INFO | 0 |
+| `works.entry_missing` | `package.json` `main`, `module`, `browser`, `bin` or an `exports` target that does not exist | FAIL | 30 |
+| `works.entry_missing` | the same for built output with `scripts.build`, and for `types` / `typings` targets | INFO | 0 |
+| `works.tests_missing` | JavaScript / TypeScript files, no test file (`*.test.*`, `*.spec.*`, `__tests__/`, `test/`, `tests/`, `cypress/`, `e2e/`) and no `scripts.test` | WARN | 15 |
+
+`works.tests_missing` is reported once for the repository: when there are Python files the Python check reports it,
+and it is dropped when the JavaScript side has a test file or a `scripts.test` that is not npm's placeholder. Generated
+files get no Works check. Not checked on JavaScript / TypeScript: `works.test_no_assert`, `works.todo_stub`,
+`works.commented_code`, `works.dead_flag` and orphan (dead) code.
+
+How `works.import_unresolved` decides (Python):
 
 - **Standard library**: `sys.stdlib_module_names` plus the modules removed after 3.11 (`distutils`, `imp`, `cgi`…)
   and added since (`annotationlib`, `compression`), so the answer does not depend on which Python runs the scan.
@@ -638,8 +701,8 @@ not ship `.env` files; calibration showed every clean library tripping the check
 that merely holds `os.environ` is not followed.
 
 **Undeclared dependencies are owned by `works.import_unresolved`**; Complete reports only the opposite case,
-declared but unused. A repo with no Python source and no manifest has nothing for Works or Complete to check: it
-scores 100 there, and the report says so.
+declared but unused. A repo with no Python source and no manifest has nothing for Complete to check (and nothing for
+Works unless it has JavaScript or TypeScript): the report says so.
 
 ## Baseline: gate on new findings only
 
@@ -761,6 +824,10 @@ above. Two rules apply across Safe:
   place in the report but do not score: users run the product, not its tests or its doc samples. Two
   exceptions keep their level: API-key shapes (a real key is leaked wherever it sits) and `exec` of decoded data
   (a payload in `conftest.py` runs on every `pytest`).
+- **JavaScript and TypeScript.** Every Safe code below except `privacy.pii_prompt` also fires on JavaScript and
+  TypeScript (`dom.html_sink` only there), and `works.syntax`, `works.import_unresolved`, `works.relative_missing`,
+  `works.entry_missing` and `works.tests_missing` apply to both languages; the Safe and Works tables above say how each
+  reads them. Generated and minified files are covered by `secret.key`, `obfuscation` and `exec.dynamic` only.
 - **Calibration.** Each false-positive note below comes from scanning five well-known clean projects and the
   four guardian repositories; see [calibration.md](calibration.md).
 
@@ -787,15 +854,15 @@ above. Two rules apply across Safe:
 | `orphan.dead` | Works | A function, class or module nothing reachable from the entry points uses. | Delete it, or list it in keep if something loads it by name. | Code loaded by name (plugins, entry points of other tools); add those to keep. |
 | `orphan.test_only` | Works | Only tests reach this code; the product never does. | Delete it with its tests, or call it from the product. | Test helpers kept in the package on purpose. |
 | `orphan.uncertain` | Works | getattr/globals/importlib with a computed name, or a string registry, could reach it. | List it in keep if it is loaded by name; otherwise delete it. | It is reported as uncertain precisely because the parse cannot tell. |
-| `works.entry_missing` | Works | A [project.scripts] (or setup.cfg console script) target module:function is not in the tree. | Point the script at an existing module:function. | Modules generated at build time. |
-| `works.import_unresolved` | Works | An absolute import that is not in the standard library, not in the repo and not a declared dependency. | Declare the distribution that provides it, or guard an optional import with try/except ImportError. | Packages pulled in only by another dependency (they work by accident); import names the mapping table misses. |
-| `works.relative_missing` | Works | from .x import y points at a module (or a package name) the repo does not have. | Fix the module path or add the missing module. | Modules generated at build time. |
+| `works.entry_missing` | Works | A [project.scripts] (or setup.cfg console script) target module:function is not in the tree; in package.json, a main, module, browser, bin or exports target that does not exist. | Point the script at an existing module:function. | Modules generated at build time. |
+| `works.import_unresolved` | Works | An absolute import that is not in the standard library, not in the repo and not a declared dependency; in JavaScript or TypeScript, a bare import that is not a Node builtin and not in the nearest package.json. | Declare the distribution that provides it, or guard an optional import with try/except ImportError. | Packages pulled in only by another dependency (they work by accident); import names the mapping table misses. |
+| `works.relative_missing` | Works | from .x import y points at a module (or a package name) the repo does not have; in JavaScript or TypeScript, a relative import of a file or folder that is not there. | Fix the module path or add the missing module. | Modules generated at build time. |
 | `works.todo_stub` | Works | A function whose body is only pass, ..., or raise NotImplementedError (a docstring allowed), and the entry points reach it: it will be called and do nothing. Abstract methods, Protocol classes, @overload and methods a subclass overrides do not count. | Implement it, or delete it and its callers; mark it @abc.abstractmethod if subclasses must implement it. | Hook methods meant to be overridden by users of a library; no-op callbacks kept on purpose. |
 | `works.commented_code` | Works | A run of 5 or more consecutive comment lines that parse as Python (once per file, with the count of blocks). | Delete it: version control keeps the old code. | Code samples in comments that explain an API; INFO, never scored. |
 | `works.dead_flag` | Works | A module-level ALL_CAPS boolean constant (DEBUG = False) that no file reads, imports or names. | Delete it, or wire it to the code it was meant to switch. | Flags read only by another tool or by string name; INFO, never scored. |
-| `works.syntax` | Works | ast.parse rejects the file, so it cannot be imported or run (INFO when the project needs a newer Python than the one scanning). | Fix the syntax error; port Python 2 code to Python 3. | Files kept on purpose for another interpreter, or templates with a .py name. |
+| `works.syntax` | Works | ast.parse rejects the file, so it cannot be imported or run (INFO when the project needs a newer Python than the one scanning); in JavaScript or TypeScript, a template literal or block comment that never closes. | Fix the syntax error; port Python 2 code to Python 3. | Files kept on purpose for another interpreter, or templates with a .py name. |
 | `works.test_no_assert` | Works | Test functions with no assert, no pytest.raises/warns, no self.assert* and no call to an asserting helper. | Assert on the result; use pytest.raises for expected errors. | Smoke tests that only check nothing raises; helpers defined in another file. |
-| `works.tests_missing` | Works | There are no test files at all. | Add a tests/ folder with at least one test per entry point. | Tests kept in another repository. |
+| `works.tests_missing` | Works | There are no test files at all (for JavaScript or TypeScript: no test file and no scripts.test). | Add a tests/ folder with at least one test per entry point. | Tests kept in another repository. |
 | `complete.ci_missing` | Complete | No CI configuration was found. | Add a CI workflow that runs the tests on each change. | CI configured outside the repository. |
 | `complete.env_example` | Complete | The code reads environment variables but there is no .env.example listing them. | Add a .env.example with every variable and a safe placeholder. | Libraries that read only optional, well-known variables (NO_COLOR, TERM). |
 | `complete.license_missing` | Complete | There is no LICENSE, LICENCE, COPYING or UNLICENSE file at the root. | Add a LICENSE file. | Licences kept only in a subfolder. |
@@ -1006,28 +1073,74 @@ Every message in this table is a string the test suite pins, so it will not drif
 | what you see | what it means | what to do |
 |---|---|---|
 | `path does not exist: ...` in a tool result with `isError: true` | The MCP server resolved your path relative to **its own** working directory, which is wherever the client launched it, not your project. | Pass an absolute path, or set the server's working directory in the client config. |
-| `status: INVALID (no Python files and no manifests to judge)`, `no grade`, exit code `3` | There was nothing to analyse: no Python source and no manifest. Usually the wrong directory, or a path that is only build output. | Point it at the repository root. Exit 3 means "this scan cannot be trusted", not "this repo is bad". |
+| `status: INVALID (no Python files, no JavaScript/TypeScript files and no manifests to judge)`, `no grade`, exit code `3` | There was nothing to analyse: no Python or JavaScript / TypeScript source and no manifest. Usually the wrong directory, or a path that is only build output. | Point it at the repository root. Exit 3 means "this scan cannot be trusted", not "this repo is bad". |
 | `status: INVALID`, a reason starting `PATH is unreadable` | The directory could not be walked at all — permissions, or a path that disappeared mid-scan. | Check the path and its permissions; on Windows, check the drive is mounted. |
 | `entry_points must be a list of strings`, exit code `2` | The goal contract has the wrong shape: `entry_points`, `keep` and `exclude` are TOML arrays of strings. | Fix the `.goal.toml`. `code-guardian init` writes a valid one to start from. |
 | A score you disagree with | Every deduction is listed with `file:line` and a `false_positives` note in the [check catalogue](#check-catalogue). | If it is wrong for your repo, exclude it in the goal contract or record it with `code-guardian baseline`; please open an issue if the check itself is wrong. |
 
 <!-- troubleshooting:end -->
 
+## Upgrading to 0.5.0
+
+**What is analysed now that was not.** JavaScript and TypeScript (`.js .mjs .cjs .jsx .ts .tsx`) are analysed at token
+level: the Safe checks `exec.dynamic`, `exec.shell`, `deser.unsafe`, `net.egress`, `net.bind_all`, `tls.off`,
+`obfuscation`, `fs.outside`, `privacy.pii_log` and `dom.html_sink`, and the Works checks `works.syntax`,
+`works.import_unresolved`, `works.relative_missing`, `works.entry_missing` and `works.tests_missing`. Before, those
+files got the secret scan only, so an `eval` of request input in a `.js` file was not seen. A JavaScript-only repo is
+now COMPLETE with Works scored (it was PARTIAL with Works `n/a`). Python-only reports are unchanged except for the
+additive keys (`schema_version` 3). [What it analyses](#what-it-analyses) has the details.
+
+**The exit code can change.** A JavaScript or TypeScript finding at or above `--fail-on` exits 1. A repo that passed
+the GitHub Action on 0.4.x can therefore exit 1 on 0.5.0 without a line of its code changing: this repository's own CI
+job for a JavaScript-only repo (an `eval` of `q.query.x`) went from "PARTIAL, exit 0" to "COMPLETE, exit 1".
+
+**The gradual path.** Record the current state once, on 0.5.0, then fail only on what is new:
+
+```
+code-guardian baseline .                                                 # writes ./code-guardian.baseline.json; commit it
+code-guardian scan . --baseline code-guardian.baseline.json              # exit 1 only for findings the baseline lacks
+```
+
+A baseline written by 0.4.x does not hold the JavaScript / TypeScript findings, so every one of them counts as new:
+write the baseline again on 0.5.0. Or keep the old gate and raise the bar while the backlog is worked, then lower it:
+
+```
+code-guardian scan . --fail-on FAIL      # the default: only FAIL findings fail
+code-guardian scan . --fail-on WARN      # once the FAILs are fixed
+```
+
+In the GitHub Action the same two are the `baseline:` and `fail-on:` inputs ([Outputs](#outputs-github-action-and-pre-commit)).
+The scores and the grade always count every finding; a baseline changes only the exit code.
+
 ## Limitations
 
-- **Only Python is analysed.** Manifests (`package.json`, `setup.py`, `setup.cfg`, `pyproject.toml`,
-  `requirements*.txt`) are read for install hooks and pins; every other language gets the secret scan only, and the
-  `coverage:` line says which files (see [What it analyses](#what-it-analyses)). An `eval` of request input in a
-  `.js` file is not seen.
+- **Python is analysed in full, JavaScript and TypeScript at token level, everything else by secret scan only.**
+  Manifests (`package.json`, `setup.py`, `setup.cfg`, `pyproject.toml`, `requirements*.txt`) are read for install hooks
+  and pins; Go, Rust, shell, `.vue` and the rest get the secret scan, and the `coverage:` line says which files (see
+  [What it analyses](#what-it-analyses)).
+- **JavaScript and TypeScript are read by a lexer, not a parser.** There is no scope analysis, no type information and no
+  module resolution beyond `package.json` and `tsconfig.json`: a check reads one statement at a time, so a value that
+  reaches a sink through another statement, a function call or an alias is not followed (`const f = eval; f(x)` is not
+  seen), and a minified or generated file gets only the secret, `obfuscation` and `exec.dynamic` checks. A sink named in
+  a string, comment, template or regular expression is never a finding, so the lexer errs towards silence rather than
+  guessing. Vue, Svelte and Astro single-file components are not lexed (they are secret-scanned).
+- **What the JSX token rules see only partly.** JSX text can hold an apostrophe or a backtick that the lexer cannot tell
+  from the start of a string or a template, and each case is marked so it is never silently dropped:
+  - a `{…}` between two apostrophes on one line of JSX text (`<p>Don't</p>{eval(location.hash)}<p>didn't</p>`) reads as
+    one string, so the code inside the braces is not lexed as code. When it looks like code the scan reports
+    `code-like text inside JSX text was not analysed` as an `exec.dynamic` INFO, which does not change a grade;
+  - code after a stray backtick in JSX text (an unpaired one, as in `` <p>Press the ` key</p> ``) is found: the lexer
+    takes the backtick as punctuation and reads the rest of the file again, and the evidence of every finding after it
+    says `after a stray backtick in JSX text`.
 - **Static analysis cannot see runtime behaviour.** A finding means the code is there, not that it runs; code that
   builds its behaviour at runtime (downloaded plugins, `exec` of fetched text) is flagged where the parse can see it
   and invisible where it cannot. A grade A is "nothing the scanners recognise", not "proven safe".
 - Python files are parsed by the interpreter running code-guardian. Run it with a Python at least as new as the
   project's `requires-python`; when it is older, a parse failure is reported as `works.syntax` INFO, not FAIL.
-- Taint tracking for `exec.shell` FAIL is one function deep: assignments inside the same function, not calls between
-  functions.
-- The orphan graph over-approximates "used" (a method name read anywhere keeps every reached class's method of that
-  name), so it reports less dead code rather than wrong dead code.
+- Taint tracking for `exec.shell` FAIL is one function deep for Python and one statement deep for JavaScript and
+  TypeScript: assignments inside the same function or statement, not calls between functions.
+- The orphan graph (Python only) over-approximates "used" (a method name read anywhere keeps every reached class's method
+  of that name), so it reports less dead code rather than wrong dead code. There is no orphan check for JavaScript.
 - `.gitignore` support is simple globs from the root file; negation (`!`) and nested `.gitignore` files are ignored.
 
 ## How it is tested
@@ -1040,10 +1153,15 @@ scanners selftest: 38 checks, 38 passed, 0 failed
 
 - **Fixture repos** (`tests/fixtures/`): a clean library, a risky repo that trips every Safe scanner (its key-shaped
   strings are generated at test time by `tests/make_risky.py`, never committed), broken and weakly tested packages,
-  an orphan repo, a supply-chain repo and two Complete repos. Their scores are asserted exactly.
+  an orphan repo, a supply-chain repo and two Complete repos, plus four JavaScript / TypeScript fixtures (clean,
+  risky, broken, and a JSX torture file). Their scores are asserted exactly.
+- **Golden test** (`tests/test_golden.py`, `tests/golden/`): every Python-only fixture is re-scanned on every change and
+  compared with the report recorded before JavaScript analysis existed, so "every Python result is unchanged" is
+  tested, not claimed. Only `version`, `schema_version`, `weights` and `path` are left out of the comparison, and the
+  one fixture that holds a `.js` file (`risky_repo`) is compared through a reviewed delta file.
 - **Every module tests itself:** each of `finding`, `walk`, `scanners`, `manifests`, `score`, `goal`, `orphans`,
   `works`, `complete`, `supply`, `catalogue`, `outputs`, `explain`, `report`, `cli`, `mcp_server`, `baseline`,
-  `verify`, `history` and `leftovers` has a `--selftest`; `tests/test_selftests.py` runs them all.
+  `verify`, `history`, `leftovers`, `jsts`, `scanners_js` and `works_js` has a `--selftest`; `tests/test_selftests.py` runs them all.
 - **Docs that cannot drift:** the README's weight tables, check catalogue and MCP tool reference are compared with
   the code by `tests/test_readme_sync.py` and `tests/test_tool_docs.py`.
 - **The MCP server over real stdio** (`tests/test_mcp.py`, `tests/test_tool_annotations.py`): the tools, the

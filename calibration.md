@@ -317,3 +317,7 @@ Not in category (31):
 - `frontend/src/hacking-instructor/index.ts:142` `.innerHTML =` -- assigned a string literal: dom.html_sink reports nothing
 
 The two numbers are reported separately and never summed: **marker recall** = found / 2, **lexer-loss** = in-category grep hits not found (of 17).
+
+### JavaScript / TypeScript results (P81 S4)
+
+Results: filled in by the overseer's calibration run.
