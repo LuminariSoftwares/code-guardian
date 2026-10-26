@@ -267,11 +267,12 @@ egress inventory (4):
 hygiene (inferred (library public API) entry points: 1): 0 dead, 0 test-only, 0 uncertain
 
 weights used (each check (code + level) deducts its weight once, plus a quarter of the weight per extra occurrence (rounded up), at most 2x the weight; INFO is never scored):
-  Safe     deps.unpinned INFO 0 · deser.unsafe WARN 10 · exec.dynamic FAIL 30 · exec.dynamic WARN 10 ·
-           exec.shell FAIL 30 · exec.shell WARN 10 · fs.outside WARN 3 · install.hook WARN 15 ·
-           net.bind_all WARN 5 · net.egress INFO 0 · net.egress WARN 2 · obfuscation FAIL 40 ·
-           obfuscation WARN 10 · privacy.pii_log WARN 5 · privacy.pii_prompt WARN 5 · secret.history FAIL 30 ·
-           secret.key FAIL 40 · secret.key INFO 0 · supply.lookalike WARN 15 · supply.unknown_package FAIL 40 ·
+  Safe     deps.unpinned INFO 0 · deser.unsafe WARN 10 · dom.html_sink FAIL 30 · dom.html_sink WARN 10 ·
+           exec.dynamic FAIL 30 · exec.dynamic INFO 0 · exec.dynamic WARN 10 · exec.shell FAIL 30 ·
+           exec.shell WARN 10 · fs.outside WARN 3 · install.hook WARN 15 · net.bind_all WARN 5 ·
+           net.egress INFO 0 · net.egress WARN 2 · obfuscation FAIL 40 · obfuscation WARN 10 ·
+           privacy.pii_log WARN 5 · privacy.pii_prompt WARN 5 · secret.history FAIL 30 · secret.key FAIL 40 ·
+           secret.key INFO 0 · supply.lookalike WARN 15 · supply.unknown_package FAIL 40 ·
            supply.unknown_package INFO 0 · supply.unknown_package WARN 10 · tls.off FAIL 25 · tls.off WARN 10
   Works    orphan.dead WARN 3 · works.commented_code INFO 0 · works.dead_flag INFO 0 ·
            works.entry_missing FAIL 30 · works.import_unresolved WARN 10 · works.relative_missing FAIL 25 ·
@@ -483,6 +484,7 @@ the text and Markdown reports print the status and the coverage line above the s
 | `secret.history` | **opt-in, `scan --history`**: a key shape (the `secret.key` API-key shapes, AWS secret keys, private-key blocks) that a commit added and the file no longer has; it may still be valid. INFO (weight 0) when the value looks like a test value, with the reason in the evidence. Names the short sha and the path, never the value | FAIL | 30 |
 | `exec.dynamic` | `eval`, `exec`, `compile` on non-literal input; `__import__` with a variable | WARN | 10 |
 | `exec.dynamic` | …when `eval` or `exec` runs text from `input()`, `sys.argv`, request data, `os.environ` or a network read (the `exec.shell` taint rule, one function deep; `exec(compile(...))` counts at the `exec`): "runs code typed by the user" | FAIL | 30 |
+| `exec.dynamic` | JavaScript / TypeScript only: code-like text inside JSX text that the lexer could not tell from code (a string such as `'t</p>{eval(location.hash)}<p>didn'` made by two apostrophes), or an `eval` / `new Function` / string timer in a generated or minified file, reported and not scored | INFO | 0 |
 | `exec.shell` | `os.system`, `os.popen`, `subprocess.*(..., shell=True)` | WARN | 10 |
 | `exec.shell` | …when the command is built from `input()`, `os.environ`, `sys.argv` or a network read | FAIL | 30 |
 | `deser.unsafe` | `pickle.load(s)`, `marshal.loads`, `yaml.load` without `SafeLoader`, `torch.load` without `weights_only=True` | WARN | 10 |
@@ -497,6 +499,8 @@ the text and Markdown reports print the status and the coverage line above the s
 | `fs.outside` | writes, deletes and moves aimed at absolute paths, `~`, or `..` escapes | WARN | 3 |
 | `privacy.pii_log` | a personal-data name (`email`, `phone`, `ssn`, `dob`/`birth`, a person's `address`, `passport`, `credit_card`/`card_number`, `iban`, `ip_address`; whole words, so `emails_sent` and `server_address` do not count) flows into `logging.*`, a logger method or `print` (the `exec.shell` taint rule, one function deep) | WARN | 5 |
 | `privacy.pii_prompt` | the same names flow into an LLM prompt: a `messages=` or `prompt=` argument, or a `.chat(`, `.complete(` or `.generate(` call | WARN | 5 |
+| `dom.html_sink` | JavaScript / TypeScript only: a value that is not a literal reaches `.innerHTML` / `.outerHTML` (`=` or `+=`), `insertAdjacentHTML(`, `document.write(` / `writeln(`, React's `dangerouslySetInnerHTML`, jQuery's `$(...).html(v)` or one of Angular's `bypassSecurityTrustHtml` / `Script` / `ResourceUrl` / `Url` calls | WARN | 10 |
+| `dom.html_sink` | …when the value is read from a request, the address bar (`location.hash`, `window.location.search`), `document.cookie` or `window.name` (the same one-statement taint rule as `exec.shell`): the Juice Shop XSS sites | FAIL | 30 |
 | `deps.unpinned` | dependencies with no pin or upper bound (`pyproject.toml`, `setup.py`, `setup.cfg`, `requirements*.txt`, `package.json`) | INFO | 0 |
 
 `net.egress` targets that stay in the inventory at INFO: https to a named host, loopback, the local network
@@ -765,6 +769,7 @@ above. Two rules apply across Safe:
 | `check.crashed` | Safe | One of code-guardian's own checks raised on this file; the rest of the scan ran. | Report it at github.com/LuminariSoftwares/code-guardian/issues with the file if you can share it. | It is a code-guardian bug, never a finding about your code. |
 | `deps.unpinned` | Safe | A dependency with no pin and no upper bound. | Pin it (==) or cap it (< next major). | Libraries often prefer open ranges on purpose; INFO, never scored. |
 | `deser.unsafe` | Safe | pickle, marshal, yaml.load without SafeLoader, or torch.load without weights_only=True can run code hidden in the data. | Load only files you created, or use a data-only format (json, safetensors, yaml.safe_load). | Caches the program writes and reads itself are lower risk. |
+| `dom.html_sink` | Safe | A value that is not a literal is assigned to innerHTML or outerHTML, or passed to insertAdjacentHTML, document.write, React's dangerouslySetInnerHTML, jQuery's .html() or one of Angular's bypassSecurityTrust calls; FAIL when the value is read from a request, the address bar or the page. | Set textContent, or sanitize the text with a library such as DOMPurify before it goes in. | Markup the program built itself from trusted pieces, and text a sanitizer has already cleaned. |
 | `exec.dynamic` | Safe | eval, exec or compile runs a non-literal string, or __import__ loads a module named at runtime; FAIL when eval or exec runs text from input(), sys.argv, request data, the environment or the network. | Use a parser, a lookup table or ast.literal_eval; import modules by name; never run input as code. | Plugin loaders and REPL-style tools use these on purpose. |
 | `exec.shell` | Safe | os.system, os.popen or subprocess with shell=True; FAIL when the command text comes from input, the environment or the network. | Pass an argument list without shell=True; validate any outside value against an allow-list. | Fixed command strings in build scripts are WARN, not FAIL; taint is tracked one function deep. |
 | `fs.outside` | Safe | A write, delete or move aimed at an absolute path, the home directory or a .. escape. | Write under the project or under a path the user passes in. | Tools whose job is to write to /tmp or a user config folder. |

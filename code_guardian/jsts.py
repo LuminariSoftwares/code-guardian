@@ -535,7 +535,9 @@ def literal(tokens):
 _HANDLER_METHODS = frozenset({"get", "post", "put", "patch", "delete", "all", "use"})
 _REQUEST_LIKE = frozenset({"req", "request", "ctx", "event"})
 _ROOT_PREFIXES = frozenset({("process", "argv"), ("process", "env"), ("ctx", "request"), ("document", "cookie"),
-                            ("window", "name"), ("event", "data"), ("message", "data")})
+                            ("window", "name"), ("event", "data"), ("message", "data"),
+                            ("window", "location"), ("document", "location"), ("globalThis", "location"),
+                            ("self", "location")})
 _ROOT_NAMES = frozenset({"req", "request", "location"})
 _SOURCE_SEGMENTS = frozenset({"query", "params", "headers", "cookies"})
 
@@ -705,6 +707,8 @@ def selftest():
          and src("'query'") is False),
         ("source_body", src("ctx.request.body.x") is True and src("document.body.innerHTML") is False
          and src("post.body") is False and src("q.body.x") is False),
+        ("source_location_roots", src("window.location.hash") is True and src("self.location.href") is True
+         and src("window.locations.x") is False),
         ("source_handler_root", is_source(handler) is True and [r[0] for r in handler_roots(handler)] == ["q"]),
         ("tokens_json_stable", json.dumps(tokenize(sample, "js")) == json.dumps(tokenize(sample, "js"))),
         ("long_line_is_linear", len(tokenize("x = [" + ", ".join("a%d / b" % i for i in range(20000)) + "];", "js")) > 60000),

@@ -71,6 +71,13 @@ CATALOGUE = {
         "build backend.",
         "Read what the hook runs before installing; prefer packages without install-time code.",
         "Projects that compile extensions legitimately customise build commands."),
+    "dom.html_sink": _e(
+        "Text put into the page as HTML",
+        "A value that is not a literal is assigned to innerHTML or outerHTML, or passed to insertAdjacentHTML, "
+        "document.write, React's dangerouslySetInnerHTML, jQuery's .html() or one of Angular's bypassSecurityTrust "
+        "calls; FAIL when the value is read from a request, the address bar or the page.",
+        "Set textContent, or sanitize the text with a library such as DOMPurify before it goes in.",
+        "Markup the program built itself from trusted pieces, and text a sanitizer has already cleaned."),
     "obfuscation": _e(
         "Obfuscated code",
         "exec/eval of base64, zlib, marshal or hex-decoded data (FAIL); long encoded blobs or high-entropy literals (WARN).",
