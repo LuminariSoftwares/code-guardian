@@ -971,8 +971,13 @@
     checked.forEach(function (c, i) {
       if (i === 0 && lead) return; // already the banner
       var li = el("li");
-      li.appendChild(el("span", null, c.text));
-      if (c.files) li.appendChild(el("span", "depth", depthWord(c.depth)));
+      var head = el("span", "checked-head");
+      head.appendChild(el("span", "checked-label", c.label));
+      if (c.files) head.appendChild(el("span", "chip depth-chip", depthWord(c.depth)));
+      li.appendChild(head);
+      // The sentence starts with the label, which the head line already shows.
+      var prefix = c.label + ": ";
+      li.appendChild(el("span", "checked-text", c.text.indexOf(prefix) === 0 ? c.text.slice(prefix.length) : c.text));
       ul.appendChild(li);
     });
   }
@@ -1011,12 +1016,14 @@
     $("rail-quality").textContent = String(counts.Quality);
   }
 
+  // The chip beside each "What was checked" label: how deep the scan went into that kind of file.
   function depthWord(depth) {
-    if (depth === "full") return "Depth: full analysis";
-    if (depth === "secrets+manifests") return "Depth: read for keys and install settings only";
-    if (depth === "secrets only") return "Depth: read for keys only";
-    if (depth === "not read") return "Depth: not read";
-    return "Depth: " + depth;
+    if (depth === "full") return "in depth";
+    if (depth === "tokens") return "token level";
+    if (depth === "secrets+manifests") return "keys and install settings only";
+    if (depth === "secrets only") return "keys only";
+    if (depth === "not read") return "not read";
+    return depth;
   }
 
   function renderFixFirst(rep, plain) {
