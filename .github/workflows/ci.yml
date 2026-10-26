@@ -65,6 +65,7 @@ jobs:
           python -m venv /tmp/wv
           /tmp/wv/bin/pip install dist/*.whl
           python tests/make_risky.py /tmp/risky_repo
+          python tests/make_risky_js.py /tmp/js_risky
           cd /tmp
           set +e
           /tmp/wv/bin/code-guardian scan /tmp/risky_repo --json > /tmp/report.json
@@ -73,7 +74,6 @@ jobs:
           echo "scan exit code: $rc"
           test "$rc" = 1
           python -c "import json;r=json.load(open('/tmp/report.json'));codes=sorted({f['code'] for f in r['findings']});print(len(codes),'codes:',codes);safe={'deps.unpinned','deser.unsafe','exec.dynamic','exec.shell','fs.outside','install.hook','net.bind_all','net.egress','obfuscation','secret.key','tls.off'};assert safe<=set(codes),safe-set(codes);assert r['dimensions']['safe']['deducted']==237,r['dimensions']['safe'];assert (r['scores']['safe'],r['scores']['overall'],r['scores']['grade'])==(0,33,'F'),r['scores'];print('scores ok',r['scores'])"
-          python tests/make_risky_js.py /tmp/js_risky
           set +e
           /tmp/wv/bin/code-guardian scan /tmp/js_risky --json > /tmp/js_report.json
           rc=$?
