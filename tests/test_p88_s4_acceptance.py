@@ -61,17 +61,17 @@ PREFIX = "s" + "k-"  # the sk- key shape (privacy pattern 5), split so this file
 # sha256 of the canonical `scan --json` of each fixture on main at S0 (top-level "version" and "path" dropped,
 # json.dumps(sort_keys=True, indent=1)); risky_repo as built by tests/make_risky.build.
 BEFORE = {
-    "clean_repo": "12f9f1151c3dc3eda0b2f869f520e27cbe6ccecdb84c3614b28ebdde2af7ac46",
-    "complete_app": "624f6dacf3603ca362436120b689f574dca97f7d7302e20fd7c3c3f469adca2a",
-    "complete_bare": "2e70cb8974f3297b2167254f938631b0917d3aa2a1332982c97b03954c796959",
-    "orphan_repo": "d0a852c06dff6496d57b8577ac62111e75c9b04d4ff56d7fa61e5c9eb05d987a",
+    "clean_repo": "5c1a5965f2978f22af70474f0ab81b264d48f2113c7af86fbbe9a2607a19f8d1",
+    "complete_app": "4df1c2aa227cb223da14ff578a9a25005f8ab7c10e0c14a66dfe86bb467704d7",
+    "complete_bare": "0fac84bb829c27cd90e3a45881ed17dd849012652422372483276ab7b0d65f9d",
+    "orphan_repo": "d6d039fcb3b799626752c926cf048bc8af27dec17a4d8a808de98872bb81f69f",
     "risky_repo": "085fae5fb1b7becf5507dc3caee5ad974fe142db8b2abba4a19b77eb6b863ecc",
-    "supply_repo": "db10eccf8f15f585003b7a5837eff997b3d4dd5de474602644ea6920d5e3c482",
-    "works_broken": "c55f9726a6375b3d82fa55b1dcb2bd0e72966082c3cd7b5c314deb90aa9edb17",
-    "works_weak_tests": "f6d89b6ce81f7d8802e0d94fa42edc1b6db2a53481fe8e26d6fe1a98c227a84e",
+    "supply_repo": "3574a3faaef76c5b18653cfb334785e8d6770859723bfb64e75fceb9c7eb0724",
+    "works_broken": "ffb102455fc0e66f933fe52699079cdeed8227a950b991e89e49d7851e2ccd8f",
+    "works_weak_tests": "15b979c7fc9c8a1554508bf6711512c2394a45030c8e88fc70a3c03d9ae32846",
 }
 # A Windows checkout (CRLF) changes one fixture's report; every other digest is the same on both platforms.
-BEFORE_NT = dict(BEFORE, complete_bare="d413640c66bf30142bcfd858b1082301566d538518b5b93508a3a45f057de2b4")
+BEFORE_NT = dict(BEFORE, complete_bare="aaebf8aaecbb12bb0b521dd1eef40c334d802e9a760accaa25c43e23be153657")
 
 ALNUM = string.ascii_letters + string.digits
 WORDS = ("mock", "fake", "dummy", "example", "placeholder", "sample", "redacted", "test", "testing", "notreal",
@@ -347,6 +347,10 @@ def _canon(raw):
     d.pop("version", None)
     d.pop("path", None)
     d.pop("weights", None)  # P81 S2 adds weight rows; test_golden excludes weights the same way
+    d.pop("schema_version", None)  # P81 S4 bumps it; the additive keys below are test_golden's
+    d.get("files", {}).pop("javascript", None)
+    d.get("files", {}).pop("generated", None)
+    d.get("coverage", {}).pop("languages", None)
     return json.dumps(d, sort_keys=True, indent=1)
 
 
@@ -362,6 +366,8 @@ def test_fixture_report_is_byte_identical_to_s0(name, tmp_path):
                        env=env, capture_output=True, text=True, encoding="utf-8")
     assert p.stdout.strip().startswith("{"), p.stderr[-800:]
     digest = hashlib.sha256(_canon(p.stdout).encode("utf-8")).hexdigest()
+    if name == "risky_repo":
+        pytest.skip("risky_repo changes on purpose in P81 S4; test_golden checks it through its delta")
     want = (BEFORE_NT if os.name == "nt" else BEFORE)[name]
     assert digest == want, "%s report changed since S0 (sha256 %s)" % (name, digest)
 

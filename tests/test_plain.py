@@ -421,7 +421,7 @@ def test_diff_sentence_reads_the_counts_and_both_grades():
 
 
 def test_overall_on_a_partial_scan_says_partial_once(tmp_path):
-    (tmp_path / "index.js").write_text("console.log('hi')\n", encoding="utf-8")
+    (tmp_path / "main.go").write_text("package main\n", encoding="utf-8")  # Go: only secret-scanned (JavaScript is analysed)
     (tmp_path / "package.json").write_text('{"name": "x", "version": "1.0.0"}', encoding="utf-8")
     r = report.scan(str(tmp_path))
     assert r["status"] == "PARTIAL" and "PARTIAL" in r["scores"]["cap_reason"]

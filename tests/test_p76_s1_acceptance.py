@@ -52,14 +52,14 @@ def plain():
 def _js_only(tmp_path):
     d = tmp_path / "js_only"
     d.mkdir()
-    (d / "index.js").write_text("console.log('hi')\n", encoding="utf-8")
+    (d / "main.go").write_text("package main\n", encoding="utf-8")
     return d
 
 
 def _js_with_manifest(tmp_path):
     d = tmp_path / "js_manifest"
     d.mkdir()
-    (d / "index.js").write_text("console.log('hi')\n", encoding="utf-8")
+    (d / "main.go").write_text("package main\n", encoding="utf-8")
     (d / "package.json").write_text(json.dumps({"name": "x", "version": "1.0.0"}), encoding="utf-8")
     return d
 
@@ -107,7 +107,7 @@ def test_harm_shape(tmp_path):
 def test_js_only_dir_is_partial(tmp_path):
     p = plain()
     h = p.harm(report.scan(str(_js_only(tmp_path))))
-    # one index.js and nothing else: the scanner says INVALID (no Python, no manifests) and Safe partial
+    # one main.go and nothing else: INVALID (no Python, no JavaScript, no manifests) and Safe partial
     assert h["partial"] is True
     assert h["level"] == "Could not check"
 
@@ -185,17 +185,23 @@ def test_score_sentence_one_per_dimension_is_str(tmp_path):
 
 # ---- C4 what was checked ---------------------------------------------------------------------------------------
 
-def test_checked_lines_python_full_and_js_named():
+def test_checked_lines_python_full_and_js_named(tmp_path):
+    # P81 S4: JavaScript is analysed now, so the named, secret-scan-only language here is Go
     p = plain()
-    rep = report.scan(str(FIXTURES / "risky_repo"))
-    assert rep["coverage"]["other_source"] == {".js": 1}
+    d = tmp_path / "py_go"
+    (d / "tests").mkdir(parents=True)
+    (d / "app.py").write_text("print(1)\n", encoding="utf-8")
+    (d / "tests" / "test_app.py").write_text("def test_a():\n    assert 1\n", encoding="utf-8")
+    (d / "tool.go").write_text("package main\n", encoding="utf-8")
+    rep = report.scan(str(d))
+    assert rep["coverage"]["other_source"] == {".go": 1}
     lines = p.checked_lines(rep)
     assert all(set(e) >= {"label", "files", "depth", "text"} for e in lines)
     py = [e for e in lines if e["label"] == "Python"]
     assert len(py) == 1 and py[0]["depth"] == "full" and py[0]["files"] == rep["coverage"]["python"]
-    js = [e for e in lines if e["label"] == "JavaScript"]
-    assert len(js) == 1 and js[0]["files"] == 1 and js[0]["depth"] == "secrets+manifests"
-    assert js[0]["text"].startswith("JavaScript: 1 ")
+    go = [e for e in lines if e["label"] == "Go"]
+    assert len(go) == 1 and go[0]["files"] == 1 and go[0]["depth"] == "secrets+manifests"
+    assert go[0]["text"].startswith("Go: 1 ")
 
 
 def test_languages_table_and_unknown_extension():

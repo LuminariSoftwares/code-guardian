@@ -922,13 +922,13 @@ def main(argv=None):
     return 2
 
 
-def _got(text, flavour="js", generated=False):
-    """[(code, level, line)] in line order."""
-    fs = scan_js(JsFile("t.js", text, flavour, generated=generated))
-    return sorted(((f["code"], f["level"], int(f["node"].rsplit(":", 1)[1])) for f in fs), key=lambda g: (g[2], g[0], g[1]))
-
-
 def selftest():
+    def _got(text, flavour="js", generated=False):
+        """[(code, level, line)] in line order."""
+        fs = scan_js(JsFile("t.js", text, flavour, generated=generated))
+        return sorted(((f["code"], f["level"], int(f["node"].rsplit(":", 1)[1])) for f in fs),
+                      key=lambda g: (g[2], g[0], g[1]))
+
     h = "http" + "://"
     blob = "QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo" * 7
     boom = []

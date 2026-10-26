@@ -48,9 +48,9 @@ def test_troubleshooting_table_quotes_real_messages():
     table = text[text.index("<!-- troubleshooting:start -->"):text.index("<!-- troubleshooting:end -->")]
     source = "\n".join((ROOT / "code_guardian" / name).read_text(encoding="utf-8")
                        for name in ("mcp_server.py", "report.py", "goal.py", "cli.py"))
-    for fragment in ("does not exist: %s", "no Python files and no manifests to judge", "PATH is unreadable",
+    for fragment in ("does not exist: %s", "no Python files, no JavaScript/TypeScript files and no manifests to judge", "PATH is unreadable",
                      "must be a list of strings"):
         assert fragment in source, fragment
-    for quoted in ("path does not exist", "no Python files and no manifests to judge", "PATH is unreadable",
+    for quoted in ("path does not exist", "no Python files, no JavaScript/TypeScript files and no manifests to judge", "PATH is unreadable",
                    "entry_points must be a list of strings"):
         assert quoted in table, quoted

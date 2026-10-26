@@ -21,7 +21,7 @@ RISKY_COUNTS = {
     ("exec.dynamic", "WARN"): 2,    # runner.py eval(expression), loader.py exec(...)
     ("deser.unsafe", "WARN"): 2,    # storage.py pickle.load, yaml.load
     ("net.egress", "WARN"): 1,      # network.py plain-http URL to a host chosen at runtime
-    ("net.egress", "INFO"): 3,      # network.py https URL, local-network IP literal, requests.post call
+    ("net.egress", "INFO"): 4,      # network.py https URL, local-network IP literal, requests.post call, web/setup.js fetch
     ("net.bind_all", "WARN"): 1,    # network.py bind 0.0.0.0
     ("tls.off", "FAIL"): 1,         # network.py verify=False
     ("install.hook", "WARN"): 3,    # setup.py class + cmdclass, package.json postinstall
@@ -69,13 +69,15 @@ def test_risky_exact_nodes(tmp_path):
                      ("deser.unsafe", "WARN", "risky/storage.py:12"), ("fs.outside", "WARN", "risky/storage.py:16"),
                      ("install.hook", "WARN", "setup.py:5"), ("install.hook", "WARN", "setup.py:14"),
                      ("install.hook", "WARN", "package.json:5"), ("obfuscation", "WARN", "risky/loader.py:3"),
-                     ("obfuscation", "WARN", "risky/settings.py:3"), ("net.egress", "WARN", "risky/network.py:5")]:
+                     ("obfuscation", "WARN", "risky/settings.py:3"), ("net.egress", "WARN", "risky/network.py:5"),
+                     ("net.egress", "INFO", "web/setup.js:1")]:
         assert expected in nodes, expected
     assert [(e["level"], e["kind"], e["target"]) for e in rep["egress"]] == [
         ("WARN", "url", HTTP + "{host}:8080/upload"), ("INFO", "url", "https://example.com/docs"),
-        ("INFO", "ip", tailnet(5)), ("INFO", "call", "requests.post")]
-    assert rep["coverage"]["other_source"] == {".js": 1} and rep["status"] == "COMPLETE"
-    assert "coverage: %d Python analysed; 1 .js secret-scan only" % rep["files"]["python"] in report.render(rep)
+        ("INFO", "ip", tailnet(5)), ("INFO", "call", "requests.post"), ("INFO", "call", "https://example.com/hello")]
+    assert rep["coverage"]["other_source"] == {} and rep["status"] == "COMPLETE"
+    assert ("coverage: %d Python analysed; 1 JavaScript/TypeScript analysed (token level)" % rep["files"]["python"]
+            in report.render(rep))
 
 
 def test_risky_secret_values_never_printed(tmp_path):
@@ -152,7 +154,7 @@ def test_text_report(tmp_path):
     assert "  Overall   33/100  grade F" in out
     assert "biggest deductions:" in out and ("  -60  Safe     secret.key FAIL          x3   at deploy/id_rsa:1, risky/settings.py:1, "
                                                 "risky/settings.py:2") in out
-    assert "egress inventory (4):" in out
+    assert "egress inventory (5):" in out
     assert "hygiene (inferred (library public API) entry points: 1): 0 dead, 0 test-only, 0 uncertain" in out
 
 

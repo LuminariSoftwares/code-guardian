@@ -1,0 +1,700 @@
+{
+ "replace": {
+  "coverage.analysed": "python+javascript",
+  "coverage.other_source": {},
+  "coverage.other_source_files": 0,
+  "egress": [
+   {
+    "kind": "url",
+    "level": "WARN",
+    "node": "risky/network.py:5",
+    "target": "http://{host}:8080/upload"
+   },
+   {
+    "kind": "url",
+    "level": "INFO",
+    "node": "risky/network.py:6",
+    "target": "https://example.com/docs"
+   },
+   {
+    "kind": "ip",
+    "level": "INFO",
+    "node": "risky/network.py:7",
+    "target": "100.64.0.5"
+   },
+   {
+    "kind": "call",
+    "level": "INFO",
+    "node": "risky/network.py:11",
+    "target": "requests.post"
+   },
+   {
+    "kind": "call",
+    "level": "INFO",
+    "node": "web/setup.js:1",
+    "target": "https://example.com/hello"
+   }
+  ],
+  "files.other": 1,
+  "findings": [
+   {
+    "code": "complete.ci_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: .github/workflows/, .gitlab-ci.yml, .circleci/, and other CI files"
+    ],
+    "fingerprint": "82614cc74cd71f3da6532c94a455c16972f894ad2b07091d9f8566d157847cbe",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no CI configuration: nothing runs the tests on each change",
+    "try": [
+     "add a CI workflow that runs the tests"
+    ]
+   },
+   {
+    "code": "complete.license_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: LICENSE, LICENCE, COPYING, UNLICENSE (any extension)"
+    ],
+    "fingerprint": "930beae195cf4084bc0835387d1df2762d4f7f5b636e4ce39dcffd55c5eed80c",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no licence file: nobody may legally reuse this code",
+    "try": [
+     "add a LICENSE file (choosealicense.com helps pick one)"
+    ]
+   },
+   {
+    "code": "complete.readme_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: README, README.md, README.rst, README.txt"
+    ],
+    "fingerprint": "ed3b257121a6493e37b33e1961caf4d9b94cbfd123c7611c5dc77d03a427b67f",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no README: nobody can tell what this is or how to run it",
+    "try": [
+     "add a README.md"
+    ]
+   },
+   {
+    "code": "works.tests_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: tests/, test_*.py, *_test.py, tests.py, conftest.py"
+    ],
+    "fingerprint": "af61c7db491aa0f6f1c07962bd6797e96d8114856e6d6c2a8a93154dcf2e05d4",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no test files: nothing checks that the code works",
+    "try": [
+     "add a tests/ folder with at least one test per entry point"
+    ]
+   },
+   {
+    "code": "secret.key",
+    "confidence": "LIKELY",
+    "evidence": [
+     "matched: private-key block",
+     "length: 31 characters"
+    ],
+    "fingerprint": "6d7b8123a310ad251439188a5a5a26d1c8f909907f13116e4a5a735877282015",
+    "fix": null,
+    "level": "FAIL",
+    "node": "deploy/id_rsa:1",
+    "severity": "partial",
+    "summary": "private-key block in the source; value redacted",
+    "try": [
+     "move it to an environment variable or a secret store",
+     "rotate it: it is in this file's history"
+    ]
+   },
+   {
+    "code": "install.hook",
+    "confidence": "LIKELY",
+    "evidence": [
+     "script: node web/setup.js"
+    ],
+    "fingerprint": "1ab452723fe60118c2746950336be0302064c2433d6759d945a8d3e252946343",
+    "fix": null,
+    "level": "WARN",
+    "node": "package.json:5",
+    "severity": "partial",
+    "summary": "npm postinstall script runs on install",
+    "try": [
+     "read what the hook runs before installing",
+     "prefer packages without install-time code"
+    ]
+   },
+   {
+    "code": "deps.unpinned",
+    "confidence": "LIKELY",
+    "evidence": [
+     "manifest: package.json dependencies",
+     "requirement: \"left-pad\""
+    ],
+    "fingerprint": "e4d7c964c207931fca1079da104ff28cb504e049284f1eca071a25d262ef2053",
+    "fix": null,
+    "level": "INFO",
+    "node": "package.json:8",
+    "severity": "partial",
+    "summary": "dependency left-pad has no pin or upper bound",
+    "try": [
+     "pin it (==) or cap it (<next major) so an install cannot pull a new release silently"
+    ]
+   },
+   {
+    "code": "complete.license_undeclared",
+    "confidence": "LIKELY",
+    "evidence": [
+     "no license / license-files / License classifier"
+    ],
+    "fingerprint": "c5772dbbd3e346e368c05641ff50cc5131e8ea3fabf53700395cfb9e8a47d025",
+    "fix": null,
+    "level": "WARN",
+    "node": "pyproject.toml:1",
+    "severity": "partial",
+    "summary": "the package metadata declares no licence",
+    "try": [
+     "add license = \"MIT\" (or your licence) to [project]"
+    ]
+   },
+   {
+    "code": "complete.metadata",
+    "confidence": "LIKELY",
+    "evidence": [
+     "required: name, version (or dynamic), requires-python"
+    ],
+    "fingerprint": "96b4d1dc5b8e19da178e202b08daf0fea568ceecd7bac8af37ef01cf70e7bf52",
+    "fix": null,
+    "level": "WARN",
+    "node": "pyproject.toml:1",
+    "severity": "partial",
+    "summary": "pyproject.toml [project] is missing: requires-python",
+    "try": [
+     "add the missing keys to [project]"
+    ]
+   },
+   {
+    "code": "deps.declared_unused",
+    "confidence": "LIKELY",
+    "evidence": [
+     "kind: runtime"
+    ],
+    "fingerprint": "2d478d7e9a544668bc23909649575deab237a6c3b8dc53cb4ef2dab5c4e6453e",
+    "fix": null,
+    "level": "INFO",
+    "node": "pyproject.toml:4",
+    "severity": "partial",
+    "summary": "dependency flask is declared but never imported",
+    "try": [
+     "remove it, or note why it is needed (a plugin or a runner)"
+    ]
+   },
+   {
+    "code": "deps.unpinned",
+    "confidence": "LIKELY",
+    "evidence": [
+     "manifest: pyproject.toml",
+     "requirement: flask>=2"
+    ],
+    "fingerprint": "7440c51e74e35052767deb5cd7abecd234f2fbae588e92b5f3339ceebe42eb62",
+    "fix": null,
+    "level": "INFO",
+    "node": "pyproject.toml:4",
+    "severity": "partial",
+    "summary": "dependency flask has no pin or upper bound",
+    "try": [
+     "pin it (==) or cap it (<next major) so an install cannot pull a new release silently"
+    ]
+   },
+   {
+    "code": "obfuscation",
+    "confidence": "LIKELY",
+    "evidence": [
+     "kind: base64-like blob",
+     "length: 340"
+    ],
+    "fingerprint": "2b18176a2b09b373c987ff89a1dc01835f91260fc42ac2a9a46f11a4eed996cb",
+    "fix": null,
+    "level": "WARN",
+    "node": "risky/loader.py:3",
+    "severity": "partial",
+    "summary": "base64-like blob of 340 characters",
+    "try": [
+     "decode it and check what it holds"
+    ]
+   },
+   {
+    "code": "exec.dynamic",
+    "confidence": "LIKELY",
+    "evidence": [
+     "call: exec(<non-literal>)"
+    ],
+    "fingerprint": "97a5dd5647c5fe78a19c67476c9ee9e6f7c70d2ce0a8e6a99616636c2040ed46",
+    "fix": null,
+    "level": "WARN",
+    "node": "risky/loader.py:7",
+    "severity": "partial",
+    "summary": "exec() runs code built at runtime",
+    "try": [
+     "replace it with a parser or a lookup table (ast.literal_eval for data)"
+    ]
+   },
+   {
+    "code": "obfuscation",
+    "confidence": "LIKELY",
+    "evidence": [
+     "chain: exec(<decoder>(...))",
+     "decoders: base64, zlib, marshal, hex, codecs"
+    ],
+    "fingerprint": "12ab57372003579226fd753e4501615a2970d60c1a214f8ec8ff2ab340c93fe6",
+    "fix": null,
+    "level": "FAIL",
+    "node": "risky/loader.py:7",
+    "severity": "partial",
+    "summary": "exec() runs decoded or decompressed data",
+    "try": [
+     "decode the payload offline and read what it does before running this"
+    ]
+   },
+   {
+    "code": "net.egress",
+    "confidence": "LIKELY",
+    "evidence": [
+     "kind: url",
+     "target: http://{host}:8080/upload",
+     "why: not https; host set at runtime"
+    ],
+    "fingerprint": "3682ff6eaaeefc3271e79d3ce60b57e242a46c6a9bfa008a6ddf2b44c9e89100",
+    "fix": null,
+    "level": "WARN",
+    "node": "risky/network.py:5",
+    "severity": "partial",
+    "summary": "URL literal http://{host}:8080/upload (not https; host set at runtime)",
+    "try": [
+     "use https",
+     "confirm this destination is expected"
+    ]
+   },
+   {
+    "code": "net.egress",
+    "confidence": "LIKELY",
+    "evidence": [
+     "kind: url",
+     "target: https://example.com/docs",
+     "why: reserved documentation name"
+    ],
+    "fingerprint": "6141d94442c9057c254e72819a5ec6c1dcc657835dcb0f67e5a1e51703e10e0e",
+    "fix": null,
+    "level": "INFO",
+    "node": "risky/network.py:6",
+    "severity": "partial",
+    "summary": "URL literal https://example.com/docs (reserved documentation name)",
+    "try": []
+   },
+   {
+    "code": "net.egress",
+    "confidence": "LIKELY",
+    "evidence": [
+     "kind: ip",
+     "target: 100.64.0.5",
+     "why: local-network address"
+    ],
+    "fingerprint": "fc666af70954ba4022c6d1363b35af155ea3b24362459b505ad413c1d3f08980",
+    "fix": null,
+    "level": "INFO",
+    "node": "risky/network.py:7",
+    "severity": "partial",
+    "summary": "IP literal 100.64.0.5 (local-network address)",
+    "try": []
+   },
+   {
+    "code": "net.egress",
+    "confidence": "LIKELY",
+    "evidence": [
+     "kind: call",
+     "target: requests.post"
+    ],
+    "fingerprint": "d197191fd45bb0a7b0b8eb26f29576008676123484584697dd00a829a0d39cab",
+    "fix": null,
+    "level": "INFO",
+    "node": "risky/network.py:11",
+    "severity": "partial",
+    "summary": "network call requests.post",
+    "try": []
+   },
+   {
+    "code": "tls.off",
+    "confidence": "LIKELY",
+    "evidence": [
+     "code: verify=False"
+    ],
+    "fingerprint": "936d7d1947709ff28afbc4b3acefd14f2962c7ba4bedf855f6ad90b600c74d88",
+    "fix": null,
+    "level": "FAIL",
+    "node": "risky/network.py:11",
+    "severity": "partial",
+    "summary": "TLS certificate checking is switched off (verify=False)",
+    "try": [
+     "remove it; point at a CA bundle instead if the certificate is private"
+    ]
+   },
+   {
+    "code": "net.bind_all",
+    "confidence": "LIKELY",
+    "evidence": [
+     "literal: 0.0.0.0"
+    ],
+    "fingerprint": "ae944d48198a6311dade6bcefd700d65a034428de571533daad4908c8551bada",
+    "fix": null,
+    "level": "WARN",
+    "node": "risky/network.py:16",
+    "severity": "partial",
+    "summary": "binds to all interfaces (0.0.0.0)",
+    "try": [
+     "bind to 127.0.0.1 unless other machines must connect"
+    ]
+   },
+   {
+    "code": "exec.shell",
+    "confidence": "LIKELY",
+    "evidence": [
+     "call: os.system",
+     "the command text flows from input(), os.environ, sys.argv or a network read"
+    ],
+    "fingerprint": "ebec9d8728a698dd6d23d8ad3e6098b409255440640a9512fd410e6b00f0ba6c",
+    "fix": null,
+    "level": "FAIL",
+    "node": "risky/runner.py:7",
+    "severity": "partial",
+    "summary": "os.system runs a shell command built from input, env or network",
+    "try": [
+     "pass an argument list without shell=True",
+     "validate the value against an allow-list"
+    ]
+   },
+   {
+    "code": "exec.shell",
+    "confidence": "LIKELY",
+    "evidence": [
+     "call: subprocess.run(shell=True)"
+    ],
+    "fingerprint": "41da63ccc513ed86e0a273f183a74b0c3ceecf039ab2256bcf4a2fbbae5a068f",
+    "fix": null,
+    "level": "WARN",
+    "node": "risky/runner.py:11",
+    "severity": "partial",
+    "summary": "subprocess.run(shell=True) runs a command through the shell",
+    "try": [
+     "pass an argument list without shell=True"
+    ]
+   },
+   {
+    "code": "exec.dynamic",
+    "confidence": "LIKELY",
+    "evidence": [
+     "call: eval(<non-literal>)"
+    ],
+    "fingerprint": "15ce8c0451a1a4d2d9927f1680566c267c459e89043d616e5ccead8ff289852a",
+    "fix": null,
+    "level": "WARN",
+    "node": "risky/runner.py:15",
+    "severity": "partial",
+    "summary": "eval() runs code built at runtime",
+    "try": [
+     "replace it with a parser or a lookup table (ast.literal_eval for data)"
+    ]
+   },
+   {
+    "code": "secret.key",
+    "confidence": "LIKELY",
+    "evidence": [
+     "matched: sk- key shape (privacy pattern 5)",
+     "length: 27 characters",
+     "kind: provider key shape"
+    ],
+    "fingerprint": "ba2ab945c56c63a1e596216aaf6c6b16bf68d4ef66c81d2721fd8552b5f92eaf",
+    "fix": null,
+    "level": "FAIL",
+    "node": "risky/settings.py:1",
+    "severity": "partial",
+    "summary": "sk- key shape (privacy pattern 5) in the source; value redacted",
+    "try": [
+     "move it to an environment variable or a secret store",
+     "rotate it: it is in this file's history"
+    ]
+   },
+   {
+    "code": "secret.key",
+    "confidence": "LIKELY",
+    "evidence": [
+     "matched: password-like literal assigned to 'password'",
+     "length: 15 characters"
+    ],
+    "fingerprint": "f21fd294fb3ece4de36f4c48cd8fcfd17cad7d57c03429ce089b925dd0149266",
+    "fix": null,
+    "level": "FAIL",
+    "node": "risky/settings.py:2",
+    "severity": "partial",
+    "summary": "password-like literal assigned to 'password' in the source; value redacted",
+    "try": [
+     "move it to an environment variable or a secret store",
+     "rotate it: it is in this file's history"
+    ]
+   },
+   {
+    "code": "obfuscation",
+    "confidence": "LIKELY",
+    "evidence": [
+     "kind: high-entropy literal",
+     "entropy: 5.05 bits/char"
+    ],
+    "fingerprint": "c0510605f687b69e4d2fc45114c180f6218588753671e3dd4eac4f805650714f",
+    "fix": null,
+    "level": "WARN",
+    "node": "risky/settings.py:3",
+    "severity": "partial",
+    "summary": "high-entropy literal of 48 characters",
+    "try": [
+     "check whether it is a credential or an encoded payload"
+    ]
+   },
+   {
+    "code": "deser.unsafe",
+    "confidence": "LIKELY",
+    "evidence": [
+     "call: pickle.load"
+    ],
+    "fingerprint": "0498f0836f2ccb6e1dc1b87bd971ce20c08699ad0faefdbc01666547519393a3",
+    "fix": null,
+    "level": "WARN",
+    "node": "risky/storage.py:8",
+    "severity": "partial",
+    "summary": "pickle.load can run code hidden in the data",
+    "try": [
+     "load only files you created, or use a data-only format (json, safetensors, yaml.safe_load)"
+    ]
+   },
+   {
+    "code": "deser.unsafe",
+    "confidence": "LIKELY",
+    "evidence": [
+     "call: yaml.load"
+    ],
+    "fingerprint": "afa3deaaae4e9c89864f897c87db199c22bf8810ce3fbef14f751e364d4f5dff",
+    "fix": null,
+    "level": "WARN",
+    "node": "risky/storage.py:12",
+    "severity": "partial",
+    "summary": "yaml.load without SafeLoader can build arbitrary Python objects",
+    "try": [
+     "load only files you created, or use a data-only format (json, safetensors, yaml.safe_load)"
+    ]
+   },
+   {
+    "code": "fs.outside",
+    "confidence": "LIKELY",
+    "evidence": [
+     "call: open",
+     "path starts: /tmp/risky-report.txt"
+    ],
+    "fingerprint": "ecbb271c9d928b4c536d5b49b63fbbeb1b79414cdb623ee63ed79579517c67b4",
+    "fix": null,
+    "level": "WARN",
+    "node": "risky/storage.py:16",
+    "severity": "partial",
+    "summary": "writes outside the project: /tmp/risky-report.txt (absolute path)",
+    "try": [
+     "write under the project or a path the user passes in"
+    ]
+   },
+   {
+    "code": "install.hook",
+    "confidence": "LIKELY",
+    "evidence": [
+     "class PostInstall(setuptools.command.install.install)"
+    ],
+    "fingerprint": "fb6983e53e6a4338c3c9e4c986272fa1658b21292ec5bcc5d088b8e68c791227",
+    "fix": null,
+    "level": "WARN",
+    "node": "setup.py:5",
+    "severity": "partial",
+    "summary": "class PostInstall overrides the install command",
+    "try": [
+     "read what the hook runs before installing",
+     "prefer packages without install-time code"
+    ]
+   },
+   {
+    "code": "deps.unpinned",
+    "confidence": "LIKELY",
+    "evidence": [
+     "manifest: setup.py",
+     "requirement: requests"
+    ],
+    "fingerprint": "02a733773a106cb5616c2318873e60ce3fe95981a2432474e7a482de044edea0",
+    "fix": null,
+    "level": "INFO",
+    "node": "setup.py:13",
+    "severity": "partial",
+    "summary": "dependency requests has no pin or upper bound",
+    "try": [
+     "pin it (==) or cap it (<next major)"
+    ]
+   },
+   {
+    "code": "install.hook",
+    "confidence": "LIKELY",
+    "evidence": [
+     "setup(cmdclass=...)"
+    ],
+    "fingerprint": "74da4763f7a60a2a5ba93cad17ea38afc6a75c38f08a57920a63f987e1b1ab43",
+    "fix": null,
+    "level": "WARN",
+    "node": "setup.py:14",
+    "severity": "partial",
+    "summary": "setup() cmdclass overrides build/install commands",
+    "try": [
+     "read what the hook runs before installing",
+     "prefer packages without install-time code"
+    ]
+   },
+   {
+    "code": "net.egress",
+    "confidence": "LIKELY",
+    "evidence": [
+     "kind: call",
+     "target: https://example.com/hello",
+     "why: reserved documentation name",
+     "call: fetch"
+    ],
+    "fingerprint": "ef0f66f2b3582c0da63b9946d82dda5c870b3a7870738da9f8f0718e0b0c6c65",
+    "fix": null,
+    "level": "INFO",
+    "node": "web/setup.js:1",
+    "severity": "partial",
+    "summary": "network call fetch to https://example.com/hello (reserved documentation name)",
+    "try": []
+   }
+  ],
+  "other_languages": {},
+  "outcomes": [
+   {
+    "check": "walk",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secrets",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "manifests",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secret.key",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.dynamic",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.shell",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "deser.unsafe",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.egress",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.bind_all",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "tls.off",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "obfuscation",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "fs.outside",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_log",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_prompt",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "works",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "complete",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "supply",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "javascript",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "js_works",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "orphans",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "leftovers",
+    "outcome": "ran",
+    "reason": null
+   }
+  ]
+ }
+}

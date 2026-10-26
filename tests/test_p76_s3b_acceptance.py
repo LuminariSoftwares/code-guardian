@@ -29,7 +29,7 @@ DIMENSIONS = ("safe", "works", "complete", "overall")
 def _js_only(tmp_path):
     d = tmp_path / "js_only"
     d.mkdir()
-    (d / "index.js").write_text("console.log('hi')\n", encoding="utf-8")
+    (d / "main.go").write_text("package main\n", encoding="utf-8")
     (d / "package.json").write_text(json.dumps({"name": "x", "version": "1.0.0"}), encoding="utf-8")
     return d
 

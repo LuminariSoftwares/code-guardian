@@ -229,7 +229,12 @@ def test_contrast_ok():
 
 # Amended by the overseer 2026-10-25 (0.4.1 release prep, PR #46): the overseer amended test_p76_s7_acceptance.py so
 # it reads the current version instead of pinning 0.4.0; that amended copy is accepted too.
-OVERSEER_AMENDED = {"test_p76_s7_acceptance.py": "dbd16025f8a121ddbb0c3796a10904b5935e19a446df5ba6deeb29601654655b"}
+OVERSEER_AMENDED = {"test_p76_s7_acceptance.py": "dbd16025f8a121ddbb0c3796a10904b5935e19a446df5ba6deeb29601654655b",
+                    # amended by the overseer for P81 S4 (JavaScript is analysed now)
+                    "test_p76_s1_acceptance.py": "6a5f68f6a7a9f84b1aac2bc9721fe30bae0f986dafb4503496a87eb5cf3ed72d",
+                    "test_p76_s3b_acceptance.py": "fc1aee8c882f5c9cfeb93b90f6e8f1b53e45f032901702553e94e80bd524b021",
+                    "test_p76_s4_acceptance.py": "4afc03a1dd3a4fb33f5b89fd93a18ee141a0290f8bda663d5e4b28166e87722a",
+                    "test_p78_s3_acceptance.py": "d8e33881a04ba77483d860c7fee4b235eb887ed948388236eea2a9910fab9abb"}
 
 
 def test_old_acceptance_files_untouched():

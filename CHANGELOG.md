@@ -1,5 +1,34 @@
 # Changelog
 
+## code-guardian-mcp 0.5.0 (unreleased)
+
+JavaScript and TypeScript are now analysed, not only secret-scanned. Before, an `eval` of request input in a `.js` file went unseen and a JavaScript-only repo came out PARTIAL with Works not scored; now the Safe and Works checks run on those files at token level, and a JavaScript-only repo is COMPLETE with every score. Python reports are unchanged.
+
+1. **JavaScript and TypeScript Safe checks.** `exec.dynamic`, `exec.shell`, `deser.unsafe`, `net.egress`, `net.bind_all`, `tls.off`, `obfuscation`, `fs.outside`, `privacy.pii_log` and the new `dom.html_sink` (an unsanitised value reaching `innerHTML`, `document.write`, React's `dangerouslySetInnerHTML`, jQuery's `.html()` or an Angular `bypassSecurityTrust` call) run on `.js .mjs .cjs .jsx .ts .tsx`, at the same levels and weights as the Python checks.
+2. **JavaScript and TypeScript Works checks.** `works.syntax`, `works.import_unresolved`, `works.relative_missing`, `works.entry_missing` and `works.tests_missing`, read from the tokens and from `package.json` / `tsconfig.json`. `works.tests_missing` is reported once per repository.
+3. **A reader, not a parser, and it says so.** Nothing is installed or run (no `npm`, no `node`). Each report's `coverage.languages.javascript` lists the checks that ran and the ones that did not (`privacy.pii_prompt`, `works.test_no_assert`, `works.todo_stub`, `works.commented_code`, `works.dead_flag`, orphan code). Declaration, minified and bundled files and any file with a line over 2,000 characters get the secret scan, `obfuscation` and `exec.dynamic` only. The README's Limitations says what the JSX rules see only partly and how each case is marked.
+
+- **Inventory and status (P81 C4).** `walk.walk` gains `javascript` and `generated` lists (the JavaScript and TypeScript files stay in `other` too, so the other callers see the same inventory). `files.javascript` and `files.generated` are always present; `files.other`, `other_languages` and `coverage.other_source` no longer count `.js .mjs .cjs .jsx .ts .tsx`. `.vue`, `.svelte` and `.astro` are listed as other source. `report.scan` adds the `javascript` and `js_works` outcome rows only when the repo has such files. Status: no Python files, no JavaScript / TypeScript files and no manifests is INVALID; with neither Python nor JavaScript / TypeScript source Works is not scored and Safe is partial (PARTIAL, as before); the mixed-repo rule compares other-language source with the Python and JavaScript / TypeScript files together.
+- **`schema_version` 3.** Adds `files.javascript`, `files.generated` and `coverage.languages` (`python`: files and depth `full`; `javascript`: files, generated, depth `tokens`, `checks`, `generated_checks`, `not_checked`); every earlier key keeps its meaning. `analysed` is `python`, `python+javascript` or `javascript`. The text report's coverage line reads `coverage: 40 Python analysed; 112 JavaScript/TypeScript analysed (token level); 9 .go secret-scan only`; the Markdown head and the SARIF run properties carry the same coverage. Exit codes, `gate_status`, `--fail-on`, baselines and fingerprints are unchanged.
+- **Golden test (P81 C5).** `tests/test_golden.py` re-scans the eight Python-only fixtures on every change and compares them with the reports recorded before this work (`tests/golden/`), leaving out only `version`, `schema_version`, `weights` and `path`. `risky_repo` holds a `.js` file and is compared through `tests/golden/risky_repo.delta.json`: one `net.egress` INFO at `web/setup.js:1`, the file moved out of `other`, the two new outcome rows and `analysed: python+javascript`; its scores, status and hygiene are asserted unchanged.
+- **CI (P81 C10).** The JavaScript-only repo job now expects `COMPLETE`, exit code 1, `exec.dynamic FAIL src/index.js:2`, Works scored and `coverage.languages.javascript.depth == "tokens"`; the wheel job also scans the JavaScript risky fixture from the installed wheel.
+- **Docs.** ADR [0011](docs/adr/0011-javascript-typescript-at-token-level.md); the README's "What it analyses", "Scan status", "JSON shape", Safe and Works checks, "Check catalogue" and "Limitations".
+
+### Upgrading to 0.5.0
+
+**What is analysed now that was not.** JavaScript and TypeScript at token level, with the checks listed above. Python-only repos see only the additive `schema_version` 3 keys.
+
+**The exit code can change.** A JavaScript or TypeScript finding at or above `--fail-on` exits 1. A repo that passed the GitHub Action on 0.4.x can exit 1 on 0.5.0 without a line of its code changing: this repository's own CI job for a JavaScript-only repo (an `eval` of request input) went from PARTIAL with exit 0 to COMPLETE with exit 1.
+
+**The gradual path.** Record the current state once, on 0.5.0, and fail only on what is new:
+
+```
+code-guardian baseline .
+code-guardian scan . --baseline code-guardian.baseline.json
+```
+
+A baseline written by 0.4.x lacks the JavaScript and TypeScript findings, so every one counts as new until it is written again on 0.5.0. Or raise the bar while the backlog is worked: `code-guardian scan . --fail-on FAIL` (the default), then `--fail-on WARN` once the FAILs are fixed. In the GitHub Action these are the `baseline:` and `fail-on:` inputs. Scores and grade always count every finding; a baseline changes only the exit code.
+
 ## code-guardian-mcp 0.4.2 (2026-10-25)
 
 The backup offer now counts exactly what leaving it out would skip, and releases are now published from GitHub with a signed record of where they came from.

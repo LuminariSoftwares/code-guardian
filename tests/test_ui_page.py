@@ -675,9 +675,9 @@ def test_the_file_list_rows_say_the_word_the_server_gave_and_why(tmp_path):
         rows = {li.get_attribute("data-rel"): li for li in page.query_selector_all("#file-list .file-btn")}
         assert "web/setup.js" in rows and "risky/runner.py" in rows and "setup.py" in rows
         js = rows["web/setup.js"].inner_text()
-        assert "Partly checked" in js and "JavaScript code is not analysed yet" in js
+        assert "Low" in js and "not analysed" not in js  # JavaScript is analysed (P81 S4): its one INFO finding
         assert "High" in rows["risky/runner.py"].inner_text()
-        assert page.locator("#file-list .file-btn[data-rel='web/setup.js'] .file-risk.lvl-Partly").count() == 1
+        assert page.locator("#file-list .file-btn[data-rel='web/setup.js'] .file-risk.lvl-Low").count() == 1
         assert page.locator("#file-list .file-btn[data-rel='risky/runner.py'] .file-risk.lvl-High").count() == 1
         assert "files-title" == page.get_attribute("#files-drawer h2", "id")
         assert page.inner_text("#files-title") == "Files"

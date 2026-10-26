@@ -99,7 +99,7 @@ def _row(f):
 def _score_cell(report, d):
     dim = (report.get("dimensions") or {}).get(d, {})
     if not dim.get("scored", True):
-        return "n/a (Python only)"
+        return "n/a (no Python or JavaScript)"
     return "%d/100%s" % (report["scores"][d], " (partial)" if dim.get("partial") else "")
 
 
