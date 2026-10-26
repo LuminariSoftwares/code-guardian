@@ -164,10 +164,10 @@ def test_the_five_file_repo(srv, tmp_path):
     assert rows["a.py"]["risk"] == "No known risks found"
     assert rows["b.py"]["risk"] == "High" and rows["b.py"]["findings"]["High"] >= 1
     assert rows["c.py"]["risk"] == "Partly checked" and "parse" in (rows["c.py"]["why_partly"] or "")
-    assert rows["index.js"]["risk"] == "Partly checked" and "JavaScript" in (rows["index.js"]["why_partly"] or "")
+    assert rows["index.js"]["risk"] == "No known risks found"  # analysed at token level since P81 S5
     assert rows["blob.bin"]["risk"] == "Not read" and rows["blob.bin"]["kind"] == "not_read"
     assert rows["blob.bin"]["why_not_read"] == "binary"
-    assert js["counts"] == {"all": 5, "with_findings": 2, "no_known_risks": 1, "partly_checked": 2, "not_read": 1}
+    assert js["counts"] == {"all": 5, "with_findings": 2, "no_known_risks": 2, "partly_checked": 1, "not_read": 1}
 
 
 def test_goal_file_excludes_are_honoured(srv, tmp_path):
@@ -224,8 +224,9 @@ def _counts(rows):
 def test_no_partly_checked_or_not_read_row_is_ever_no_known_risks(tmp_path):
     for root in _all_roots(tmp_path):
         rows = _rows(root)
+        analysed_js = set(walk.walk(str(root))["javascript"])  # JavaScript / TypeScript is analysed since P81 S5
         for r in rows:
-            if r["kind"] in ("other", "not_read"):
+            if r["kind"] == "not_read" or (r["kind"] == "other" and r["rel"] not in analysed_js):
                 assert r["risk"] != "No known risks found", (root.name, r)
             if r["kind"] == "not_read":
                 assert r["risk"] == "Not read" and r["why_not_read"], (root.name, r)
@@ -335,9 +336,9 @@ def test_filters_and_find_box_in_the_browser(browser, srv, tmp_path):
         assert page.evaluate("document.getElementById('file-filter').selectedOptions[0].textContent").strip() \
             .startswith("Files with findings"), "default filter when a file has findings"
         _pick(page, "No known risks found")
-        assert _listed(page, names) == {"a.py"}
+        assert _listed(page, names) == {"a.py", "index.js"}  # index.js is analysed since P81 S5
         _pick(page, "Partly checked")
-        assert _listed(page, names) == {"c.py", "index.js"}
+        assert _listed(page, names) == {"c.py"}
         _pick(page, "Not read")
         assert _listed(page, names) == {"blob.bin"}
         assert "binary" in page.inner_text("#file-list")

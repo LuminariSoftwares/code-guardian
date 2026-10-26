@@ -234,7 +234,7 @@ OVERSEER_AMENDED = {"test_p76_s7_acceptance.py": "dbd16025f8a121ddbb0c3796a10904
                     "test_p76_s1_acceptance.py": "6a5f68f6a7a9f84b1aac2bc9721fe30bae0f986dafb4503496a87eb5cf3ed72d",
                     "test_p76_s3b_acceptance.py": "fc1aee8c882f5c9cfeb93b90f6e8f1b53e45f032901702553e94e80bd524b021",
                     "test_p76_s4_acceptance.py": "4afc03a1dd3a4fb33f5b89fd93a18ee141a0290f8bda663d5e4b28166e87722a",
-                    "test_p78_s3_acceptance.py": "d8e33881a04ba77483d860c7fee4b235eb887ed948388236eea2a9910fab9abb"}
+                    "test_p78_s3_acceptance.py": "5a0b9e92d60b0b364cd0b27bf87b12d2ac51c5daebb8b6d757bfc62ff1c46ea8"}
 
 
 def test_old_acceptance_files_untouched():
