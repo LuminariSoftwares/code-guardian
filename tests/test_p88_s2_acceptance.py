@@ -116,6 +116,7 @@ SHOTS_040 = {"%s_%s.png" % (s, z) for s in ("open", "result", "fixfirst", "findi
              for z in ("390x844", "520x900", "1280x800")} | {
     "rail_mini_1280x800.png", "settings_390x844.png", "settings_1280x800.png",
     "result_light_390x844.png", "result_light_1280x800.png", "browse_refused_390x844.png"}
+SHOTS_040 |= {"result_js_dark_390x844.png", "result_js_light_390x844.png", "findings_js_dark_1280x800.png", "findings_js_light_1280x800.png"}  # P81 S5
 
 
 def html():
@@ -234,7 +235,9 @@ OVERSEER_AMENDED = {"test_p76_s7_acceptance.py": "dbd16025f8a121ddbb0c3796a10904
                     "test_p76_s1_acceptance.py": "6a5f68f6a7a9f84b1aac2bc9721fe30bae0f986dafb4503496a87eb5cf3ed72d",
                     "test_p76_s3b_acceptance.py": "fc1aee8c882f5c9cfeb93b90f6e8f1b53e45f032901702553e94e80bd524b021",
                     "test_p76_s4_acceptance.py": "4afc03a1dd3a4fb33f5b89fd93a18ee141a0290f8bda663d5e4b28166e87722a",
-                    "test_p78_s3_acceptance.py": "5a0b9e92d60b0b364cd0b27bf87b12d2ac51c5daebb8b6d757bfc62ff1c46ea8"}
+                    "test_p78_s3_acceptance.py": "5a0b9e92d60b0b364cd0b27bf87b12d2ac51c5daebb8b6d757bfc62ff1c46ea8",
+                    "test_p78_s2_acceptance.py": "afd4c2308c325e3444314f859bedada12df0e3f8afdbb8324493e5beb254dbdb",
+                    "test_p78_s4_acceptance.py": "eadeb0b74838ca8d2bfa1b7a74cf1bb4138ccb3b859d05245db96d3eaba5115e"}
 
 
 def test_old_acceptance_files_untouched():

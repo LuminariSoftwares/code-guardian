@@ -41,6 +41,7 @@ SHOT_SCREENS = ("open", "result", "fixfirst", "findings", "code", "diff")
 SHOTS_ALL = ({"%s_%s.png" % (s, z) for s in SHOT_SCREENS for z in ("390x844", "520x900", "1280x800")}
              | {"rail_mini_1280x800.png", "settings_390x844.png", "settings_1280x800.png",
                 "result_light_390x844.png", "result_light_1280x800.png", "browse_refused_390x844.png"})
+SHOTS_ALL |= {"result_js_dark_390x844.png", "result_js_light_390x844.png", "findings_js_dark_1280x800.png", "findings_js_light_1280x800.png"}  # P81 S5
 
 
 class Done:

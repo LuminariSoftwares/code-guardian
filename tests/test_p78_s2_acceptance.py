@@ -43,6 +43,7 @@ SHOTS_S2 = ({"%s_%dx%d.png" % (s, w, h) for s in SHOT_SCREENS for (w, h) in SHOT
             | {"rail_mini_1280x800.png", "settings_390x844.png", "settings_1280x800.png",
                "result_light_390x844.png", "result_light_1280x800.png"})
 SHOTS_LATER = {"browse_refused_390x844.png"}  # P78 S4 adds this one (plan section 6: 24 after S4)
+SHOTS_LATER |= {"result_js_dark_390x844.png", "result_js_light_390x844.png", "findings_js_dark_1280x800.png", "findings_js_light_1280x800.png"}  # P81 S5
 
 
 def _css():
