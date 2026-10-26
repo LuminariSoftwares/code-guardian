@@ -40,6 +40,7 @@ SAFE_WEIGHTS = {  # the v0.1 threat weights, unchanged
     ("secret.history", "FAIL"): 30,  # opt-in (scan --history)
     ("exec.dynamic", "FAIL"): 30,
     ("exec.dynamic", "WARN"): 10,
+    ("exec.dynamic", "INFO"): 0,  # code-like text in JSX the lexer could not read; a WARN in a generated file
     ("exec.shell", "WARN"): 10,
     ("exec.shell", "FAIL"): 30,
     ("deser.unsafe", "WARN"): 10,
@@ -59,6 +60,8 @@ SAFE_WEIGHTS = {  # the v0.1 threat weights, unchanged
     ("supply.lookalike", "WARN"): 15,
     ("privacy.pii_log", "WARN"): 5,
     ("privacy.pii_prompt", "WARN"): 5,
+    ("dom.html_sink", "WARN"): 10,
+    ("dom.html_sink", "FAIL"): 30,
 }
 WORKS_WEIGHTS = {
     ("works.syntax", "FAIL"): 30,

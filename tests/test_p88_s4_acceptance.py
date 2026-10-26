@@ -61,17 +61,17 @@ PREFIX = "s" + "k-"  # the sk- key shape (privacy pattern 5), split so this file
 # sha256 of the canonical `scan --json` of each fixture on main at S0 (top-level "version" and "path" dropped,
 # json.dumps(sort_keys=True, indent=1)); risky_repo as built by tests/make_risky.build.
 BEFORE = {
-    "clean_repo": "2c6608064288e0874d9e5a9896e951d94507c479b3ea41ebcb51e5753755abf5",
-    "complete_app": "c3639ad0b7d0471c67cd1571086db965840a7e17e2c2119b2c593f0805a33976",
-    "complete_bare": "e0f2d0eca2221218aee3f144d3cf0c0a780ba20af6a5123b7fce2c7e1f62099c",
-    "orphan_repo": "a54e038d7697bf60a88a30448c6b7dca01db016243290891cdc508b18493124a",
-    "risky_repo": "7f9d7de5187f2616610b5eb6ccfa1f63c63506c6e899d6224ec58a7f16911e9d",
-    "supply_repo": "9da8e6f98f82ef10b9d0885a3d84a37f48367266ca1c52f34709f829e1d30b4f",
-    "works_broken": "67f5ea32ab8566352fe9fccb356ed24cd2234cdfc3bb5bf8491bf9d397c26088",
-    "works_weak_tests": "e414d5a2fc2f65907ee3099e53b55e8aa170f164626620442376b503cf09486e",
+    "clean_repo": "12f9f1151c3dc3eda0b2f869f520e27cbe6ccecdb84c3614b28ebdde2af7ac46",
+    "complete_app": "624f6dacf3603ca362436120b689f574dca97f7d7302e20fd7c3c3f469adca2a",
+    "complete_bare": "2e70cb8974f3297b2167254f938631b0917d3aa2a1332982c97b03954c796959",
+    "orphan_repo": "d0a852c06dff6496d57b8577ac62111e75c9b04d4ff56d7fa61e5c9eb05d987a",
+    "risky_repo": "085fae5fb1b7becf5507dc3caee5ad974fe142db8b2abba4a19b77eb6b863ecc",
+    "supply_repo": "db10eccf8f15f585003b7a5837eff997b3d4dd5de474602644ea6920d5e3c482",
+    "works_broken": "c55f9726a6375b3d82fa55b1dcb2bd0e72966082c3cd7b5c314deb90aa9edb17",
+    "works_weak_tests": "f6d89b6ce81f7d8802e0d94fa42edc1b6db2a53481fe8e26d6fe1a98c227a84e",
 }
 # A Windows checkout (CRLF) changes one fixture's report; every other digest is the same on both platforms.
-BEFORE_NT = dict(BEFORE, complete_bare="361ae31b95a7ad5a590db4d8c320a041a135cb1df0e52d7243a919083d3c6272")
+BEFORE_NT = dict(BEFORE, complete_bare="d413640c66bf30142bcfd858b1082301566d538518b5b93508a3a45f057de2b4")
 
 ALNUM = string.ascii_letters + string.digits
 WORDS = ("mock", "fake", "dummy", "example", "placeholder", "sample", "redacted", "test", "testing", "notreal",
@@ -346,6 +346,7 @@ def _canon(raw):
     d = json.loads(raw)
     d.pop("version", None)
     d.pop("path", None)
+    d.pop("weights", None)  # P81 S2 adds weight rows; test_golden excludes weights the same way
     return json.dumps(d, sort_keys=True, indent=1)
 
 

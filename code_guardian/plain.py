@@ -129,6 +129,9 @@ WHY = {
     "install.hook":
         "This project runs code of its own while it is being installed, before you ever start it, so installing it "
         "is already running part of it.",
+    "dom.html_sink":
+        "This code puts text into the page as HTML. If that text comes from a visitor or a web address, it can run "
+        "as a script in another visitor's browser.",
     "obfuscation":
         "Something here is stored encoded instead of written out, and at the strongest level the code decodes it "
         "and runs it; either way you cannot tell by reading the file what the encoded part holds.",
