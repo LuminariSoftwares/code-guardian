@@ -129,6 +129,24 @@ def test_ts_conventions_query_strings_and_disk_only_files(tmp_path):
     assert got(root, files=files) == [("works.relative_missing", "FAIL", "src/main.ts:6")]
 
 
+def test_extensionless_spec_finds_a_declaration_file(tmp_path):
+    root = build(tmp_path, {"package.json": PKG, "types/hooks.d.ts": "export {};\n",
+                            "src/main.ts": "import type { H } from '../types/hooks';\n"})
+    assert got(root) == []
+
+
+def test_folder_spec_finds_an_index_declaration_file(tmp_path):
+    root = build(tmp_path, {"package.json": PKG, "types/index.d.ts": "export {};\n",
+                            "src/main.ts": "import type { T } from '../types';\n"})
+    assert got(root) == []
+
+
+def test_declaration_lookup_still_reports_a_missing_spec(tmp_path):
+    root = build(tmp_path, {"package.json": PKG, "types/hooks.d.ts": "export {};\n",
+                            "src/main.ts": "import type { G } from '../types/gone';\n"})
+    assert got(root) == [("works.relative_missing", "FAIL", "src/main.ts:1")]
+
+
 def test_outside_the_root_is_not_judged(tmp_path):
     root = build(tmp_path, {"package.json": PKG, "a.js": "require('../shared/x');\nrequire('../../y');\n"})
     assert got(root) == []

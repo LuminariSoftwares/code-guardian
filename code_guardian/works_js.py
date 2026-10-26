@@ -41,6 +41,8 @@ NOT_CHECKED = ("works.test_no_assert", "works.todo_stub", "works.commented_code"
 
 FLAVOURS = {".js": "js", ".mjs": "js", ".cjs": "js", ".jsx": "jsx", ".ts": "ts", ".tsx": "tsx"}
 RESOLVE_EXTS = (".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx", ".json", ".node")
+# TypeScript also resolves an extensionless spec to a declaration file or an .mts / .cts source (beyond C3's list).
+TS_EXTS = (".d.ts", ".d.mts", ".d.cts", ".mts", ".cts")
 TS_SWAPS = {".js": (".ts", ".tsx", ".d.ts"), ".mjs": (".mts", ".d.mts"), ".cjs": (".cts", ".d.cts"), ".jsx": (".tsx",)}
 BUILD_DIRS = frozenset({"dist", "build", "out", "lib", ".next"})
 URL_SCHEMES = frozenset({"http", "https", "data", "blob", "npm", "jsr"})
@@ -284,15 +286,15 @@ class _Tree:
         return path in self.dirs or self._on_disk(path, os.path.isdir)
 
     def resolves(self, path):
-        """True when `path` names what Node or a bundler would load: the file, with an extension added, a TS source
-        for a .js spelling, or a folder with an index file or a package.json."""
-        if path and (self.is_file(path) or any(self.is_file(path + ext) for ext in RESOLVE_EXTS)):
+        """True when `path` names what Node, a bundler or TypeScript would load: the file, with an extension added
+        (declaration files included), a TS source for a .js spelling, or a folder with an index file or a package.json."""
+        if path and (self.is_file(path) or any(self.is_file(path + ext) for ext in RESOLVE_EXTS + TS_EXTS)):
             return True
         ext = posixpath.splitext(path)[1]
         if ext in TS_SWAPS and any(self.is_file(path[:-len(ext)] + alt) for alt in TS_SWAPS[ext]):
             return True
         return self.is_dir(path) and (self.is_file(_join(path, "package.json"))
-                                      or any(self.is_file(_join(path, "index" + e)) for e in RESOLVE_EXTS))
+                                      or any(self.is_file(_join(path, "index" + e)) for e in RESOLVE_EXTS + (".d.ts",)))
 
     def nearest(self, rel):
         """(package.json path, its dict) for the closest package.json at or above the file; (None, {}) without one."""
