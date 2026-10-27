@@ -320,7 +320,7 @@ The two numbers are reported separately and never summed: **marker recall** = fo
 
 ### JavaScript / TypeScript results (P81 S4)
 
-Scanned 2026-10-25 by the overseer with PR #52 (head 6ed24c3) on the five pinned commits above: clones read only, nothing installed or run. "Files analysed" is what the walk hands to the JavaScript checks, with generated files counted apart. The Safe columns count findings in JavaScript / TypeScript files only.
+Scanned 2026-10-25 by the overseer with PR #52 (head `6ed24c3`) on the five pinned commits above: clones read only, nothing installed or run. "Files analysed" is what the walk hands to the JavaScript checks, with generated files counted apart. The Safe columns count findings in JavaScript / TypeScript files only.
 
 | repo | files analysed | generated | files with an EOF error | Safe FAIL | Safe WARN | Safe INFO | generated: FAIL / WARN / INFO | WARNs per 1,000 lines | status / grade |
 |---|---|---|---|---|---|---|---|---|---|
@@ -330,37 +330,34 @@ Scanned 2026-10-25 by the overseer with PR #52 (head 6ed24c3) on the five pinned
 | create-next-app app/ts | 4 | 1 | 0 | 0 | 0 | 4 | 0 / 0 / 0 | 0.00 (120 lines) | PARTIAL (the template folder has no package.json) / B |
 | juice-shop | 373 | 1 | 0 | 1 | 42 | 379 | 0 / 0 / 0 | 1.26 (33,209 lines) | PARTIAL (2 Python test files do not parse) / F |
 
-No false Safe FAIL on express, fastify or the two templates. The only FAIL among them is express examples/auth/index.js:50 (secret.key): hash({ password: 'foobar' }, ...) in an example app. It is a hard-coded password literal, which is what the rule claims, and the secret scan (unchanged by P81) reported it before 0.5.0 too. fastify's eight rejectUnauthorized: false lines are all in test/ files, and the existing test-code rule reports them at INFO. Juice Shop's FAIL, lib/insecurity.ts:21, is its deliberately committed private key.
+**No false Safe FAIL on express, fastify or the two templates.** The only FAIL among them is express `examples/auth/index.js:50` (`secret.key`): `hash({ password: 'foobar' }, ...)` in an example app. It is a hard-coded password literal, which is what the rule claims, and the secret scan (unchanged by P81) reported it before 0.5.0 too. fastify's eight `rejectUnauthorized: false` lines are all in `test/` files, and the existing test-code rule reports them at INFO. Juice Shop's FAIL, `lib/insecurity.ts:21`, is its deliberately committed private key.
 
-20 WARNs judged by hand. This is a random sample (seed 81) of the 43 Safe WARNs in JavaScript / TypeScript files across the five repos. False positives: 0.
+**20 WARNs judged by hand.** This is a random sample (seed 81) of the 43 Safe WARNs in JavaScript / TypeScript files across the five repos. **False positives: 0.**
 
 | # | repo | finding | code | verdict |
 |---|---|---|---|---|
-| 1 | juice-shop | frontend/src/hacking-instructor/index.ts:126 | dom.html_sink | true: a non-literal value reaches an HTML sink (the codefixes files are the challenge snippets) |
-| 2 | juice-shop | data/static/codefixes/restfulXssChallenge_3.ts:48 | dom.html_sink | true: a non-literal value reaches an HTML sink (the codefixes files are the challenge snippets) |
-| 3 | juice-shop | data/static/codefixes/redirectCryptoCurrencyChallenge_2.ts:6 | net.egress | true: a plain-http URL to a public host |
-| 4 | juice-shop | lib/insecurity.ts:130 | net.egress | true: a plain-http URL to a public host |
-| 5 | juice-shop | lib/insecurity.ts:128 | net.egress | true: a plain-http URL to a public host |
-| 6 | juice-shop | data/static/codefixes/redirectCryptoCurrencyChallenge_3_correct.ts:4 | net.egress | true: a plain-http URL to a public host |
-| 7 | juice-shop | data/static/codefixes/restfulXssChallenge_4.ts:48 | dom.html_sink | true: a non-literal value reaches an HTML sink (the codefixes files are the challenge snippets) |
-| 8 | juice-shop | data/datacreator.ts:86 | net.egress | true: a plain-http URL to a public host |
-| 9 | juice-shop | data/static/codefixes/redirectChallenge_2.ts:9 | net.egress | true: a plain-http URL to a public host |
-| 10 | juice-shop | data/static/codefixes/redirectChallenge_2.ts:7 | net.egress | true: a plain-http URL to a public host |
-| 11 | juice-shop | data/static/codefixes/redirectCryptoCurrencyChallenge_4.ts:8 | net.egress | true: a plain-http URL to a public host |
-| 12 | fastify | integration/server.js:7 | net.bind_all | true: binds "::" (an integration-test server) |
-| 13 | juice-shop | scripts/package.mjs:20 | exec.shell | true: execSync runs a shell command (a release script) |
-| 14 | juice-shop | routes/b2bOrder.ts:23 | exec.dynamic | true: runs a string as code (one of the planted RCE routes) |
-| 15 | juice-shop | lib/insecurity.ts:127 | net.egress | true: a plain-http URL to a public host |
-| 16 | juice-shop | data/static/codefixes/redirectCryptoCurrencyChallenge_3_correct.ts:3 | net.egress | true: a plain-http URL to a public host |
-| 17 | juice-shop | data/static/codefixes/redirectChallenge_3.ts:6 | net.egress | true: a plain-http URL to a public host |
-| 18 | juice-shop | data/static/codefixes/redirectChallenge_1.ts:9 | net.egress | true: a plain-http URL to a public host |
-| 19 | juice-shop | lib/xml.ts:12 | exec.dynamic | true: runs a string as code (one of the planted RCE routes) |
-| 20 | juice-shop | routes/fileUpload.ts:114 | exec.dynamic | true: runs a string as code (one of the planted RCE routes) |
+| 1 | juice-shop | `frontend/src/hacking-instructor/index.ts:126` | dom.html_sink | true: a non-literal value reaches an HTML sink (the codefixes files are the challenge snippets) |
+| 2 | juice-shop | `data/static/codefixes/restfulXssChallenge_3.ts:48` | dom.html_sink | true: a non-literal value reaches an HTML sink (the codefixes files are the challenge snippets) |
+| 3 | juice-shop | `data/static/codefixes/redirectCryptoCurrencyChallenge_2.ts:6` | net.egress | true: a plain-http URL to a public host |
+| 4 | juice-shop | `lib/insecurity.ts:130` | net.egress | true: a plain-http URL to a public host |
+| 5 | juice-shop | `lib/insecurity.ts:128` | net.egress | true: a plain-http URL to a public host |
+| 6 | juice-shop | `data/static/codefixes/redirectCryptoCurrencyChallenge_3_correct.ts:4` | net.egress | true: a plain-http URL to a public host |
+| 7 | juice-shop | `data/static/codefixes/restfulXssChallenge_4.ts:48` | dom.html_sink | true: a non-literal value reaches an HTML sink (the codefixes files are the challenge snippets) |
+| 8 | juice-shop | `data/datacreator.ts:86` | net.egress | true: a plain-http URL to a public host |
+| 9 | juice-shop | `data/static/codefixes/redirectChallenge_2.ts:9` | net.egress | true: a plain-http URL to a public host |
+| 10 | juice-shop | `data/static/codefixes/redirectChallenge_2.ts:7` | net.egress | true: a plain-http URL to a public host |
+| 11 | juice-shop | `data/static/codefixes/redirectCryptoCurrencyChallenge_4.ts:8` | net.egress | true: a plain-http URL to a public host |
+| 12 | fastify | `integration/server.js:7` | net.bind_all | true: binds "::" (an integration-test server) |
+| 13 | juice-shop | `scripts/package.mjs:20` | exec.shell | true: execSync runs a shell command (a release script) |
+| 14 | juice-shop | `routes/b2bOrder.ts:23` | exec.dynamic | true: runs a string as code (one of the planted RCE routes) |
+| 15 | juice-shop | `lib/insecurity.ts:127` | net.egress | true: a plain-http URL to a public host |
+| 16 | juice-shop | `data/static/codefixes/redirectCryptoCurrencyChallenge_3_correct.ts:3` | net.egress | true: a plain-http URL to a public host |
+| 17 | juice-shop | `data/static/codefixes/redirectChallenge_3.ts:6` | net.egress | true: a plain-http URL to a public host |
+| 18 | juice-shop | `data/static/codefixes/redirectChallenge_1.ts:9` | net.egress | true: a plain-http URL to a public host |
+| 19 | juice-shop | `lib/xml.ts:12` | exec.dynamic | true: runs a string as code (one of the planted RCE routes) |
+| 20 | juice-shop | `routes/fileUpload.ts:114` | exec.dynamic | true: runs a string as code (one of the planted RCE routes) |
 
-Juice Shop, two numbers, never summed.
-
-Lexer-loss: 0 of 7. Every in-category grep hit in a file the scan analyses is found: routes/captcha.ts:22, routes/b2bOrder.ts:23, routes/userProfile.ts:65, routes/fileUpload.ts:114, lib/xml.ts:12, lib/xml.ts:38 (exec.dynamic WARN) and frontend/src/hacking-instructor/index.ts:126 (dom.html_sink WARN).
-
-Marker recall: 0 of 2 at scan level, 2 of 2 when the files are lexed directly. Both marked vuln-lines, frontend/src/app/search-result/search-result.component.ts:113 and :146, are in frontend/src/app/. The walk leaves that folder out: the repo's .gitignore has app/ and then !frontend/src/app, and code-guardian's .gitignore support ignores ! negation (README, Limitations). Lexed directly (the S2 run), both are dom.html_sink WARN. With a sample of 2, this shows only whether the Angular sanitizer bypass is caught; it says nothing about recall in general.
-
-The other 10 in-category grep hits are not scanned, for the same reason: frontend/src/assets/private/three.js:11375 (!frontend/src/assets/), score-board.component.ts:83, administration.component.ts:74 and :92, search-result.component.ts:113 and :146, data-export.component.ts:58, track-result.component.ts:49, last-login-ip.component.ts:40 and about.component.ts:120 (all under frontend/src/app/). This is a walk limit, not a lexer loss, and it is carried as a pickup item: honour ! negation in .gitignore (or take the tracked-file list from git when a .git folder is present), so committed code that a negated pattern brings back is analysed.
+**Juice Shop, two numbers, never summed.**
+- **Lexer-loss: 0 of 7.** Every in-category grep hit in a file the scan analyses is found: `routes/captcha.ts:22`, `routes/b2bOrder.ts:23`, `routes/userProfile.ts:65`, `routes/fileUpload.ts:114`, `lib/xml.ts:12`, `lib/xml.ts:38` (`exec.dynamic` WARN) and `frontend/src/hacking-instructor/index.ts:126` (`dom.html_sink` WARN).
+- **Marker recall: 0 of 2 at scan level, 2 of 2 when the files are lexed directly.** Both marked `vuln-line`s, `frontend/src/app/search-result/search-result.component.ts:113` and `:146`, are in `frontend/src/app/`. The walk leaves that folder out: the repo's `.gitignore` has `app/` and then `!frontend/src/app`, and code-guardian's `.gitignore` support ignores `!` negation (README, Limitations). Lexed directly (the S2 run), both are `dom.html_sink` WARN. With a sample of 2, this shows only whether the Angular sanitizer bypass is caught; it says nothing about recall in general.
+- **The other 10 in-category grep hits are not scanned, for the same reason:** `frontend/src/assets/private/three.js:11375` (`!frontend/src/assets/`), `score-board.component.ts:83`, `administration.component.ts:74` and `:92`, `search-result.component.ts:113` and `:146`, `data-export.component.ts:58`, `track-result.component.ts:49`, `last-login-ip.component.ts:40` and `about.component.ts:120` (all under `frontend/src/app/`). This is a walk limit, not a lexer loss, and it is carried as a pickup item: honour `!` negation in `.gitignore` (or take the tracked-file list from git when a `.git` folder is present), so committed code that a negated pattern brings back is analysed.

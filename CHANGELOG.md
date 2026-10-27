@@ -1,6 +1,6 @@
 # Changelog
 
-## code-guardian-mcp 0.5.0 (unreleased)
+## code-guardian-mcp 0.5.0 (2026-10-26)
 
 JavaScript and TypeScript are now analysed, not only secret-scanned. Before, an `eval` of request input in a `.js` file went unseen and a JavaScript-only repo came out PARTIAL with Works not scored; now the Safe and Works checks run on those files at token level, and a JavaScript-only repo is COMPLETE with every score. Python reports are unchanged.
 
