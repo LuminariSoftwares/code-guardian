@@ -627,3 +627,14 @@ def test_the_p88_sentences_make_no_promise():
                      [{"glob": "old/*", "why": "app/main.py imports it"}])[0],
                  plain.named_line({"glob": "old/*", "named_by": ["a.py"]})]
     assert not [s for s in sentences if plain.VERDICT_PHRASES.search(s)]
+
+
+def test_finding_card_picks_the_advice_for_the_file_language():
+    from code_guardian import catalogue
+    js = {"code": "exec.shell", "node": "src/run.js:4", "level": "WARN"}
+    py = {"code": "exec.shell", "node": "run.py:4", "level": "WARN"}
+    own = {"code": "exec.shell", "node": "src/run.js:4", "level": "WARN", "fix": "its own words"}
+    assert plain.finding_card(js, {})["how"] == catalogue.FIX_JS["exec.shell"]
+    assert plain.finding_card(py, {})["how"] == catalogue.CATALOGUE["exec.shell"]["fix"]
+    assert plain.finding_card(own, {})["how"] == "its own words"
+    assert plain.finding_card({"code": "zz.nope", "node": "a.js:1"}, {})["how"] is None

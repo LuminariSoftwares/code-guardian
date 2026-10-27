@@ -179,6 +179,7 @@
   <p class="test-values" id="test-values" hidden><span id="test-values-text"></span> <button type="button" class="link" id="test-values-show">Show them</button></p>
   <ul class="sentences card" id="sentences"></ul>
   <h2 class="section-title">What was checked</h2>
+  <p class="hint">The Safe and Works scores above come only from what is listed here as looked at.</p>
   <ul class="checked card" id="checked"></ul>
   <details class="legend card">
     <summary>What the labels mean</summary>
@@ -189,7 +190,7 @@
       <dt>No known risks found</dt><dd>No Safe check reported anything in the files it could read. That is not the same as “all clear”: a static check only sees the patterns it knows, so this label is grey, not green.</dd>
       <dt>Could not check</dt><dd>The scan could not judge this folder, so there is no grade.</dd>
       <dt>in depth</dt><dd>Next to a kind of file under “What was checked”: every Safe and Works check ran on it, and the code was read the way a program reads it.</dd>
-      <dt>token level</dt><dd>Next to a kind of file under “What was checked”: the code was read piece by piece, so it can see what is called, loaded and sent, but not how values move between functions. The line says what was not checked.</dd>
+      <dt>line by line</dt><dd>Next to a kind of file under “What was checked”: each line was read on its own, so it sees what the code does there, but not how information travels from one part of the code to another. The two lists say what was and was not looked at.</dd>
       <dt>partial check</dt><dd>Some of the folder was not fully checked; the first line on this screen says which part.</dd>
     </dl>
   </details>

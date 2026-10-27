@@ -40,9 +40,8 @@ FIXTURES = HERE / "fixtures"
 sys.path.insert(0, str(HERE))
 
 DASH = "\u2014"
-JS_TEXT = ("analysed at token level: what the code calls, what it imports and loads, where it sends data, how it "
-           "starts, and the text itself; not checked: how values move between functions, types, unused code")
-GENERATED_TEXT = "read for key shapes and for code that runs text or decodes hidden text; nothing else was checked"
+# Amended by the overseer for P81 S5b (the owner's reaction, 2026-10-26): the wording is test_p81_s5b's.
+from test_p81_s5b_acceptance import GEN_TEXT as GENERATED_TEXT, JS_TEXT  # noqa: E402
 PYTHON_LINES = {
     "backup_repo": "Python: 5 files \u2014 every Safe and Works check ran on these.",
     "clean_repo": "Python: 4 files \u2014 every Safe and Works check ran on these.",
@@ -183,8 +182,8 @@ def _read(rel):
 
 def test_depth_chip_words():
     app = _read("code_guardian/ui/app.js")
-    assert '"token level"' in app and '"in depth"' in app
-    assert "token level" in _read("code_guardian/ui/index.html")
+    assert '"line by line"' in app and '"in depth"' in app  # P81 S5b: "token level" became "line by line"
+    assert "line by line" in _read("code_guardian/ui/index.html")
 
 
 def test_no_new_css_token_and_contrast_holds():

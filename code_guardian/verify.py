@@ -160,7 +160,9 @@ def plan(rep, top=10):
                           "overall_after": after["overall"], "grade_after": after["grade"],
                           "deduction": row["deduction"], "count": row["count"],
                           "locations": row.get("locations") or [row["first"]], "more": row.get("more", 0),
-                          "fix": entry.get("fix", ""), "false_positives": entry.get("false_positives", "")})
+                          "fix": catalogue.fix_for(row["code"], row.get("locations") or [row["first"]],
+                                                   catalogue.js_only(rep)) or "",
+                          "false_positives": entry.get("false_positives", "")})
     items.sort(key=lambda i: (-i["gain"], i["count"], -i["deduction"], score.DIMENSIONS.index(i["dimension"]),
                               i["code"], i["level"]))
     items = items[:max(0, int(top))]

@@ -13,7 +13,7 @@ Public contract:
     LABELS, COULD_NOT_CHECK, VERDICT_PHRASES, LANGUAGES, WHY
     harm(report) -> {"level", "partial", "why", "counts": {"FAIL", "WARN", "INFO"}}
     score_sentence(dimension, report) -> str        # dimension: "safe" | "works" | "complete" | "overall"
-    checked_lines(report) -> [{"label", "files", "depth", "text"}]
+    checked_lines(report) -> [{"label", "files", "depth", "text"}]   # JavaScript entries also "looked_at", "not_looked_at"
     finding_card(finding, report=None) -> {"where", "what", "why", "how", "level", "confidence", "code",
                                            "fingerprint"}
     fix_first(report, top=10) -> [{"rank", "title", "level", "count", "gain", "grade_after", "first_location",
@@ -402,15 +402,30 @@ OTHER_TEXT = ("read for key shapes, and where the file is a manifest for install
               "was not analysed")
 # Measured, not quoted: a skipped file is never opened. walk.py puts a file in files.skipped when it is binary, a
 # symlink, over the size limit or unreadable, and report.scan() secret-scans only inv["other"], never inv["skipped"].
-# JavaScript / TypeScript (P81 C6): read at token level, so the line says what that reaches and what it does not.
-# "tokens" is the depth the page shows as "token level". The generated line says what ran on minified or generated
+# JavaScript / TypeScript (P81 C6, S5b): read line by line, so two plain lists say what that reaches and what it does not.
+# "tokens" is the depth the page shows as "line by line". The generated line says what ran on minified or generated
 # files (report.JS_GENERATED_CHECKS: key shapes, obfuscation, exec.dynamic) and nothing more.
 JS_LABEL = "JavaScript / TypeScript"
-JS_TEXT = ("analysed at token level: what the code calls, what it imports and loads, where it sends data, how it "
-           "starts, and the text itself; not checked: how values move between functions, types, unused code")
+JS_LOOKED_AT = [
+    "what the code tells the computer to do, such as running a command, deleting a file or putting text on a web page",
+    "which other code and packages it pulls in",
+    "where it sends information, such as websites, servers and logs",
+    "how it starts: what runs by itself when it is installed, and whether the file it starts from is there",
+    "passwords, keys and hidden or scrambled text written into the files",
+]
+JS_NOT_LOOKED_AT = [
+    "how information travels from one part of the code to another, such as from a form a visitor fills in to a line "
+    "several steps later",
+    "whether each piece of data is the kind the code expects, such as a number where a number belongs",
+    "code that is written but never used",
+]
+JS_TEXT = "read line by line. Looked at: %s. Not looked at: %s" % ("; ".join(JS_LOOKED_AT), "; ".join(JS_NOT_LOOKED_AT))
 JS_GENERATED_LABEL = "JavaScript (minified or generated)"
-JS_GENERATED_TEXT = ("read for key shapes and for code that runs text or decodes hidden text; nothing else was "
-                     "checked")
+JS_GENERATED_LOOKED_AT = ["passwords and keys written into the files",
+                          "code that runs text as code, or unscrambles hidden text"]
+JS_GENERATED_NOT_LOOKED_AT = ["everything else"]
+JS_GENERATED_TEXT = "read only for two things. Looked at: %s. Not looked at: %s" % (
+    "; ".join(JS_GENERATED_LOOKED_AT), "; ".join(JS_GENERATED_NOT_LOOKED_AT))
 SKIPPED_TEXT = "not read at all, because they are binary, a symlink, too large or unreadable; the notes name each"
 # An unparsed file is read and secret-scanned (report.scan() scans the text before building the parse tree) and
 # only then fails to parse, so it is "secrets only", not "not read".
@@ -441,11 +456,13 @@ def checked_lines(rep):
                     "text": "Python: %s \u2014 %s." % (_plural(python, "file"), _python_text(rep, leads, python))})
     if js_files:
         out.append({"label": JS_LABEL, "files": js_files, "depth": "tokens",
-                    "text": "%s: %s \u2014 %s." % (JS_LABEL, _plural(js_files, "file"), JS_TEXT)})
+                    "text": "%s: %s \u2014 %s." % (JS_LABEL, _plural(js_files, "file"), JS_TEXT),
+                    "looked_at": list(JS_LOOKED_AT), "not_looked_at": list(JS_NOT_LOOKED_AT)})
     if js_generated:
         out.append({"label": JS_GENERATED_LABEL, "files": js_generated, "depth": "tokens",
                     "text": "%s: %s \u2014 %s." % (JS_GENERATED_LABEL, _plural(js_generated, "file"),
-                                                   JS_GENERATED_TEXT)})
+                                                   JS_GENERATED_TEXT),
+                    "looked_at": list(JS_GENERATED_LOOKED_AT), "not_looked_at": list(JS_GENERATED_NOT_LOOKED_AT)})
     for ext, count in sorted((cov.get("other_source") or {}).items()):
         label = LANGUAGES.get(ext, ext)
         out.append({"label": label, "files": int(count), "depth": "secrets+manifests",
@@ -488,7 +505,7 @@ def finding_card(finding, rep=None):
         "where": finding.get("node"),
         "what": entry["title"] if entry else code,
         "why": WHY.get(code) or finding.get("summary") or "",
-        "how": finding.get("fix") or (entry or {}).get("fix"),
+        "how": finding.get("fix") or catalogue.fix_for(code, [finding.get("node")], catalogue.js_only(rep)),
         "level": finding.get("level"),
         "confidence": finding.get("confidence"),  # a labelled field, never a word inside a sentence
         "code": code,

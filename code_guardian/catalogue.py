@@ -4,8 +4,12 @@ SARIF rules and the Markdown output read it; tests/test_readme_sync.py checks th
 
 Public contract:
     CATALOGUE = {code: {"title", "means", "fix", "false_positives"}}
+    FIX_JS = {code: text}                   # the advice for a finding in a JavaScript / TypeScript file
+    js_only(rep) -> bool                    # JavaScript / TypeScript analysed and no Python file
+    fix_for(code, locations, js_only_repo=False) -> str | None
 """
 
+import re
 import sys
 
 from .finding import summarize
@@ -242,6 +246,57 @@ CATALOGUE = {
 }
 
 
+# The codes whose CATALOGUE fix is Python-only advice. Every other code reads the same in either language.
+FIX_JS = {
+    "exec.dynamic": "Use JSON.parse for data and a lookup table for choices; load modules by a fixed name; never pass "
+                    "outside text to eval, new Function or a string timer.",
+    "exec.shell": "Use execFile or spawn with an argument list and no shell; validate any outside value against an "
+                  "allow-list.",
+    "deser.unsafe": "Parse data with JSON.parse and never pass it to eval; avoid packages that rebuild functions from "
+                    "data, such as node-serialize.",
+    "works.entry_missing": "Point the field in package.json at a file that exists, or run the build that makes it.",
+    "works.import_unresolved": "Add the package to dependencies in package.json, or fix the name if it is a typo.",
+    "works.syntax": "Fix the syntax error so the file can load; an unclosed string, comment or template is the usual "
+                    "cause.",
+    "works.tests_missing": "Add a test folder (test/ or tests/) with at least one test per entry point, and a test "
+                           "script in package.json.",
+}
+
+_JS_EXT = (".js", ".mjs", ".cjs", ".jsx", ".ts", ".tsx")
+_JS_FILES = {"package.json", "tsconfig.json", "jsconfig.json"}
+
+
+def js_only(rep):
+    """True when JavaScript / TypeScript was analysed and the scan saw no Python file."""
+    cov = (rep or {}).get("coverage") or {}
+    js = ((cov.get("languages") or {}).get("javascript") or {}).get("files") or 0
+    return bool(js) and not int(cov.get("python") or 0)
+
+
+def _is_js(location, js_only_repo):
+    path = re.sub(r":\d+$", "", str(location or ""))
+    if path in (".", ""):
+        return bool(js_only_repo)
+    return path.endswith(_JS_EXT) or path.replace("\\", "/").rsplit("/", 1)[-1] in _JS_FILES
+
+
+def fix_for(code, locations, js_only_repo=False):
+    """The fix for a finding, in the language of the file it is in. A code with no FIX_JS row always gets its
+    catalogue fix; so does one with no location. None for a code the catalogue does not know."""
+    entry = CATALOGUE.get(code)
+    if entry is None:
+        return None
+    py, js = entry["fix"], FIX_JS.get(code)
+    if js is None:
+        return py
+    flags = [_is_js(loc, js_only_repo) for loc in (locations or [])]
+    if flags and all(flags):
+        return js
+    if any(flags):
+        return "Python: %s JavaScript / TypeScript: %s" % (py, js)
+    return py
+
+
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
     if "--selftest" in argv:
@@ -251,6 +306,12 @@ def main(argv=None):
             ("covers_every_scored_code", codes <= set(CATALOGUE)),
             ("four_fields", all(set(e) == {"title", "means", "fix", "false_positives"} for e in CATALOGUE.values())),
             ("short_titles", all(len(e["title"]) <= 40 for e in CATALOGUE.values())),
+            ("fix_js_rows_are_catalogue_codes", set(FIX_JS) <= set(CATALOGUE)),
+            ("fix_for_picks_the_language", fix_for("exec.shell", ["a.js:1"]) == FIX_JS["exec.shell"]
+             and fix_for("exec.shell", ["a.py:1"]) == CATALOGUE["exec.shell"]["fix"]
+             and fix_for("exec.shell", ["a.py:1", "b.ts:2"]).startswith("Python: ")
+             and fix_for("works.tests_missing", ["."], True) == FIX_JS["works.tests_missing"]
+             and fix_for("no.such.code", ["a.js:1"]) is None),
         ]
         return summarize("catalogue", checks)
     sys.stderr.write("usage: python -m code_guardian.catalogue --selftest\n")
