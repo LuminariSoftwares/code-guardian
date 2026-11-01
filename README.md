@@ -3,6 +3,7 @@
 [![ci](https://github.com/LuminariSoftwares/code-guardian/actions/workflows/ci.yml/badge.svg)](https://github.com/LuminariSoftwares/code-guardian/actions/workflows/ci.yml)
 [![privacy](https://github.com/LuminariSoftwares/code-guardian/actions/workflows/privacy.yml/badge.svg)](https://github.com/LuminariSoftwares/code-guardian/actions/workflows/privacy.yml)
 [![XERJ Corpus Hub contributor](https://hub.xerj.org/contributors/LuminariSoftwares/badge.svg)](https://hub.xerj.org/contributors/LuminariSoftwares)
+[![code-guardian MCP server – quality and maintenance score on Glama](https://glama.ai/mcp/servers/LuminariSoftwares/code-guardian/badges/score.svg)](https://glama.ai/mcp/servers/LuminariSoftwares/code-guardian)
 
 mcp-name: io.github.LuminariSoftwares/code-guardian
 
