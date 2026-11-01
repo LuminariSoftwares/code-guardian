@@ -2,6 +2,7 @@
 
 [![ci](https://github.com/LuminariSoftwares/code-guardian/actions/workflows/ci.yml/badge.svg)](https://github.com/LuminariSoftwares/code-guardian/actions/workflows/ci.yml)
 [![privacy](https://github.com/LuminariSoftwares/code-guardian/actions/workflows/privacy.yml/badge.svg)](https://github.com/LuminariSoftwares/code-guardian/actions/workflows/privacy.yml)
+[![XERJ Corpus Hub contributor](https://hub.xerj.org/contributors/LuminariSoftwares/badge.svg)](https://hub.xerj.org/contributors/LuminariSoftwares)
 
 mcp-name: io.github.LuminariSoftwares/code-guardian
 
