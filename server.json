@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.LuminariSoftwares/code-guardian",
   "title": "Code Guardian",
-  "description": "0 FAIL findings on 8 of 8 clean repos, never run. An A-F grade for code, plus a verify loop.",
+  "description": "Safe to run? Will it work? Complete? An A-F grade for any repo, plus a verify loop. Never runs it.",
   "repository": {"url": "https://github.com/LuminariSoftwares/code-guardian", "source": "github"},
   "version": "0.6.0",
   "packages": [
