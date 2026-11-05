@@ -49,14 +49,18 @@ def _cg(*args):
 
 
 def test_version_is_050_everywhere():
-    assert re.search(r'^version\s*=\s*"0\.5\.0"\s*$', _read("pyproject.toml"), re.M)
+    # amended by the overseer for P141 S14: 0.6.0 follows 0.5.0 (precedent: test_p93_s1_acceptance :174); every
+    # version field must still agree with the others and with the CLI
+    m = re.search(r'^version\s*=\s*"(0\.(?:5|6)\.0)"\s*$', _read("pyproject.toml"), re.M)
+    assert m
+    cur = m.group(1)
     import code_guardian
     from code_guardian import mcp_server
-    assert code_guardian.__version__ == V and mcp_server.VERSION == V
+    assert code_guardian.__version__ == cur and mcp_server.VERSION == cur
     server = json.loads(_read("server.json"))
-    assert server["version"] == V and all(p["version"] == V for p in server["packages"]), server
+    assert server["version"] == cur and all(p["version"] == cur for p in server["packages"]), server
     r = _cg("--version")
-    assert r.returncode == 0 and (r.stdout + r.stderr).strip() == "code-guardian " + V, r.stdout + r.stderr
+    assert r.returncode == 0 and (r.stdout + r.stderr).strip() == "code-guardian " + cur, r.stdout + r.stderr
 
 
 def test_changelog_is_dated():
@@ -71,12 +75,13 @@ def test_changelog_is_dated():
 
 
 def test_readme_says_050():
+    # amended by the overseer for P141 S14: 0.6.0 follows 0.5.0 (precedent: test_p93_s1_acceptance :174)
     readme = _read("README.md")
-    assert "Status: **0.5.0 is the current release.**" in readme
-    assert "`code-guardian 0.5.0  scan of <name>`" in readme
+    cur = next(v for v in ("0.6.0", "0.5.0") if "Status: **%s is the current release.**" % v in readme)
+    assert "`code-guardian %s  scan of <name>`" % cur in readme
     assert "code-guardian 0.5.0  scan of risky_repo" in readme
-    assert "LuminariSoftwares/code-guardian@v0.5.0" in readme and "@v0.4.2" not in readme
-    assert "rev: v0.5.0" in readme and "rev: v0.4.2" not in readme
+    assert "LuminariSoftwares/code-guardian@v%s" % cur in readme and "@v0.4.2" not in readme
+    assert "rev: v%s" % cur in readme and "rev: v0.4.2" not in readme
     assert re.search(r"^## Upgrading to 0\.5\.0\s*$", readme, re.M)
 
 

@@ -373,3 +373,18 @@ Scanned 2026-10-25 by the overseer with PR #52 (head `6ed24c3`) on the five pinn
 | a private studio's script tree (Windows, py3.11; `test_*.py`, `*_test.py`) | 3845 | 78650 | 122 | 12 | 9 | 103 |
 
 Zero hits on both: neither input has a test that asserts only a constant, only a mock, or swallows an exception, so these counts show no false positives and say nothing about recall (the detector is exercised by `tests/test_hollow.py` and `python -m code_guardian.hollow --selftest`). The third row is a large private script tree, counted on Windows: 103 of 3,845 files carry at least one hollow test, mostly tautologies. Counts only; the hits were not reviewed one by one, so no precision is claimed.
+
+## 0.6.0 re-run (P141 S14, 2026-11-04)
+
+`python tools/calibrate.py` at the same pinned commits, after S11 (agent configs), S12 (hollow tests) and S13 (layer rules and size limits). None of these repositories declares layers or size limits, and none ships the agent-config files S11 reads, so the only new findings are `works.test_hollow` (9 WARN rows across the set). Counts only.
+
+| repo | commit | Safe | Works | Complete | Overall | grade | FAIL | WARN |
+|---|---|---|---|---|---|---|---|---|
+| psf/requests | `611c6162cbc4` | 90 | 84 | 95 | 89 | B | 0 | 7 |
+| pallets/click | `2247b35ea1c4` | 90 | 92 | 95 | 92 | A | 0 | 5 |
+| Textualize/rich | `9d8f9a372cc5` | 77 | 64 | 90 | 76 | B | 0 | 23 |
+| encode/httpx | `b5addb64f016` | 85 | 88 | 100 | 89 | B | 0 | 6 |
+| pallets/flask | `d086db856be1` | 80 | 87 | 95 | 85 | B | 0 | 11 |
+| LuminariSoftwares/stack-guardian | `9561a8f58e69` | 93 | 95 | 100 | 95 | A | 0 | 3 |
+| LuminariSoftwares/context-guardian | `ad7aebc67476` | 96 | 79 | 90 | 90 | A | 0 | 9 |
+| LuminariSoftwares/tool-guardian | `3fd93288716a` | 90 | 100 | 100 | 95 | A | 0 | 1 |
