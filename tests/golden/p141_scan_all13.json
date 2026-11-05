@@ -1,0 +1,6227 @@
+{
+ "backup_repo": {
+  "anchor": "README.md",
+  "coverage": {
+   "analysed": "python",
+   "languages": {
+    "python": {
+     "depth": "full",
+     "files": 5
+    }
+   },
+   "other_source": {},
+   "other_source_files": 0,
+   "partial": false,
+   "python": 5,
+   "reason": null,
+   "safe_partial": false,
+   "works_scored": true
+  },
+  "dimensions": {
+   "complete": {
+    "checks": [
+     {
+      "code": "complete.license_missing",
+      "count": 1,
+      "deduction": 20,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 20
+     },
+     {
+      "code": "complete.ci_missing",
+      "count": 1,
+      "deduction": 10,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 10
+     },
+     {
+      "code": "complete.readme_sections",
+      "count": 1,
+      "deduction": 5,
+      "first": "README.md:1",
+      "level": "WARN",
+      "locations": [
+       "README.md:1"
+      ],
+      "more": 0,
+      "weight": 5
+     }
+    ],
+    "deducted": 35,
+    "partial": false,
+    "score": 65,
+    "scored": true
+   },
+   "safe": {
+    "checks": [
+     {
+      "code": "exec.shell",
+      "count": 1,
+      "deduction": 10,
+      "first": "old/helper.py:10",
+      "level": "WARN",
+      "locations": [
+       "old/helper.py:10"
+      ],
+      "more": 0,
+      "weight": 10
+     }
+    ],
+    "deducted": 10,
+    "partial": false,
+    "score": 90,
+    "scored": true
+   },
+   "works": {
+    "checks": [
+     {
+      "code": "works.tests_missing",
+      "count": 1,
+      "deduction": 15,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 15
+     }
+    ],
+    "deducted": 15,
+    "partial": false,
+    "score": 85,
+    "scored": true
+   }
+  },
+  "egress": [],
+  "files": {
+   "excluded": 0,
+   "generated": 0,
+   "ignored": 0,
+   "javascript": 0,
+   "manifests": 0,
+   "other": 1,
+   "python": 5,
+   "skipped": 0,
+   "unparsed": 0
+  },
+  "findings": [
+   {
+    "code": "complete.ci_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: .github/workflows/, .gitlab-ci.yml, .circleci/, and other CI files"
+    ],
+    "fingerprint": "82614cc74cd71f3da6532c94a455c16972f894ad2b07091d9f8566d157847cbe",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no CI configuration: nothing runs the tests on each change",
+    "try": [
+     "add a CI workflow that runs the tests"
+    ]
+   },
+   {
+    "code": "complete.license_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: LICENSE, LICENCE, COPYING, UNLICENSE (any extension)"
+    ],
+    "fingerprint": "930beae195cf4084bc0835387d1df2762d4f7f5b636e4ce39dcffd55c5eed80c",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no licence file: nobody may legally reuse this code",
+    "try": [
+     "add a LICENSE file (choosealicense.com helps pick one)"
+    ]
+   },
+   {
+    "code": "works.tests_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: tests/, test_*.py, *_test.py, tests.py, conftest.py"
+    ],
+    "fingerprint": "af61c7db491aa0f6f1c07962bd6797e96d8114856e6d6c2a8a93154dcf2e05d4",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no test files: nothing checks that the code works",
+    "try": [
+     "add a tests/ folder with at least one test per entry point"
+    ]
+   },
+   {
+    "code": "complete.readme_sections",
+    "confidence": "LIKELY",
+    "evidence": [
+     "missing heading: install, usage"
+    ],
+    "fingerprint": "bebafb3a3c9effdb7297028b98f57cc0740a89fdd11740bccc3185ae38b2facc",
+    "fix": null,
+    "level": "WARN",
+    "node": "README.md:1",
+    "severity": "partial",
+    "summary": "README has no install or usage section",
+    "try": [
+     "add an 'Install' and a 'Usage' heading"
+    ]
+   },
+   {
+    "code": "exec.shell",
+    "confidence": "LIKELY",
+    "evidence": [
+     "call: subprocess.run(shell=True)"
+    ],
+    "fingerprint": "40f904d7e300867ec1beacaea2924aafcbdd74a86326f601fb9ff9b431d0ed3f",
+    "fix": null,
+    "level": "WARN",
+    "node": "old/helper.py:10",
+    "severity": "partial",
+    "summary": "subprocess.run(shell=True) runs a command through the shell",
+    "try": [
+     "pass an argument list without shell=True"
+    ]
+   }
+  ],
+  "goal_file": null,
+  "hygiene": {
+   "counts": {
+    "orphan.dead": 0,
+    "orphan.test_only": 0,
+    "orphan.uncertain": 0
+   },
+   "entry_points": [
+    "_archive.main_v1:__main__",
+    "app.main:__main__"
+   ],
+   "findings": [],
+   "goal": "",
+   "keep": [],
+   "notes": [],
+   "source": "inferred"
+  },
+  "notes": [],
+  "other_languages": {},
+  "outcomes": [
+   {
+    "check": "walk",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secrets",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secret.key",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.dynamic",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.shell",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "deser.unsafe",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.egress",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.bind_all",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "tls.off",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "obfuscation",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "fs.outside",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_log",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_prompt",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "manifests",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "works",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "complete",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "supply",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "orphans",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "leftovers",
+    "outcome": "ran",
+    "reason": null
+   }
+  ],
+  "scores": {
+   "cap_reason": null,
+   "capped": false,
+   "complete": 65,
+   "grade": "B",
+   "grade_uncapped": "B",
+   "overall": 84,
+   "safe": 90,
+   "works": 85
+  },
+  "status": "COMPLETE",
+  "status_reasons": [],
+  "tool": "code-guardian",
+  "top": [
+   {
+    "code": "complete.license_missing",
+    "count": 1,
+    "deduction": 20,
+    "dimension": "complete",
+    "first": ".",
+    "level": "WARN",
+    "locations": [
+     "."
+    ],
+    "more": 0,
+    "weight": 20
+   },
+   {
+    "code": "works.tests_missing",
+    "count": 1,
+    "deduction": 15,
+    "dimension": "works",
+    "first": ".",
+    "level": "WARN",
+    "locations": [
+     "."
+    ],
+    "more": 0,
+    "weight": 15
+   },
+   {
+    "code": "exec.shell",
+    "count": 1,
+    "deduction": 10,
+    "dimension": "safe",
+    "first": "old/helper.py:10",
+    "level": "WARN",
+    "locations": [
+     "old/helper.py:10"
+    ],
+    "more": 0,
+    "weight": 10
+   },
+   {
+    "code": "complete.ci_missing",
+    "count": 1,
+    "deduction": 10,
+    "dimension": "complete",
+    "first": ".",
+    "level": "WARN",
+    "locations": [
+     "."
+    ],
+    "more": 0,
+    "weight": 10
+   },
+   {
+    "code": "complete.readme_sections",
+    "count": 1,
+    "deduction": 5,
+    "dimension": "complete",
+    "first": "README.md:1",
+    "level": "WARN",
+    "locations": [
+     "README.md:1"
+    ],
+    "more": 0,
+    "weight": 5
+   }
+  ],
+  "weights_rule": "each check (code + level) deducts its weight once, plus a quarter of the weight per extra occurrence (rounded up), at most 2x the weight; INFO is never scored"
+ },
+ "clean_repo": {
+  "anchor": "pyproject.toml",
+  "coverage": {
+   "analysed": "python",
+   "languages": {
+    "python": {
+     "depth": "full",
+     "files": 4
+    }
+   },
+   "other_source": {},
+   "other_source_files": 0,
+   "partial": false,
+   "python": 4,
+   "reason": null,
+   "safe_partial": false,
+   "works_scored": true
+  },
+  "dimensions": {
+   "complete": {
+    "checks": [],
+    "deducted": 0,
+    "partial": false,
+    "score": 100,
+    "scored": true
+   },
+   "safe": {
+    "checks": [],
+    "deducted": 0,
+    "partial": false,
+    "score": 100,
+    "scored": true
+   },
+   "works": {
+    "checks": [],
+    "deducted": 0,
+    "partial": false,
+    "score": 100,
+    "scored": true
+   }
+  },
+  "egress": [
+   {
+    "kind": "url",
+    "level": "INFO",
+    "node": "cleanpkg/fetch.py:3",
+    "target": "https://example.com/api"
+   },
+   {
+    "kind": "call",
+    "level": "INFO",
+    "node": "cleanpkg/fetch.py:7",
+    "target": "requests.get"
+   }
+  ],
+  "files": {
+   "excluded": 0,
+   "generated": 0,
+   "ignored": 0,
+   "javascript": 0,
+   "manifests": 1,
+   "other": 3,
+   "python": 4,
+   "skipped": 0,
+   "unparsed": 0
+  },
+  "findings": [
+   {
+    "code": "net.egress",
+    "confidence": "LIKELY",
+    "evidence": [
+     "kind: url",
+     "target: https://example.com/api",
+     "why: reserved documentation name"
+    ],
+    "fingerprint": "5e60c6ee0920a67e4027a25512aa778d040730a44169f01ac866383810d6968e",
+    "fix": null,
+    "level": "INFO",
+    "node": "cleanpkg/fetch.py:3",
+    "severity": "partial",
+    "summary": "URL literal https://example.com/api (reserved documentation name)",
+    "try": []
+   },
+   {
+    "code": "net.egress",
+    "confidence": "LIKELY",
+    "evidence": [
+     "kind: call",
+     "target: requests.get"
+    ],
+    "fingerprint": "184c87b49e9ee4954fd896320e6bc028b37a8dfa9fae0fd6fd45e858e6578008",
+    "fix": null,
+    "level": "INFO",
+    "node": "cleanpkg/fetch.py:7",
+    "severity": "partial",
+    "summary": "network call requests.get",
+    "try": []
+   }
+  ],
+  "goal_file": null,
+  "hygiene": {
+   "counts": {
+    "orphan.dead": 0,
+    "orphan.test_only": 0,
+    "orphan.uncertain": 0
+   },
+   "entry_points": [
+    "cleanpkg.cli:main"
+   ],
+   "findings": [],
+   "goal": "",
+   "keep": [],
+   "notes": [],
+   "source": "inferred (library public API)"
+  },
+  "notes": [],
+  "other_languages": {},
+  "outcomes": [
+   {
+    "check": "walk",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secrets",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secret.key",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.dynamic",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.shell",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "deser.unsafe",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.egress",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.bind_all",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "tls.off",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "obfuscation",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "fs.outside",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_log",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_prompt",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "manifests",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "works",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "complete",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "supply",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "orphans",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "leftovers",
+    "outcome": "ran",
+    "reason": null
+   }
+  ],
+  "scores": {
+   "cap_reason": null,
+   "capped": false,
+   "complete": 100,
+   "grade": "A",
+   "grade_uncapped": "A",
+   "overall": 100,
+   "safe": 100,
+   "works": 100
+  },
+  "status": "COMPLETE",
+  "status_reasons": [],
+  "tool": "code-guardian",
+  "top": [],
+  "weights_rule": "each check (code + level) deducts its weight once, plus a quarter of the weight per extra occurrence (rounded up), at most 2x the weight; INFO is never scored"
+ },
+ "complete_app": {
+  "anchor": "pyproject.toml",
+  "coverage": {
+   "analysed": "python",
+   "languages": {
+    "python": {
+     "depth": "full",
+     "files": 3
+    }
+   },
+   "other_source": {},
+   "other_source_files": 0,
+   "partial": false,
+   "python": 3,
+   "reason": null,
+   "safe_partial": false,
+   "works_scored": true
+  },
+  "dimensions": {
+   "complete": {
+    "checks": [],
+    "deducted": 0,
+    "partial": false,
+    "score": 100,
+    "scored": true
+   },
+   "safe": {
+    "checks": [],
+    "deducted": 0,
+    "partial": false,
+    "score": 100,
+    "scored": true
+   },
+   "works": {
+    "checks": [],
+    "deducted": 0,
+    "partial": false,
+    "score": 100,
+    "scored": true
+   }
+  },
+  "egress": [],
+  "files": {
+   "excluded": 0,
+   "generated": 0,
+   "ignored": 0,
+   "javascript": 0,
+   "manifests": 1,
+   "other": 6,
+   "python": 3,
+   "skipped": 0,
+   "unparsed": 0
+  },
+  "findings": [],
+  "goal_file": null,
+  "hygiene": {
+   "counts": {
+    "orphan.dead": 0,
+    "orphan.test_only": 0,
+    "orphan.uncertain": 0
+   },
+   "entry_points": [],
+   "findings": [],
+   "goal": "",
+   "keep": [],
+   "notes": [
+    "no entry points found, so nothing is reported: run `code-guardian init` and edit the goal file"
+   ],
+   "source": "inferred"
+  },
+  "notes": [],
+  "other_languages": {},
+  "outcomes": [
+   {
+    "check": "walk",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secrets",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secret.key",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.dynamic",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.shell",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "deser.unsafe",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.egress",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.bind_all",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "tls.off",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "obfuscation",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "fs.outside",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_log",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_prompt",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "manifests",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "works",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "complete",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "supply",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "orphans",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "leftovers",
+    "outcome": "ran",
+    "reason": null
+   }
+  ],
+  "scores": {
+   "cap_reason": null,
+   "capped": false,
+   "complete": 100,
+   "grade": "A",
+   "grade_uncapped": "A",
+   "overall": 100,
+   "safe": 100,
+   "works": 100
+  },
+  "status": "COMPLETE",
+  "status_reasons": [],
+  "tool": "code-guardian",
+  "top": [],
+  "weights_rule": "each check (code + level) deducts its weight once, plus a quarter of the weight per extra occurrence (rounded up), at most 2x the weight; INFO is never scored"
+ },
+ "complete_bare": {
+  "anchor": "pyproject.toml",
+  "coverage": {
+   "analysed": "python",
+   "languages": {
+    "python": {
+     "depth": "full",
+     "files": 1
+    }
+   },
+   "other_source": {},
+   "other_source_files": 0,
+   "partial": false,
+   "python": 1,
+   "reason": null,
+   "safe_partial": false,
+   "works_scored": true
+  },
+  "dimensions": {
+   "complete": {
+    "checks": [
+     {
+      "code": "complete.license_missing",
+      "count": 1,
+      "deduction": 20,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 20
+     },
+     {
+      "code": "complete.ci_missing",
+      "count": 1,
+      "deduction": 10,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 10
+     },
+     {
+      "code": "complete.env_example",
+      "count": 1,
+      "deduction": 10,
+      "first": "app.py:3",
+      "level": "WARN",
+      "locations": [
+       "app.py:3"
+      ],
+      "more": 0,
+      "weight": 10
+     },
+     {
+      "code": "complete.lockfile",
+      "count": 1,
+      "deduction": 10,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 10
+     },
+     {
+      "code": "complete.metadata",
+      "count": 1,
+      "deduction": 10,
+      "first": "pyproject.toml:1",
+      "level": "WARN",
+      "locations": [
+       "pyproject.toml:1"
+      ],
+      "more": 0,
+      "weight": 10
+     },
+     {
+      "code": "complete.readme_short",
+      "count": 1,
+      "deduction": 10,
+      "first": "README.md:1",
+      "level": "WARN",
+      "locations": [
+       "README.md:1"
+      ],
+      "more": 0,
+      "weight": 10
+     },
+     {
+      "code": "complete.license_undeclared",
+      "count": 1,
+      "deduction": 5,
+      "first": "pyproject.toml:1",
+      "level": "WARN",
+      "locations": [
+       "pyproject.toml:1"
+      ],
+      "more": 0,
+      "weight": 5
+     }
+    ],
+    "deducted": 75,
+    "partial": false,
+    "score": 25,
+    "scored": true
+   },
+   "safe": {
+    "checks": [],
+    "deducted": 0,
+    "partial": false,
+    "score": 100,
+    "scored": true
+   },
+   "works": {
+    "checks": [
+     {
+      "code": "works.tests_missing",
+      "count": 1,
+      "deduction": 15,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 15
+     }
+    ],
+    "deducted": 15,
+    "partial": false,
+    "score": 85,
+    "scored": true
+   }
+  },
+  "egress": [],
+  "files": {
+   "excluded": 0,
+   "generated": 0,
+   "ignored": 0,
+   "javascript": 0,
+   "manifests": 1,
+   "other": 2,
+   "python": 1,
+   "skipped": 0,
+   "unparsed": 0
+  },
+  "findings": [
+   {
+    "code": "complete.ci_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: .github/workflows/, .gitlab-ci.yml, .circleci/, and other CI files"
+    ],
+    "fingerprint": "82614cc74cd71f3da6532c94a455c16972f894ad2b07091d9f8566d157847cbe",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no CI configuration: nothing runs the tests on each change",
+    "try": [
+     "add a CI workflow that runs the tests"
+    ]
+   },
+   {
+    "code": "complete.license_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: LICENSE, LICENCE, COPYING, UNLICENSE (any extension)"
+    ],
+    "fingerprint": "930beae195cf4084bc0835387d1df2762d4f7f5b636e4ce39dcffd55c5eed80c",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no licence file: nobody may legally reuse this code",
+    "try": [
+     "add a LICENSE file (choosealicense.com helps pick one)"
+    ]
+   },
+   {
+    "code": "complete.lockfile",
+    "confidence": "LIKELY",
+    "evidence": [
+     "application marker: Dockerfile",
+     "looked for: uv.lock, poetry.lock, Pipfile.lock, pdm.lock, pixi.lock, requirements.lock, a fully pinned requirements.txt"
+    ],
+    "fingerprint": "b3ee2e9e368879cd777e741b60634d6d5976379a870623fa003ee5814ec727c4",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "an application without a lockfile: installs can differ run to run",
+    "try": [
+     "commit a lockfile (uv lock, poetry lock, or pip-compile)"
+    ]
+   },
+   {
+    "code": "works.tests_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: tests/, test_*.py, *_test.py, tests.py, conftest.py"
+    ],
+    "fingerprint": "af61c7db491aa0f6f1c07962bd6797e96d8114856e6d6c2a8a93154dcf2e05d4",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no test files: nothing checks that the code works",
+    "try": [
+     "add a tests/ folder with at least one test per entry point"
+    ]
+   },
+   {
+    "code": "complete.readme_short",
+    "confidence": "LIKELY",
+    "evidence": [
+     "minimum: 200 bytes"
+    ],
+    "fingerprint": "486c36cb6b411731d6daded39a8e5129b0067ce2bbeaabd5e70ab09d9f0a54e0",
+    "fix": null,
+    "level": "WARN",
+    "node": "README.md:1",
+    "severity": "partial",
+    "summary": "README is 14 bytes: too short to explain install and usage",
+    "try": [
+     "describe what it does, how to install, how to use"
+    ]
+   },
+   {
+    "code": "complete.env_example",
+    "confidence": "LIKELY",
+    "evidence": [
+     "reads: BARE_TOKEN_NAME"
+    ],
+    "fingerprint": "7834050c111469eda70222ce4ce66ab04432354153ccd606f58f443666a3311b",
+    "fix": null,
+    "level": "WARN",
+    "node": "app.py:3",
+    "severity": "partial",
+    "summary": "the code reads environment variables but there is no .env.example",
+    "try": [
+     "add a .env.example listing every variable with a safe placeholder"
+    ]
+   },
+   {
+    "code": "complete.license_undeclared",
+    "confidence": "LIKELY",
+    "evidence": [
+     "no license / license-files / License classifier"
+    ],
+    "fingerprint": "c5772dbbd3e346e368c05641ff50cc5131e8ea3fabf53700395cfb9e8a47d025",
+    "fix": null,
+    "level": "WARN",
+    "node": "pyproject.toml:1",
+    "severity": "partial",
+    "summary": "the package metadata declares no licence",
+    "try": [
+     "add license = \"MIT\" (or your licence) to [project]"
+    ]
+   },
+   {
+    "code": "complete.metadata",
+    "confidence": "LIKELY",
+    "evidence": [
+     "required: name, version (or dynamic), requires-python"
+    ],
+    "fingerprint": "96b4d1dc5b8e19da178e202b08daf0fea568ceecd7bac8af37ef01cf70e7bf52",
+    "fix": null,
+    "level": "WARN",
+    "node": "pyproject.toml:1",
+    "severity": "partial",
+    "summary": "pyproject.toml [project] is missing: version, requires-python",
+    "try": [
+     "add the missing keys to [project]"
+    ]
+   },
+   {
+    "code": "deps.declared_unused",
+    "confidence": "LIKELY",
+    "evidence": [
+     "kind: runtime"
+    ],
+    "fingerprint": "63bc131cad394c4a90f40af5e31fd7e844cb8dc768f1028752a3cb0e49a0a703",
+    "fix": null,
+    "level": "INFO",
+    "node": "pyproject.toml:3",
+    "severity": "partial",
+    "summary": "dependency requests is declared but never imported",
+    "try": [
+     "remove it, or note why it is needed (a plugin or a runner)"
+    ]
+   }
+  ],
+  "goal_file": null,
+  "hygiene": {
+   "counts": {
+    "orphan.dead": 0,
+    "orphan.test_only": 0,
+    "orphan.uncertain": 0
+   },
+   "entry_points": [],
+   "findings": [],
+   "goal": "",
+   "keep": [],
+   "notes": [
+    "no entry points found, so nothing is reported: run `code-guardian init` and edit the goal file"
+   ],
+   "source": "inferred"
+  },
+  "notes": [],
+  "other_languages": {},
+  "outcomes": [
+   {
+    "check": "walk",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secrets",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secret.key",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.dynamic",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.shell",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "deser.unsafe",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.egress",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.bind_all",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "tls.off",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "obfuscation",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "fs.outside",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_log",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_prompt",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "manifests",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "works",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "complete",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "supply",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "orphans",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "leftovers",
+    "outcome": "ran",
+    "reason": null
+   }
+  ],
+  "scores": {
+   "cap_reason": null,
+   "capped": false,
+   "complete": 25,
+   "grade": "B",
+   "grade_uncapped": "B",
+   "overall": 81,
+   "safe": 100,
+   "works": 85
+  },
+  "status": "COMPLETE",
+  "status_reasons": [],
+  "tool": "code-guardian",
+  "top": [
+   {
+    "code": "complete.license_missing",
+    "count": 1,
+    "deduction": 20,
+    "dimension": "complete",
+    "first": ".",
+    "level": "WARN",
+    "locations": [
+     "."
+    ],
+    "more": 0,
+    "weight": 20
+   },
+   {
+    "code": "works.tests_missing",
+    "count": 1,
+    "deduction": 15,
+    "dimension": "works",
+    "first": ".",
+    "level": "WARN",
+    "locations": [
+     "."
+    ],
+    "more": 0,
+    "weight": 15
+   },
+   {
+    "code": "complete.ci_missing",
+    "count": 1,
+    "deduction": 10,
+    "dimension": "complete",
+    "first": ".",
+    "level": "WARN",
+    "locations": [
+     "."
+    ],
+    "more": 0,
+    "weight": 10
+   },
+   {
+    "code": "complete.env_example",
+    "count": 1,
+    "deduction": 10,
+    "dimension": "complete",
+    "first": "app.py:3",
+    "level": "WARN",
+    "locations": [
+     "app.py:3"
+    ],
+    "more": 0,
+    "weight": 10
+   },
+   {
+    "code": "complete.lockfile",
+    "count": 1,
+    "deduction": 10,
+    "dimension": "complete",
+    "first": ".",
+    "level": "WARN",
+    "locations": [
+     "."
+    ],
+    "more": 0,
+    "weight": 10
+   }
+  ],
+  "weights_rule": "each check (code + level) deducts its weight once, plus a quarter of the weight per extra occurrence (rounded up), at most 2x the weight; INFO is never scored"
+ },
+ "js_broken": {
+  "anchor": "package.json",
+  "coverage": {
+   "analysed": "javascript",
+   "languages": {
+    "javascript": {
+     "checks": [
+      "secret.key",
+      "exec.dynamic",
+      "exec.shell",
+      "deser.unsafe",
+      "net.egress",
+      "net.bind_all",
+      "tls.off",
+      "obfuscation",
+      "fs.outside",
+      "privacy.pii_log",
+      "dom.html_sink",
+      "works.syntax",
+      "works.import_unresolved",
+      "works.relative_missing",
+      "works.entry_missing",
+      "works.tests_missing"
+     ],
+     "depth": "tokens",
+     "files": 2,
+     "generated": 0,
+     "generated_checks": [
+      "secret.key",
+      "obfuscation",
+      "exec.dynamic"
+     ],
+     "not_checked": [
+      "privacy.pii_prompt",
+      "works.test_no_assert",
+      "works.todo_stub",
+      "works.commented_code",
+      "works.dead_flag",
+      "orphan.*"
+     ]
+    }
+   },
+   "other_source": {},
+   "other_source_files": 0,
+   "partial": false,
+   "python": 0,
+   "reason": null,
+   "safe_partial": false,
+   "works_scored": true
+  },
+  "dimensions": {
+   "complete": {
+    "checks": [
+     {
+      "code": "complete.license_missing",
+      "count": 1,
+      "deduction": 20,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 20
+     },
+     {
+      "code": "complete.readme_missing",
+      "count": 1,
+      "deduction": 20,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 20
+     },
+     {
+      "code": "complete.ci_missing",
+      "count": 1,
+      "deduction": 10,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 10
+     }
+    ],
+    "deducted": 50,
+    "partial": false,
+    "score": 50,
+    "scored": true
+   },
+   "safe": {
+    "checks": [],
+    "deducted": 0,
+    "partial": false,
+    "score": 100,
+    "scored": true
+   },
+   "works": {
+    "checks": [
+     {
+      "code": "works.entry_missing",
+      "count": 1,
+      "deduction": 30,
+      "first": "package.json:5",
+      "level": "FAIL",
+      "locations": [
+       "package.json:5"
+      ],
+      "more": 0,
+      "weight": 30
+     },
+     {
+      "code": "works.syntax",
+      "count": 1,
+      "deduction": 30,
+      "first": "src/half.js:2",
+      "level": "FAIL",
+      "locations": [
+       "src/half.js:2"
+      ],
+      "more": 0,
+      "weight": 30
+     },
+     {
+      "code": "works.relative_missing",
+      "count": 1,
+      "deduction": 25,
+      "first": "src/index.ts:2",
+      "level": "FAIL",
+      "locations": [
+       "src/index.ts:2"
+      ],
+      "more": 0,
+      "weight": 25
+     },
+     {
+      "code": "works.tests_missing",
+      "count": 1,
+      "deduction": 15,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 15
+     },
+     {
+      "code": "works.import_unresolved",
+      "count": 1,
+      "deduction": 10,
+      "first": "src/index.ts:1",
+      "level": "WARN",
+      "locations": [
+       "src/index.ts:1"
+      ],
+      "more": 0,
+      "weight": 10
+     }
+    ],
+    "deducted": 110,
+    "partial": false,
+    "score": 0,
+    "scored": true
+   }
+  },
+  "egress": [],
+  "files": {
+   "excluded": 0,
+   "generated": 0,
+   "ignored": 0,
+   "javascript": 2,
+   "manifests": 1,
+   "other": 0,
+   "python": 0,
+   "skipped": 0,
+   "unparsed": 0
+  },
+  "findings": [
+   {
+    "code": "complete.ci_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: .github/workflows/, .gitlab-ci.yml, .circleci/, and other CI files"
+    ],
+    "fingerprint": "82614cc74cd71f3da6532c94a455c16972f894ad2b07091d9f8566d157847cbe",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no CI configuration: nothing runs the tests on each change",
+    "try": [
+     "add a CI workflow that runs the tests"
+    ]
+   },
+   {
+    "code": "complete.license_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: LICENSE, LICENCE, COPYING, UNLICENSE (any extension)"
+    ],
+    "fingerprint": "930beae195cf4084bc0835387d1df2762d4f7f5b636e4ce39dcffd55c5eed80c",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no licence file: nobody may legally reuse this code",
+    "try": [
+     "add a LICENSE file (choosealicense.com helps pick one)"
+    ]
+   },
+   {
+    "code": "complete.readme_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: README, README.md, README.rst, README.txt"
+    ],
+    "fingerprint": "ed3b257121a6493e37b33e1961caf4d9b94cbfd123c7611c5dc77d03a427b67f",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no README: nobody can tell what this is or how to run it",
+    "try": [
+     "add a README.md"
+    ]
+   },
+   {
+    "code": "works.tests_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: *.test.*, *.spec.*, __tests__/, test/, tests/, cypress/, e2e/ and scripts.test"
+    ],
+    "fingerprint": "af61c7db491aa0f6f1c07962bd6797e96d8114856e6d6c2a8a93154dcf2e05d4",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no test files: nothing checks that the code works",
+    "try": [
+     "add a test folder, or a test script in package.json that runs one"
+    ]
+   },
+   {
+    "code": "works.entry_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "the package cannot be loaded from this entry point"
+    ],
+    "fingerprint": "ddc91c52327c8c272ca751333c0c6c182ddd2df8c26af4bf48cc97c47ae75b89",
+    "fix": null,
+    "level": "FAIL",
+    "node": "package.json:5",
+    "severity": "partial",
+    "summary": "main: dist/index.js does not exist",
+    "try": [
+     "point main at an existing file"
+    ]
+   },
+   {
+    "code": "works.syntax",
+    "confidence": "LIKELY",
+    "evidence": [
+     "an unterminated template literal runs to the end of the file"
+    ],
+    "fingerprint": "224e0815baa9a887f84361e27d693ce35ea104657f52a9b0cdbcb947659ac3a8",
+    "fix": null,
+    "level": "FAIL",
+    "node": "src/half.js:2",
+    "severity": "partial",
+    "summary": "file does not tokenise: it cannot be loaded",
+    "try": [
+     "close the template literal"
+    ]
+   },
+   {
+    "code": "works.import_unresolved",
+    "confidence": "LIKELY",
+    "evidence": [
+     "package: left-pad"
+    ],
+    "fingerprint": "5a31bd47b1b2d96656fcf98d4cd7bb74990cbb3ae428c2620f6e4a8cf2c636cc",
+    "fix": null,
+    "level": "WARN",
+    "node": "src/index.ts:1",
+    "severity": "partial",
+    "summary": "import left-pad: not a Node builtin or a dependency in package.json",
+    "try": [
+     "add left-pad to dependencies in package.json",
+     "or remove the import if nothing uses it"
+    ]
+   },
+   {
+    "code": "works.relative_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: the path, the path with an extension, an index file, a package.json"
+    ],
+    "fingerprint": "ad0caa8368d0957654edf1f01912c103915f17a8eb9c2e76f546f59c79c2a5a6",
+    "fix": null,
+    "level": "FAIL",
+    "node": "src/index.ts:2",
+    "severity": "partial",
+    "summary": "relative import ./util points at nothing in the repo",
+    "try": [
+     "fix the path or add the missing file"
+    ]
+   }
+  ],
+  "goal_file": null,
+  "hygiene": {
+   "counts": {
+    "orphan.dead": 0,
+    "orphan.test_only": 0,
+    "orphan.uncertain": 0
+   },
+   "entry_points": [],
+   "findings": [],
+   "goal": "",
+   "keep": [],
+   "notes": [
+    "no entry points found, so nothing is reported: run `code-guardian init` and edit the goal file"
+   ],
+   "source": "inferred"
+  },
+  "notes": [],
+  "other_languages": {},
+  "outcomes": [
+   {
+    "check": "walk",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secret.key",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.dynamic",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.shell",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "deser.unsafe",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.egress",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.bind_all",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "tls.off",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "obfuscation",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "fs.outside",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_log",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_prompt",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secrets",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "manifests",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "works",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "complete",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "supply",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "javascript",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "js_works",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "orphans",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "leftovers",
+    "outcome": "ran",
+    "reason": null
+   }
+  ],
+  "scores": {
+   "cap_reason": null,
+   "capped": false,
+   "complete": 50,
+   "grade": "C",
+   "grade_uncapped": "C",
+   "overall": 60,
+   "safe": 100,
+   "works": 0
+  },
+  "status": "COMPLETE",
+  "status_reasons": [],
+  "tool": "code-guardian",
+  "top": [
+   {
+    "code": "works.entry_missing",
+    "count": 1,
+    "deduction": 30,
+    "dimension": "works",
+    "first": "package.json:5",
+    "level": "FAIL",
+    "locations": [
+     "package.json:5"
+    ],
+    "more": 0,
+    "weight": 30
+   },
+   {
+    "code": "works.syntax",
+    "count": 1,
+    "deduction": 30,
+    "dimension": "works",
+    "first": "src/half.js:2",
+    "level": "FAIL",
+    "locations": [
+     "src/half.js:2"
+    ],
+    "more": 0,
+    "weight": 30
+   },
+   {
+    "code": "works.relative_missing",
+    "count": 1,
+    "deduction": 25,
+    "dimension": "works",
+    "first": "src/index.ts:2",
+    "level": "FAIL",
+    "locations": [
+     "src/index.ts:2"
+    ],
+    "more": 0,
+    "weight": 25
+   },
+   {
+    "code": "complete.license_missing",
+    "count": 1,
+    "deduction": 20,
+    "dimension": "complete",
+    "first": ".",
+    "level": "WARN",
+    "locations": [
+     "."
+    ],
+    "more": 0,
+    "weight": 20
+   },
+   {
+    "code": "complete.readme_missing",
+    "count": 1,
+    "deduction": 20,
+    "dimension": "complete",
+    "first": ".",
+    "level": "WARN",
+    "locations": [
+     "."
+    ],
+    "more": 0,
+    "weight": 20
+   }
+  ],
+  "weights_rule": "each check (code + level) deducts its weight once, plus a quarter of the weight per extra occurrence (rounded up), at most 2x the weight; INFO is never scored"
+ },
+ "js_clean": {
+  "anchor": "README.md",
+  "coverage": {
+   "analysed": "javascript",
+   "languages": {
+    "javascript": {
+     "checks": [
+      "secret.key",
+      "exec.dynamic",
+      "exec.shell",
+      "deser.unsafe",
+      "net.egress",
+      "net.bind_all",
+      "tls.off",
+      "obfuscation",
+      "fs.outside",
+      "privacy.pii_log",
+      "dom.html_sink",
+      "works.syntax",
+      "works.import_unresolved",
+      "works.relative_missing",
+      "works.entry_missing",
+      "works.tests_missing"
+     ],
+     "depth": "tokens",
+     "files": 3,
+     "generated": 0,
+     "generated_checks": [
+      "secret.key",
+      "obfuscation",
+      "exec.dynamic"
+     ],
+     "not_checked": [
+      "privacy.pii_prompt",
+      "works.test_no_assert",
+      "works.todo_stub",
+      "works.commented_code",
+      "works.dead_flag",
+      "orphan.*"
+     ]
+    }
+   },
+   "other_source": {},
+   "other_source_files": 0,
+   "partial": false,
+   "python": 0,
+   "reason": null,
+   "safe_partial": false,
+   "works_scored": true
+  },
+  "dimensions": {
+   "complete": {
+    "checks": [],
+    "deducted": 0,
+    "partial": false,
+    "score": 100,
+    "scored": true
+   },
+   "safe": {
+    "checks": [],
+    "deducted": 0,
+    "partial": false,
+    "score": 100,
+    "scored": true
+   },
+   "works": {
+    "checks": [],
+    "deducted": 0,
+    "partial": false,
+    "score": 100,
+    "scored": true
+   }
+  },
+  "egress": [],
+  "files": {
+   "excluded": 0,
+   "generated": 0,
+   "ignored": 0,
+   "javascript": 3,
+   "manifests": 1,
+   "other": 5,
+   "python": 0,
+   "skipped": 0,
+   "unparsed": 0
+  },
+  "findings": [],
+  "goal_file": null,
+  "hygiene": {
+   "counts": {
+    "orphan.dead": 0,
+    "orphan.test_only": 0,
+    "orphan.uncertain": 0
+   },
+   "entry_points": [],
+   "findings": [],
+   "goal": "",
+   "keep": [],
+   "notes": [
+    "no entry points found, so nothing is reported: run `code-guardian init` and edit the goal file"
+   ],
+   "source": "inferred"
+  },
+  "notes": [],
+  "other_languages": {},
+  "outcomes": [
+   {
+    "check": "walk",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secret.key",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.dynamic",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.shell",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "deser.unsafe",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.egress",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.bind_all",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "tls.off",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "obfuscation",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "fs.outside",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_log",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_prompt",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secrets",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "manifests",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "works",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "complete",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "supply",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "javascript",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "js_works",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "orphans",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "leftovers",
+    "outcome": "ran",
+    "reason": null
+   }
+  ],
+  "scores": {
+   "cap_reason": null,
+   "capped": false,
+   "complete": 100,
+   "grade": "A",
+   "grade_uncapped": "A",
+   "overall": 100,
+   "safe": 100,
+   "works": 100
+  },
+  "status": "COMPLETE",
+  "status_reasons": [],
+  "tool": "code-guardian",
+  "top": [],
+  "weights_rule": "each check (code + level) deducts its weight once, plus a quarter of the weight per extra occurrence (rounded up), at most 2x the weight; INFO is never scored"
+ },
+ "js_risky": {
+  "anchor": "package.json",
+  "coverage": {
+   "analysed": "javascript",
+   "languages": {
+    "javascript": {
+     "checks": [
+      "secret.key",
+      "exec.dynamic",
+      "exec.shell",
+      "deser.unsafe",
+      "net.egress",
+      "net.bind_all",
+      "tls.off",
+      "obfuscation",
+      "fs.outside",
+      "privacy.pii_log",
+      "dom.html_sink",
+      "works.syntax",
+      "works.import_unresolved",
+      "works.relative_missing",
+      "works.entry_missing",
+      "works.tests_missing"
+     ],
+     "depth": "tokens",
+     "files": 1,
+     "generated": 0,
+     "generated_checks": [
+      "secret.key",
+      "obfuscation",
+      "exec.dynamic"
+     ],
+     "not_checked": [
+      "privacy.pii_prompt",
+      "works.test_no_assert",
+      "works.todo_stub",
+      "works.commented_code",
+      "works.dead_flag",
+      "orphan.*"
+     ]
+    }
+   },
+   "other_source": {},
+   "other_source_files": 0,
+   "partial": false,
+   "python": 0,
+   "reason": null,
+   "safe_partial": false,
+   "works_scored": true
+  },
+  "dimensions": {
+   "complete": {
+    "checks": [
+     {
+      "code": "complete.license_missing",
+      "count": 1,
+      "deduction": 20,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 20
+     },
+     {
+      "code": "complete.readme_missing",
+      "count": 1,
+      "deduction": 20,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 20
+     },
+     {
+      "code": "complete.ci_missing",
+      "count": 1,
+      "deduction": 10,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 10
+     }
+    ],
+    "deducted": 50,
+    "partial": false,
+    "score": 50,
+    "scored": true
+   },
+   "safe": {
+    "checks": [
+     {
+      "code": "obfuscation",
+      "count": 1,
+      "deduction": 40,
+      "first": "server.js:17",
+      "level": "FAIL",
+      "locations": [
+       "server.js:17"
+      ],
+      "more": 0,
+      "weight": 40
+     },
+     {
+      "code": "dom.html_sink",
+      "count": 1,
+      "deduction": 30,
+      "first": "server.js:21",
+      "level": "FAIL",
+      "locations": [
+       "server.js:21"
+      ],
+      "more": 0,
+      "weight": 30
+     },
+     {
+      "code": "exec.dynamic",
+      "count": 1,
+      "deduction": 30,
+      "first": "server.js:14",
+      "level": "FAIL",
+      "locations": [
+       "server.js:14"
+      ],
+      "more": 0,
+      "weight": 30
+     },
+     {
+      "code": "exec.shell",
+      "count": 1,
+      "deduction": 30,
+      "first": "server.js:15",
+      "level": "FAIL",
+      "locations": [
+       "server.js:15"
+      ],
+      "more": 0,
+      "weight": 30
+     },
+     {
+      "code": "tls.off",
+      "count": 1,
+      "deduction": 25,
+      "first": "server.js:11",
+      "level": "FAIL",
+      "locations": [
+       "server.js:11"
+      ],
+      "more": 0,
+      "weight": 25
+     },
+     {
+      "code": "install.hook",
+      "count": 1,
+      "deduction": 15,
+      "first": "package.json:7",
+      "level": "WARN",
+      "locations": [
+       "package.json:7"
+      ],
+      "more": 0,
+      "weight": 15
+     },
+     {
+      "code": "exec.dynamic",
+      "count": 1,
+      "deduction": 10,
+      "first": "server.js:17",
+      "level": "WARN",
+      "locations": [
+       "server.js:17"
+      ],
+      "more": 0,
+      "weight": 10
+     },
+     {
+      "code": "obfuscation",
+      "count": 1,
+      "deduction": 10,
+      "first": "server.js:8",
+      "level": "WARN",
+      "locations": [
+       "server.js:8"
+      ],
+      "more": 0,
+      "weight": 10
+     },
+     {
+      "code": "net.bind_all",
+      "count": 1,
+      "deduction": 5,
+      "first": "server.js:24",
+      "level": "WARN",
+      "locations": [
+       "server.js:24"
+      ],
+      "more": 0,
+      "weight": 5
+     },
+     {
+      "code": "privacy.pii_log",
+      "count": 1,
+      "deduction": 5,
+      "first": "server.js:19",
+      "level": "WARN",
+      "locations": [
+       "server.js:19"
+      ],
+      "more": 0,
+      "weight": 5
+     },
+     {
+      "code": "fs.outside",
+      "count": 1,
+      "deduction": 3,
+      "first": "server.js:18",
+      "level": "WARN",
+      "locations": [
+       "server.js:18"
+      ],
+      "more": 0,
+      "weight": 3
+     }
+    ],
+    "deducted": 203,
+    "partial": false,
+    "score": 0,
+    "scored": true
+   },
+   "works": {
+    "checks": [
+     {
+      "code": "works.tests_missing",
+      "count": 1,
+      "deduction": 15,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 15
+     }
+    ],
+    "deducted": 15,
+    "partial": false,
+    "score": 85,
+    "scored": true
+   }
+  },
+  "egress": [
+   {
+    "kind": "call",
+    "level": "INFO",
+    "node": "server.js:16",
+    "target": "http://example.org/x"
+   }
+  ],
+  "files": {
+   "excluded": 0,
+   "generated": 0,
+   "ignored": 0,
+   "javascript": 1,
+   "manifests": 1,
+   "other": 0,
+   "python": 0,
+   "skipped": 0,
+   "unparsed": 0
+  },
+  "findings": [
+   {
+    "code": "complete.ci_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: .github/workflows/, .gitlab-ci.yml, .circleci/, and other CI files"
+    ],
+    "fingerprint": "82614cc74cd71f3da6532c94a455c16972f894ad2b07091d9f8566d157847cbe",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no CI configuration: nothing runs the tests on each change",
+    "try": [
+     "add a CI workflow that runs the tests"
+    ]
+   },
+   {
+    "code": "complete.license_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: LICENSE, LICENCE, COPYING, UNLICENSE (any extension)"
+    ],
+    "fingerprint": "930beae195cf4084bc0835387d1df2762d4f7f5b636e4ce39dcffd55c5eed80c",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no licence file: nobody may legally reuse this code",
+    "try": [
+     "add a LICENSE file (choosealicense.com helps pick one)"
+    ]
+   },
+   {
+    "code": "complete.readme_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: README, README.md, README.rst, README.txt"
+    ],
+    "fingerprint": "ed3b257121a6493e37b33e1961caf4d9b94cbfd123c7611c5dc77d03a427b67f",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no README: nobody can tell what this is or how to run it",
+    "try": [
+     "add a README.md"
+    ]
+   },
+   {
+    "code": "works.tests_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: *.test.*, *.spec.*, __tests__/, test/, tests/, cypress/, e2e/ and scripts.test"
+    ],
+    "fingerprint": "af61c7db491aa0f6f1c07962bd6797e96d8114856e6d6c2a8a93154dcf2e05d4",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no test files: nothing checks that the code works",
+    "try": [
+     "add a test folder, or a test script in package.json that runs one"
+    ]
+   },
+   {
+    "code": "install.hook",
+    "confidence": "LIKELY",
+    "evidence": [
+     "script: node server.js"
+    ],
+    "fingerprint": "75adad838e8d3437bf471eaaf50e993ec4992f3e80450d90ea8cdef6d64094b6",
+    "fix": null,
+    "level": "WARN",
+    "node": "package.json:7",
+    "severity": "partial",
+    "summary": "npm postinstall script runs on install",
+    "try": [
+     "read what the hook runs before installing",
+     "prefer packages without install-time code"
+    ]
+   },
+   {
+    "code": "deps.unpinned",
+    "confidence": "LIKELY",
+    "evidence": [
+     "manifest: package.json dependencies",
+     "requirement: \"left-pad\""
+    ],
+    "fingerprint": "e4d7c964c207931fca1079da104ff28cb504e049284f1eca071a25d262ef2053",
+    "fix": null,
+    "level": "INFO",
+    "node": "package.json:10",
+    "severity": "partial",
+    "summary": "dependency left-pad has no pin or upper bound",
+    "try": [
+     "pin it (==) or cap it (<next major) so an install cannot pull a new release silently"
+    ]
+   },
+   {
+    "code": "obfuscation",
+    "confidence": "LIKELY",
+    "evidence": [
+     "kind: base64-like blob",
+     "length: 472"
+    ],
+    "fingerprint": "d7531a3e2800885d8842d20ba7e388210e47672c87085974eb68e5720b0e82ff",
+    "fix": null,
+    "level": "WARN",
+    "node": "server.js:8",
+    "severity": "partial",
+    "summary": "base64-like blob of 472 characters",
+    "try": [
+     "decode it and check what it holds"
+    ]
+   },
+   {
+    "code": "tls.off",
+    "confidence": "LIKELY",
+    "evidence": [
+     "prop: rejectUnauthorized: false"
+    ],
+    "fingerprint": "2984f7cc5449eaeaca5da60c7a380e6570d2efe16d2e2a2d8b2fa988497bc3d0",
+    "fix": null,
+    "level": "FAIL",
+    "node": "server.js:11",
+    "severity": "partial",
+    "summary": "rejectUnauthorized: false switches certificate checks off",
+    "try": [
+     "remove it; point at a CA bundle if the certificate is private"
+    ]
+   },
+   {
+    "code": "exec.dynamic",
+    "confidence": "LIKELY",
+    "evidence": [
+     "call: eval(<input>)",
+     "the code text is read from a request, the URL, the environment or a prompt"
+    ],
+    "fingerprint": "e791753c1002246d53cd73733ca154c3055687cacb756ef52f2ed3abbd11fbe9",
+    "fix": null,
+    "level": "FAIL",
+    "node": "server.js:14",
+    "severity": "partial",
+    "summary": "eval() runs code typed by the user",
+    "try": [
+     "never run input as code: parse it (JSON.parse for data) or map it to an allow-listed action"
+    ]
+   },
+   {
+    "code": "exec.shell",
+    "confidence": "LIKELY",
+    "evidence": [
+     "call: exec",
+     "the command text is read from a request, the URL or the environment, or is built by joining text (a template expression or +)"
+    ],
+    "fingerprint": "a099e0a4e1bc1741321fd6716bad6f041c8542818c3df595401c974758657b3c",
+    "fix": null,
+    "level": "FAIL",
+    "node": "server.js:15",
+    "severity": "partial",
+    "summary": "exec runs a shell command built from input, env or network",
+    "try": [
+     "pass an argument list to execFile or spawn without shell: true",
+     "validate the value against an allow-list"
+    ]
+   },
+   {
+    "code": "net.egress",
+    "confidence": "LIKELY",
+    "evidence": [
+     "kind: call",
+     "target: http://example.org/x",
+     "why: reserved documentation name",
+     "call: fetch"
+    ],
+    "fingerprint": "281dd569d5fb0dfb371de96436a2916734afb5fa6ebd1dba9e70b6136c1cf880",
+    "fix": null,
+    "level": "INFO",
+    "node": "server.js:16",
+    "severity": "partial",
+    "summary": "network call fetch to http://example.org/x (reserved documentation name)",
+    "try": []
+   },
+   {
+    "code": "exec.dynamic",
+    "confidence": "LIKELY",
+    "evidence": [
+     "call: eval(<non-literal>)"
+    ],
+    "fingerprint": "2e1e8ad4e81cadadf9e42425f3a9fa44dcf257e5c5de894dc50788421c069214",
+    "fix": null,
+    "level": "WARN",
+    "node": "server.js:17",
+    "severity": "partial",
+    "summary": "eval() runs code built at runtime",
+    "try": [
+     "replace it with a parser, a lookup table or JSON.parse"
+    ]
+   },
+   {
+    "code": "obfuscation",
+    "confidence": "LIKELY",
+    "evidence": [
+     "chain: eval(<decoder>(...))",
+     "decoders: atob, Buffer.from base64, String.fromCharCode, unescape, decodeURIComponent, zlib"
+    ],
+    "fingerprint": "351578f24a19d36751e2c73b7287ff601b75cba66e21a8a0ef26337cd5ca48e3",
+    "fix": null,
+    "level": "FAIL",
+    "node": "server.js:17",
+    "severity": "partial",
+    "summary": "eval() runs decoded or decompressed data",
+    "try": [
+     "decode the payload offline and read what it does before running this"
+    ]
+   },
+   {
+    "code": "fs.outside",
+    "confidence": "LIKELY",
+    "evidence": [
+     "call: fs.writeFileSync",
+     "path starts: /etc/motd"
+    ],
+    "fingerprint": "a302a3f89e3bc2e967a6a8577f73ea7111fd3348714c3e1484eec835acdf5f64",
+    "fix": null,
+    "level": "WARN",
+    "node": "server.js:18",
+    "severity": "partial",
+    "summary": "writes outside the project: /etc/motd (absolute path)",
+    "try": [
+     "write under the project or a path the user passes in"
+    ]
+   },
+   {
+    "code": "privacy.pii_log",
+    "confidence": "LIKELY",
+    "evidence": [
+     "name: password",
+     "sink: console.log"
+    ],
+    "fingerprint": "0687ec5bf1491d97ed21499db2572d934359809e35c175717a7c9cbee4185af3",
+    "fix": null,
+    "level": "WARN",
+    "node": "server.js:19",
+    "severity": "partial",
+    "summary": "a secret (password) is written to a log or printed (console.log)",
+    "try": [
+     "log an id or a masked value instead",
+     "logs are copied, shipped and kept far longer than the data itself"
+    ]
+   },
+   {
+    "code": "dom.html_sink",
+    "confidence": "LIKELY",
+    "evidence": [
+     "sink: .innerHTML",
+     "value: read from a request, the URL or the page"
+    ],
+    "fingerprint": "a75b4d03d1c323fd925339dc7cc56255e707c65d44e1b5033a926a5841019aac",
+    "fix": null,
+    "level": "FAIL",
+    "node": "server.js:21",
+    "severity": "partial",
+    "summary": ".innerHTML puts text from the request or the page into the page as HTML",
+    "try": [
+     "set textContent instead, or sanitize the text with a library such as DOMPurify first"
+    ]
+   },
+   {
+    "code": "net.bind_all",
+    "confidence": "LIKELY",
+    "evidence": [
+     "literal: 0.0.0.0"
+    ],
+    "fingerprint": "9a8e41dffcb894f661cf984279bbb78a8812c9f49ef678646b2c599a1e1b976a",
+    "fix": null,
+    "level": "WARN",
+    "node": "server.js:24",
+    "severity": "partial",
+    "summary": "binds to all interfaces (0.0.0.0)",
+    "try": [
+     "bind to 127.0.0.1 unless other machines must connect"
+    ]
+   }
+  ],
+  "goal_file": null,
+  "hygiene": {
+   "counts": {
+    "orphan.dead": 0,
+    "orphan.test_only": 0,
+    "orphan.uncertain": 0
+   },
+   "entry_points": [],
+   "findings": [],
+   "goal": "",
+   "keep": [],
+   "notes": [
+    "no entry points found, so nothing is reported: run `code-guardian init` and edit the goal file"
+   ],
+   "source": "inferred"
+  },
+  "notes": [],
+  "other_languages": {},
+  "outcomes": [
+   {
+    "check": "walk",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secret.key",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.dynamic",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.shell",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "deser.unsafe",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.egress",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.bind_all",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "tls.off",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "obfuscation",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "fs.outside",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_log",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_prompt",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secrets",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "manifests",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "works",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "complete",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "supply",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "javascript",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "js_works",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "orphans",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "leftovers",
+    "outcome": "ran",
+    "reason": null
+   }
+  ],
+  "scores": {
+   "cap_reason": "a Safe check is FAIL (dom.html_sink, exec.dynamic, exec.shell, obfuscation, tls.off): the grade is at most D",
+   "capped": true,
+   "complete": 50,
+   "grade": "F",
+   "grade_uncapped": "F",
+   "overall": 36,
+   "safe": 0,
+   "works": 85
+  },
+  "status": "COMPLETE",
+  "status_reasons": [],
+  "tool": "code-guardian",
+  "top": [
+   {
+    "code": "obfuscation",
+    "count": 1,
+    "deduction": 40,
+    "dimension": "safe",
+    "first": "server.js:17",
+    "level": "FAIL",
+    "locations": [
+     "server.js:17"
+    ],
+    "more": 0,
+    "weight": 40
+   },
+   {
+    "code": "dom.html_sink",
+    "count": 1,
+    "deduction": 30,
+    "dimension": "safe",
+    "first": "server.js:21",
+    "level": "FAIL",
+    "locations": [
+     "server.js:21"
+    ],
+    "more": 0,
+    "weight": 30
+   },
+   {
+    "code": "exec.dynamic",
+    "count": 1,
+    "deduction": 30,
+    "dimension": "safe",
+    "first": "server.js:14",
+    "level": "FAIL",
+    "locations": [
+     "server.js:14"
+    ],
+    "more": 0,
+    "weight": 30
+   },
+   {
+    "code": "exec.shell",
+    "count": 1,
+    "deduction": 30,
+    "dimension": "safe",
+    "first": "server.js:15",
+    "level": "FAIL",
+    "locations": [
+     "server.js:15"
+    ],
+    "more": 0,
+    "weight": 30
+   },
+   {
+    "code": "tls.off",
+    "count": 1,
+    "deduction": 25,
+    "dimension": "safe",
+    "first": "server.js:11",
+    "level": "FAIL",
+    "locations": [
+     "server.js:11"
+    ],
+    "more": 0,
+    "weight": 25
+   }
+  ],
+  "weights_rule": "each check (code + level) deducts its weight once, plus a quarter of the weight per extra occurrence (rounded up), at most 2x the weight; INFO is never scored"
+ },
+ "jsx_torture": {
+  "anchor": "App.jsx",
+  "coverage": {
+   "analysed": "javascript",
+   "languages": {
+    "javascript": {
+     "checks": [
+      "secret.key",
+      "exec.dynamic",
+      "exec.shell",
+      "deser.unsafe",
+      "net.egress",
+      "net.bind_all",
+      "tls.off",
+      "obfuscation",
+      "fs.outside",
+      "privacy.pii_log",
+      "dom.html_sink",
+      "works.syntax",
+      "works.import_unresolved",
+      "works.relative_missing",
+      "works.entry_missing",
+      "works.tests_missing"
+     ],
+     "depth": "tokens",
+     "files": 4,
+     "generated": 0,
+     "generated_checks": [
+      "secret.key",
+      "obfuscation",
+      "exec.dynamic"
+     ],
+     "not_checked": [
+      "privacy.pii_prompt",
+      "works.test_no_assert",
+      "works.todo_stub",
+      "works.commented_code",
+      "works.dead_flag",
+      "orphan.*"
+     ]
+    }
+   },
+   "other_source": {},
+   "other_source_files": 0,
+   "partial": false,
+   "python": 0,
+   "reason": null,
+   "safe_partial": false,
+   "works_scored": true
+  },
+  "dimensions": {
+   "complete": {
+    "checks": [
+     {
+      "code": "complete.license_missing",
+      "count": 1,
+      "deduction": 20,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 20
+     },
+     {
+      "code": "complete.readme_missing",
+      "count": 1,
+      "deduction": 20,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 20
+     },
+     {
+      "code": "complete.ci_missing",
+      "count": 1,
+      "deduction": 10,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 10
+     }
+    ],
+    "deducted": 50,
+    "partial": false,
+    "score": 50,
+    "scored": true
+   },
+   "safe": {
+    "checks": [
+     {
+      "code": "exec.dynamic",
+      "count": 4,
+      "deduction": 53,
+      "first": "App.jsx:22",
+      "level": "FAIL",
+      "locations": [
+       "App.jsx:22",
+       "App.jsx:23",
+       "App.jsx:24",
+       "Quote.jsx:6"
+      ],
+      "more": 0,
+      "weight": 30
+     }
+    ],
+    "deducted": 53,
+    "partial": false,
+    "score": 47,
+    "scored": true
+   },
+   "works": {
+    "checks": [
+     {
+      "code": "works.tests_missing",
+      "count": 1,
+      "deduction": 15,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 15
+     },
+     {
+      "code": "works.import_unresolved",
+      "count": 1,
+      "deduction": 10,
+      "first": "App.jsx:1",
+      "level": "WARN",
+      "locations": [
+       "App.jsx:1"
+      ],
+      "more": 0,
+      "weight": 10
+     }
+    ],
+    "deducted": 25,
+    "partial": false,
+    "score": 75,
+    "scored": true
+   }
+  },
+  "egress": [
+   {
+    "kind": "url",
+    "level": "INFO",
+    "node": "App.jsx:24",
+    "target": "https://example.org"
+   }
+  ],
+  "files": {
+   "excluded": 0,
+   "generated": 0,
+   "ignored": 0,
+   "javascript": 4,
+   "manifests": 1,
+   "other": 0,
+   "python": 0,
+   "skipped": 0,
+   "unparsed": 0
+  },
+  "findings": [
+   {
+    "code": "complete.ci_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: .github/workflows/, .gitlab-ci.yml, .circleci/, and other CI files"
+    ],
+    "fingerprint": "82614cc74cd71f3da6532c94a455c16972f894ad2b07091d9f8566d157847cbe",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no CI configuration: nothing runs the tests on each change",
+    "try": [
+     "add a CI workflow that runs the tests"
+    ]
+   },
+   {
+    "code": "complete.license_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: LICENSE, LICENCE, COPYING, UNLICENSE (any extension)"
+    ],
+    "fingerprint": "930beae195cf4084bc0835387d1df2762d4f7f5b636e4ce39dcffd55c5eed80c",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no licence file: nobody may legally reuse this code",
+    "try": [
+     "add a LICENSE file (choosealicense.com helps pick one)"
+    ]
+   },
+   {
+    "code": "complete.readme_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: README, README.md, README.rst, README.txt"
+    ],
+    "fingerprint": "ed3b257121a6493e37b33e1961caf4d9b94cbfd123c7611c5dc77d03a427b67f",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no README: nobody can tell what this is or how to run it",
+    "try": [
+     "add a README.md"
+    ]
+   },
+   {
+    "code": "works.tests_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: *.test.*, *.spec.*, __tests__/, test/, tests/, cypress/, e2e/ and scripts.test"
+    ],
+    "fingerprint": "af61c7db491aa0f6f1c07962bd6797e96d8114856e6d6c2a8a93154dcf2e05d4",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no test files: nothing checks that the code works",
+    "try": [
+     "add a test folder, or a test script in package.json that runs one"
+    ]
+   },
+   {
+    "code": "works.import_unresolved",
+    "confidence": "LIKELY",
+    "evidence": [
+     "package: react"
+    ],
+    "fingerprint": "f08db125db541867579521c3b738d166f72b455529fc2d7f276d5d146979fdbc",
+    "fix": null,
+    "level": "WARN",
+    "node": "App.jsx:1",
+    "severity": "partial",
+    "summary": "import react: not a Node builtin or a dependency in package.json",
+    "try": [
+     "add react to dependencies in package.json",
+     "or remove the import if nothing uses it"
+    ]
+   },
+   {
+    "code": "exec.dynamic",
+    "confidence": "LIKELY",
+    "evidence": [
+     "call: eval(<input>)",
+     "the code text is read from a request, the URL, the environment or a prompt"
+    ],
+    "fingerprint": "492d0cc587c20209f7fc3adbc8e5425b7b6f48923cfa5c080a7d98d0ab3b8c86",
+    "fix": null,
+    "level": "FAIL",
+    "node": "App.jsx:22",
+    "severity": "partial",
+    "summary": "eval() runs code typed by the user",
+    "try": [
+     "never run input as code: parse it (JSON.parse for data) or map it to an allow-listed action"
+    ]
+   },
+   {
+    "code": "exec.dynamic",
+    "confidence": "LIKELY",
+    "evidence": [
+     "call: eval(<input>)",
+     "the code text is read from a request, the URL, the environment or a prompt"
+    ],
+    "fingerprint": "1cf1b16a527f4c3361331f3b85861b16ae41c9237124b92abb843f60e08a1238",
+    "fix": null,
+    "level": "FAIL",
+    "node": "App.jsx:23",
+    "severity": "partial",
+    "summary": "eval() runs code typed by the user",
+    "try": [
+     "never run input as code: parse it (JSON.parse for data) or map it to an allow-listed action"
+    ]
+   },
+   {
+    "code": "exec.dynamic",
+    "confidence": "LIKELY",
+    "evidence": [
+     "call: eval(<input>)",
+     "the code text is read from a request, the URL, the environment or a prompt"
+    ],
+    "fingerprint": "aa4e20e5b785fd4280f5e87f44ad08799bd6c7f29d565ce83ac92d8b4330f842",
+    "fix": null,
+    "level": "FAIL",
+    "node": "App.jsx:24",
+    "severity": "partial",
+    "summary": "eval() runs code typed by the user",
+    "try": [
+     "never run input as code: parse it (JSON.parse for data) or map it to an allow-listed action"
+    ]
+   },
+   {
+    "code": "net.egress",
+    "confidence": "LIKELY",
+    "evidence": [
+     "kind: url",
+     "target: https://example.org",
+     "why: reserved documentation name"
+    ],
+    "fingerprint": "ab218630d8d31e4debe083eb20f8dcc7ba2cd71ab70065c79d6927a0390854e0",
+    "fix": null,
+    "level": "INFO",
+    "node": "App.jsx:24",
+    "severity": "partial",
+    "summary": "URL literal https://example.org (reserved documentation name)",
+    "try": []
+   },
+   {
+    "code": "exec.dynamic",
+    "confidence": "LIKELY",
+    "evidence": [
+     "name: eval",
+     "an apostrophe in JSX text can hide code from the lexer"
+    ],
+    "fingerprint": "0399c5e6155bf911a32af6a6645d0275b7e8b87e343841373ee9e1b795537f00",
+    "fix": null,
+    "level": "INFO",
+    "node": "App.jsx:25",
+    "severity": "partial",
+    "summary": "code-like text inside JSX text was not analysed",
+    "try": [
+     "escape the apostrophe in the text (&apos;) so the code after it is analysed"
+    ]
+   },
+   {
+    "code": "exec.dynamic",
+    "confidence": "LIKELY",
+    "evidence": [
+     "call: eval(<input>)",
+     "the code text is read from a request, the URL, the environment or a prompt",
+     "after a stray backtick in JSX text"
+    ],
+    "fingerprint": "8abdbbc982a354546f7d717aa4324977965bda52ed9d560f5b4280a8d0cad481",
+    "fix": null,
+    "level": "FAIL",
+    "node": "Quote.jsx:6",
+    "severity": "partial",
+    "summary": "eval() runs code typed by the user",
+    "try": [
+     "never run input as code: parse it (JSON.parse for data) or map it to an allow-listed action"
+    ]
+   }
+  ],
+  "goal_file": null,
+  "hygiene": {
+   "counts": {
+    "orphan.dead": 0,
+    "orphan.test_only": 0,
+    "orphan.uncertain": 0
+   },
+   "entry_points": [],
+   "findings": [],
+   "goal": "",
+   "keep": [],
+   "notes": [
+    "no entry points found, so nothing is reported: run `code-guardian init` and edit the goal file"
+   ],
+   "source": "inferred"
+  },
+  "notes": [],
+  "other_languages": {},
+  "outcomes": [
+   {
+    "check": "walk",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secret.key",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.dynamic",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.shell",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "deser.unsafe",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.egress",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.bind_all",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "tls.off",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "obfuscation",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "fs.outside",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_log",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_prompt",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secrets",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "manifests",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "works",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "complete",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "supply",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "javascript",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "js_works",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "orphans",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "leftovers",
+    "outcome": "ran",
+    "reason": null
+   }
+  ],
+  "scores": {
+   "cap_reason": "a Safe check is FAIL (exec.dynamic): the grade is at most D",
+   "capped": true,
+   "complete": 50,
+   "grade": "D",
+   "grade_uncapped": "D",
+   "overall": 56,
+   "safe": 47,
+   "works": 75
+  },
+  "status": "COMPLETE",
+  "status_reasons": [],
+  "tool": "code-guardian",
+  "top": [
+   {
+    "code": "exec.dynamic",
+    "count": 4,
+    "deduction": 53,
+    "dimension": "safe",
+    "first": "App.jsx:22",
+    "level": "FAIL",
+    "locations": [
+     "App.jsx:22",
+     "App.jsx:23",
+     "App.jsx:24",
+     "Quote.jsx:6"
+    ],
+    "more": 0,
+    "weight": 30
+   },
+   {
+    "code": "complete.license_missing",
+    "count": 1,
+    "deduction": 20,
+    "dimension": "complete",
+    "first": ".",
+    "level": "WARN",
+    "locations": [
+     "."
+    ],
+    "more": 0,
+    "weight": 20
+   },
+   {
+    "code": "complete.readme_missing",
+    "count": 1,
+    "deduction": 20,
+    "dimension": "complete",
+    "first": ".",
+    "level": "WARN",
+    "locations": [
+     "."
+    ],
+    "more": 0,
+    "weight": 20
+   },
+   {
+    "code": "works.tests_missing",
+    "count": 1,
+    "deduction": 15,
+    "dimension": "works",
+    "first": ".",
+    "level": "WARN",
+    "locations": [
+     "."
+    ],
+    "more": 0,
+    "weight": 15
+   },
+   {
+    "code": "works.import_unresolved",
+    "count": 1,
+    "deduction": 10,
+    "dimension": "works",
+    "first": "App.jsx:1",
+    "level": "WARN",
+    "locations": [
+     "App.jsx:1"
+    ],
+    "more": 0,
+    "weight": 10
+   }
+  ],
+  "weights_rule": "each check (code + level) deducts its weight once, plus a quarter of the weight per extra occurrence (rounded up), at most 2x the weight; INFO is never scored"
+ },
+ "orphan_repo": {
+  "anchor": "code-guardian.goal.toml",
+  "coverage": {
+   "analysed": "python",
+   "languages": {
+    "python": {
+     "depth": "full",
+     "files": 6
+    }
+   },
+   "other_source": {},
+   "other_source_files": 0,
+   "partial": false,
+   "python": 6,
+   "reason": null,
+   "safe_partial": false,
+   "works_scored": true
+  },
+  "dimensions": {
+   "complete": {
+    "checks": [
+     {
+      "code": "complete.license_missing",
+      "count": 1,
+      "deduction": 20,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 20
+     },
+     {
+      "code": "complete.readme_missing",
+      "count": 1,
+      "deduction": 20,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 20
+     },
+     {
+      "code": "complete.ci_missing",
+      "count": 1,
+      "deduction": 10,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 10
+     }
+    ],
+    "deducted": 50,
+    "partial": false,
+    "score": 50,
+    "scored": true
+   },
+   "safe": {
+    "checks": [],
+    "deducted": 0,
+    "partial": false,
+    "score": 100,
+    "scored": true
+   },
+   "works": {
+    "checks": [
+     {
+      "code": "orphan.dead",
+      "count": 1,
+      "deduction": 3,
+      "first": "greeter/core.py:5",
+      "level": "WARN",
+      "locations": [
+       "greeter/core.py:5"
+      ],
+      "more": 0,
+      "weight": 3
+     }
+    ],
+    "deducted": 3,
+    "partial": false,
+    "score": 97,
+    "scored": true
+   }
+  },
+  "egress": [],
+  "files": {
+   "excluded": 0,
+   "generated": 0,
+   "ignored": 0,
+   "javascript": 0,
+   "manifests": 0,
+   "other": 1,
+   "python": 6,
+   "skipped": 0,
+   "unparsed": 0
+  },
+  "findings": [
+   {
+    "code": "complete.ci_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: .github/workflows/, .gitlab-ci.yml, .circleci/, and other CI files"
+    ],
+    "fingerprint": "82614cc74cd71f3da6532c94a455c16972f894ad2b07091d9f8566d157847cbe",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no CI configuration: nothing runs the tests on each change",
+    "try": [
+     "add a CI workflow that runs the tests"
+    ]
+   },
+   {
+    "code": "complete.license_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: LICENSE, LICENCE, COPYING, UNLICENSE (any extension)"
+    ],
+    "fingerprint": "930beae195cf4084bc0835387d1df2762d4f7f5b636e4ce39dcffd55c5eed80c",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no licence file: nobody may legally reuse this code",
+    "try": [
+     "add a LICENSE file (choosealicense.com helps pick one)"
+    ]
+   },
+   {
+    "code": "complete.readme_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: README, README.md, README.rst, README.txt"
+    ],
+    "fingerprint": "ed3b257121a6493e37b33e1961caf4d9b94cbfd123c7611c5dc77d03a427b67f",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no README: nobody can tell what this is or how to run it",
+    "try": [
+     "add a README.md"
+    ]
+   }
+  ],
+  "goal_file": "code-guardian.goal.toml",
+  "hygiene": {
+   "counts": {
+    "orphan.dead": 1,
+    "orphan.test_only": 1,
+    "orphan.uncertain": 1
+   },
+   "entry_points": [
+    "greeter.cli:main"
+   ],
+   "findings": [
+    {
+     "code": "orphan.uncertain",
+     "confidence": "LIKELY",
+     "evidence": [
+      "name: greeter.cli.cmd_hello",
+      "kind: function",
+      "entry points: 1 (contract)",
+      "why uncertain: getattr with a computed name in greeter.cli.main may reach it"
+     ],
+     "fingerprint": "2196854754dcc3a2331e64c51aaf70c414ef7538ba2ec002e127722598349255",
+     "fix": null,
+     "level": "INFO",
+     "node": "greeter/cli.py:6",
+     "severity": "partial",
+     "summary": "function greeter.cli.cmd_hello may be reached dynamically",
+     "try": [
+      "list it in keep if it is loaded by name; otherwise delete it"
+     ]
+    },
+    {
+     "code": "orphan.dead",
+     "confidence": "LIKELY",
+     "evidence": [
+      "name: greeter.core.shout",
+      "kind: function",
+      "entry points: 1 (contract)"
+     ],
+     "fingerprint": "09c2f1cd4cd57a2a9779461dc04a2e1226a010a85b545f71bab2afb828b0675e",
+     "fix": null,
+     "level": "WARN",
+     "node": "greeter/core.py:5",
+     "severity": "partial",
+     "summary": "function greeter.core.shout is never reached from the entry points",
+     "try": [
+      "delete it, or list it in keep if something loads it by name"
+     ]
+    },
+    {
+     "code": "orphan.test_only",
+     "confidence": "LIKELY",
+     "evidence": [
+      "name: greeter.core.format_for_tests",
+      "kind: function",
+      "entry points: 1 (contract)"
+     ],
+     "fingerprint": "aa3f613a6507479bcb2109ae1e51477efd2297812642cebd1ead43b42be07d3d",
+     "fix": null,
+     "level": "INFO",
+     "node": "greeter/core.py:9",
+     "severity": "partial",
+     "summary": "function greeter.core.format_for_tests is reached only from tests",
+     "try": [
+      "delete it with its tests, or call it from the product"
+     ]
+    }
+   ],
+   "goal": "Greet people from the command line.",
+   "keep": [
+    "greeter.plugins.*"
+   ],
+   "notes": [],
+   "source": "contract"
+  },
+  "notes": [],
+  "other_languages": {},
+  "outcomes": [
+   {
+    "check": "walk",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secrets",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secret.key",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.dynamic",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.shell",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "deser.unsafe",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.egress",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.bind_all",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "tls.off",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "obfuscation",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "fs.outside",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_log",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_prompt",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "manifests",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "works",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "complete",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "supply",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "orphans",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "leftovers",
+    "outcome": "ran",
+    "reason": null
+   }
+  ],
+  "scores": {
+   "cap_reason": null,
+   "capped": false,
+   "complete": 50,
+   "grade": "B",
+   "grade_uncapped": "B",
+   "overall": 89,
+   "safe": 100,
+   "works": 97
+  },
+  "status": "COMPLETE",
+  "status_reasons": [],
+  "tool": "code-guardian",
+  "top": [
+   {
+    "code": "complete.license_missing",
+    "count": 1,
+    "deduction": 20,
+    "dimension": "complete",
+    "first": ".",
+    "level": "WARN",
+    "locations": [
+     "."
+    ],
+    "more": 0,
+    "weight": 20
+   },
+   {
+    "code": "complete.readme_missing",
+    "count": 1,
+    "deduction": 20,
+    "dimension": "complete",
+    "first": ".",
+    "level": "WARN",
+    "locations": [
+     "."
+    ],
+    "more": 0,
+    "weight": 20
+   },
+   {
+    "code": "complete.ci_missing",
+    "count": 1,
+    "deduction": 10,
+    "dimension": "complete",
+    "first": ".",
+    "level": "WARN",
+    "locations": [
+     "."
+    ],
+    "more": 0,
+    "weight": 10
+   },
+   {
+    "code": "orphan.dead",
+    "count": 1,
+    "deduction": 3,
+    "dimension": "works",
+    "first": "greeter/core.py:5",
+    "level": "WARN",
+    "locations": [
+     "greeter/core.py:5"
+    ],
+    "more": 0,
+    "weight": 3
+   }
+  ],
+  "weights_rule": "each check (code + level) deducts its weight once, plus a quarter of the weight per extra occurrence (rounded up), at most 2x the weight; INFO is never scored"
+ },
+ "risky_repo": {
+  "anchor": "pyproject.toml",
+  "coverage": {
+   "analysed": "python+javascript",
+   "languages": {
+    "javascript": {
+     "checks": [
+      "secret.key",
+      "exec.dynamic",
+      "exec.shell",
+      "deser.unsafe",
+      "net.egress",
+      "net.bind_all",
+      "tls.off",
+      "obfuscation",
+      "fs.outside",
+      "privacy.pii_log",
+      "dom.html_sink",
+      "works.syntax",
+      "works.import_unresolved",
+      "works.relative_missing",
+      "works.entry_missing",
+      "works.tests_missing"
+     ],
+     "depth": "tokens",
+     "files": 1,
+     "generated": 0,
+     "generated_checks": [
+      "secret.key",
+      "obfuscation",
+      "exec.dynamic"
+     ],
+     "not_checked": [
+      "privacy.pii_prompt",
+      "works.test_no_assert",
+      "works.todo_stub",
+      "works.commented_code",
+      "works.dead_flag",
+      "orphan.*"
+     ]
+    },
+    "python": {
+     "depth": "full",
+     "files": 7
+    }
+   },
+   "other_source": {},
+   "other_source_files": 0,
+   "partial": false,
+   "python": 7,
+   "reason": null,
+   "safe_partial": false,
+   "works_scored": true
+  },
+  "dimensions": {
+   "complete": {
+    "checks": [
+     {
+      "code": "complete.license_missing",
+      "count": 1,
+      "deduction": 20,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 20
+     },
+     {
+      "code": "complete.readme_missing",
+      "count": 1,
+      "deduction": 20,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 20
+     },
+     {
+      "code": "complete.ci_missing",
+      "count": 1,
+      "deduction": 10,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 10
+     },
+     {
+      "code": "complete.metadata",
+      "count": 1,
+      "deduction": 10,
+      "first": "pyproject.toml:1",
+      "level": "WARN",
+      "locations": [
+       "pyproject.toml:1"
+      ],
+      "more": 0,
+      "weight": 10
+     },
+     {
+      "code": "complete.license_undeclared",
+      "count": 1,
+      "deduction": 5,
+      "first": "pyproject.toml:1",
+      "level": "WARN",
+      "locations": [
+       "pyproject.toml:1"
+      ],
+      "more": 0,
+      "weight": 5
+     }
+    ],
+    "deducted": 65,
+    "partial": false,
+    "score": 35,
+    "scored": true
+   },
+   "safe": {
+    "checks": [
+     {
+      "code": "secret.key",
+      "count": 3,
+      "deduction": 60,
+      "first": "deploy/id_rsa:1",
+      "level": "FAIL",
+      "locations": [
+       "deploy/id_rsa:1",
+       "risky/settings.py:1",
+       "risky/settings.py:2"
+      ],
+      "more": 0,
+      "weight": 40
+     },
+     {
+      "code": "obfuscation",
+      "count": 1,
+      "deduction": 40,
+      "first": "risky/loader.py:7",
+      "level": "FAIL",
+      "locations": [
+       "risky/loader.py:7"
+      ],
+      "more": 0,
+      "weight": 40
+     },
+     {
+      "code": "exec.shell",
+      "count": 1,
+      "deduction": 30,
+      "first": "risky/runner.py:7",
+      "level": "FAIL",
+      "locations": [
+       "risky/runner.py:7"
+      ],
+      "more": 0,
+      "weight": 30
+     },
+     {
+      "code": "tls.off",
+      "count": 1,
+      "deduction": 25,
+      "first": "risky/network.py:11",
+      "level": "FAIL",
+      "locations": [
+       "risky/network.py:11"
+      ],
+      "more": 0,
+      "weight": 25
+     },
+     {
+      "code": "install.hook",
+      "count": 3,
+      "deduction": 23,
+      "first": "package.json:5",
+      "level": "WARN",
+      "locations": [
+       "package.json:5",
+       "setup.py:5",
+       "setup.py:14"
+      ],
+      "more": 0,
+      "weight": 15
+     },
+     {
+      "code": "deser.unsafe",
+      "count": 2,
+      "deduction": 13,
+      "first": "risky/storage.py:8",
+      "level": "WARN",
+      "locations": [
+       "risky/storage.py:8",
+       "risky/storage.py:12"
+      ],
+      "more": 0,
+      "weight": 10
+     },
+     {
+      "code": "exec.dynamic",
+      "count": 2,
+      "deduction": 13,
+      "first": "risky/loader.py:7",
+      "level": "WARN",
+      "locations": [
+       "risky/loader.py:7",
+       "risky/runner.py:15"
+      ],
+      "more": 0,
+      "weight": 10
+     },
+     {
+      "code": "obfuscation",
+      "count": 2,
+      "deduction": 13,
+      "first": "risky/loader.py:3",
+      "level": "WARN",
+      "locations": [
+       "risky/loader.py:3",
+       "risky/settings.py:3"
+      ],
+      "more": 0,
+      "weight": 10
+     },
+     {
+      "code": "exec.shell",
+      "count": 1,
+      "deduction": 10,
+      "first": "risky/runner.py:11",
+      "level": "WARN",
+      "locations": [
+       "risky/runner.py:11"
+      ],
+      "more": 0,
+      "weight": 10
+     },
+     {
+      "code": "net.bind_all",
+      "count": 1,
+      "deduction": 5,
+      "first": "risky/network.py:16",
+      "level": "WARN",
+      "locations": [
+       "risky/network.py:16"
+      ],
+      "more": 0,
+      "weight": 5
+     },
+     {
+      "code": "fs.outside",
+      "count": 1,
+      "deduction": 3,
+      "first": "risky/storage.py:16",
+      "level": "WARN",
+      "locations": [
+       "risky/storage.py:16"
+      ],
+      "more": 0,
+      "weight": 3
+     },
+     {
+      "code": "net.egress",
+      "count": 1,
+      "deduction": 2,
+      "first": "risky/network.py:5",
+      "level": "WARN",
+      "locations": [
+       "risky/network.py:5"
+      ],
+      "more": 0,
+      "weight": 2
+     }
+    ],
+    "deducted": 237,
+    "partial": false,
+    "score": 0,
+    "scored": true
+   },
+   "works": {
+    "checks": [
+     {
+      "code": "works.tests_missing",
+      "count": 1,
+      "deduction": 15,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 15
+     }
+    ],
+    "deducted": 15,
+    "partial": false,
+    "score": 85,
+    "scored": true
+   }
+  },
+  "egress": [
+   {
+    "kind": "url",
+    "level": "WARN",
+    "node": "risky/network.py:5",
+    "target": "http://{host}:8080/upload"
+   },
+   {
+    "kind": "url",
+    "level": "INFO",
+    "node": "risky/network.py:6",
+    "target": "https://example.com/docs"
+   },
+   {
+    "kind": "ip",
+    "level": "INFO",
+    "node": "risky/network.py:7",
+    "target": "100.64.0.5"
+   },
+   {
+    "kind": "call",
+    "level": "INFO",
+    "node": "risky/network.py:11",
+    "target": "requests.post"
+   },
+   {
+    "kind": "call",
+    "level": "INFO",
+    "node": "web/setup.js:1",
+    "target": "https://example.com/hello"
+   }
+  ],
+  "files": {
+   "excluded": 0,
+   "generated": 0,
+   "ignored": 0,
+   "javascript": 1,
+   "manifests": 3,
+   "other": 1,
+   "python": 7,
+   "skipped": 0,
+   "unparsed": 0
+  },
+  "findings": [
+   {
+    "code": "complete.ci_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: .github/workflows/, .gitlab-ci.yml, .circleci/, and other CI files"
+    ],
+    "fingerprint": "82614cc74cd71f3da6532c94a455c16972f894ad2b07091d9f8566d157847cbe",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no CI configuration: nothing runs the tests on each change",
+    "try": [
+     "add a CI workflow that runs the tests"
+    ]
+   },
+   {
+    "code": "complete.license_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: LICENSE, LICENCE, COPYING, UNLICENSE (any extension)"
+    ],
+    "fingerprint": "930beae195cf4084bc0835387d1df2762d4f7f5b636e4ce39dcffd55c5eed80c",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no licence file: nobody may legally reuse this code",
+    "try": [
+     "add a LICENSE file (choosealicense.com helps pick one)"
+    ]
+   },
+   {
+    "code": "complete.readme_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: README, README.md, README.rst, README.txt"
+    ],
+    "fingerprint": "ed3b257121a6493e37b33e1961caf4d9b94cbfd123c7611c5dc77d03a427b67f",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no README: nobody can tell what this is or how to run it",
+    "try": [
+     "add a README.md"
+    ]
+   },
+   {
+    "code": "works.tests_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: tests/, test_*.py, *_test.py, tests.py, conftest.py"
+    ],
+    "fingerprint": "af61c7db491aa0f6f1c07962bd6797e96d8114856e6d6c2a8a93154dcf2e05d4",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no test files: nothing checks that the code works",
+    "try": [
+     "add a tests/ folder with at least one test per entry point"
+    ]
+   },
+   {
+    "code": "secret.key",
+    "confidence": "LIKELY",
+    "evidence": [
+     "matched: private-key block",
+     "length: 31 characters"
+    ],
+    "fingerprint": "6d7b8123a310ad251439188a5a5a26d1c8f909907f13116e4a5a735877282015",
+    "fix": null,
+    "level": "FAIL",
+    "node": "deploy/id_rsa:1",
+    "severity": "partial",
+    "summary": "private-key block in the source; value redacted",
+    "try": [
+     "move it to an environment variable or a secret store",
+     "rotate it: it is in this file's history"
+    ]
+   },
+   {
+    "code": "install.hook",
+    "confidence": "LIKELY",
+    "evidence": [
+     "script: node web/setup.js"
+    ],
+    "fingerprint": "1ab452723fe60118c2746950336be0302064c2433d6759d945a8d3e252946343",
+    "fix": null,
+    "level": "WARN",
+    "node": "package.json:5",
+    "severity": "partial",
+    "summary": "npm postinstall script runs on install",
+    "try": [
+     "read what the hook runs before installing",
+     "prefer packages without install-time code"
+    ]
+   },
+   {
+    "code": "deps.unpinned",
+    "confidence": "LIKELY",
+    "evidence": [
+     "manifest: package.json dependencies",
+     "requirement: \"left-pad\""
+    ],
+    "fingerprint": "e4d7c964c207931fca1079da104ff28cb504e049284f1eca071a25d262ef2053",
+    "fix": null,
+    "level": "INFO",
+    "node": "package.json:8",
+    "severity": "partial",
+    "summary": "dependency left-pad has no pin or upper bound",
+    "try": [
+     "pin it (==) or cap it (<next major) so an install cannot pull a new release silently"
+    ]
+   },
+   {
+    "code": "complete.license_undeclared",
+    "confidence": "LIKELY",
+    "evidence": [
+     "no license / license-files / License classifier"
+    ],
+    "fingerprint": "c5772dbbd3e346e368c05641ff50cc5131e8ea3fabf53700395cfb9e8a47d025",
+    "fix": null,
+    "level": "WARN",
+    "node": "pyproject.toml:1",
+    "severity": "partial",
+    "summary": "the package metadata declares no licence",
+    "try": [
+     "add license = \"MIT\" (or your licence) to [project]"
+    ]
+   },
+   {
+    "code": "complete.metadata",
+    "confidence": "LIKELY",
+    "evidence": [
+     "required: name, version (or dynamic), requires-python"
+    ],
+    "fingerprint": "96b4d1dc5b8e19da178e202b08daf0fea568ceecd7bac8af37ef01cf70e7bf52",
+    "fix": null,
+    "level": "WARN",
+    "node": "pyproject.toml:1",
+    "severity": "partial",
+    "summary": "pyproject.toml [project] is missing: requires-python",
+    "try": [
+     "add the missing keys to [project]"
+    ]
+   },
+   {
+    "code": "deps.declared_unused",
+    "confidence": "LIKELY",
+    "evidence": [
+     "kind: runtime"
+    ],
+    "fingerprint": "2d478d7e9a544668bc23909649575deab237a6c3b8dc53cb4ef2dab5c4e6453e",
+    "fix": null,
+    "level": "INFO",
+    "node": "pyproject.toml:4",
+    "severity": "partial",
+    "summary": "dependency flask is declared but never imported",
+    "try": [
+     "remove it, or note why it is needed (a plugin or a runner)"
+    ]
+   },
+   {
+    "code": "deps.unpinned",
+    "confidence": "LIKELY",
+    "evidence": [
+     "manifest: pyproject.toml",
+     "requirement: flask>=2"
+    ],
+    "fingerprint": "7440c51e74e35052767deb5cd7abecd234f2fbae588e92b5f3339ceebe42eb62",
+    "fix": null,
+    "level": "INFO",
+    "node": "pyproject.toml:4",
+    "severity": "partial",
+    "summary": "dependency flask has no pin or upper bound",
+    "try": [
+     "pin it (==) or cap it (<next major) so an install cannot pull a new release silently"
+    ]
+   },
+   {
+    "code": "obfuscation",
+    "confidence": "LIKELY",
+    "evidence": [
+     "kind: base64-like blob",
+     "length: 340"
+    ],
+    "fingerprint": "2b18176a2b09b373c987ff89a1dc01835f91260fc42ac2a9a46f11a4eed996cb",
+    "fix": null,
+    "level": "WARN",
+    "node": "risky/loader.py:3",
+    "severity": "partial",
+    "summary": "base64-like blob of 340 characters",
+    "try": [
+     "decode it and check what it holds"
+    ]
+   },
+   {
+    "code": "exec.dynamic",
+    "confidence": "LIKELY",
+    "evidence": [
+     "call: exec(<non-literal>)"
+    ],
+    "fingerprint": "97a5dd5647c5fe78a19c67476c9ee9e6f7c70d2ce0a8e6a99616636c2040ed46",
+    "fix": null,
+    "level": "WARN",
+    "node": "risky/loader.py:7",
+    "severity": "partial",
+    "summary": "exec() runs code built at runtime",
+    "try": [
+     "replace it with a parser or a lookup table (ast.literal_eval for data)"
+    ]
+   },
+   {
+    "code": "obfuscation",
+    "confidence": "LIKELY",
+    "evidence": [
+     "chain: exec(<decoder>(...))",
+     "decoders: base64, zlib, marshal, hex, codecs"
+    ],
+    "fingerprint": "12ab57372003579226fd753e4501615a2970d60c1a214f8ec8ff2ab340c93fe6",
+    "fix": null,
+    "level": "FAIL",
+    "node": "risky/loader.py:7",
+    "severity": "partial",
+    "summary": "exec() runs decoded or decompressed data",
+    "try": [
+     "decode the payload offline and read what it does before running this"
+    ]
+   },
+   {
+    "code": "net.egress",
+    "confidence": "LIKELY",
+    "evidence": [
+     "kind: url",
+     "target: http://{host}:8080/upload",
+     "why: not https; host set at runtime"
+    ],
+    "fingerprint": "3682ff6eaaeefc3271e79d3ce60b57e242a46c6a9bfa008a6ddf2b44c9e89100",
+    "fix": null,
+    "level": "WARN",
+    "node": "risky/network.py:5",
+    "severity": "partial",
+    "summary": "URL literal http://{host}:8080/upload (not https; host set at runtime)",
+    "try": [
+     "use https",
+     "confirm this destination is expected"
+    ]
+   },
+   {
+    "code": "net.egress",
+    "confidence": "LIKELY",
+    "evidence": [
+     "kind: url",
+     "target: https://example.com/docs",
+     "why: reserved documentation name"
+    ],
+    "fingerprint": "6141d94442c9057c254e72819a5ec6c1dcc657835dcb0f67e5a1e51703e10e0e",
+    "fix": null,
+    "level": "INFO",
+    "node": "risky/network.py:6",
+    "severity": "partial",
+    "summary": "URL literal https://example.com/docs (reserved documentation name)",
+    "try": []
+   },
+   {
+    "code": "net.egress",
+    "confidence": "LIKELY",
+    "evidence": [
+     "kind: ip",
+     "target: 100.64.0.5",
+     "why: local-network address"
+    ],
+    "fingerprint": "fc666af70954ba4022c6d1363b35af155ea3b24362459b505ad413c1d3f08980",
+    "fix": null,
+    "level": "INFO",
+    "node": "risky/network.py:7",
+    "severity": "partial",
+    "summary": "IP literal 100.64.0.5 (local-network address)",
+    "try": []
+   },
+   {
+    "code": "net.egress",
+    "confidence": "LIKELY",
+    "evidence": [
+     "kind: call",
+     "target: requests.post"
+    ],
+    "fingerprint": "d197191fd45bb0a7b0b8eb26f29576008676123484584697dd00a829a0d39cab",
+    "fix": null,
+    "level": "INFO",
+    "node": "risky/network.py:11",
+    "severity": "partial",
+    "summary": "network call requests.post",
+    "try": []
+   },
+   {
+    "code": "tls.off",
+    "confidence": "LIKELY",
+    "evidence": [
+     "code: verify=False"
+    ],
+    "fingerprint": "936d7d1947709ff28afbc4b3acefd14f2962c7ba4bedf855f6ad90b600c74d88",
+    "fix": null,
+    "level": "FAIL",
+    "node": "risky/network.py:11",
+    "severity": "partial",
+    "summary": "TLS certificate checking is switched off (verify=False)",
+    "try": [
+     "remove it; point at a CA bundle instead if the certificate is private"
+    ]
+   },
+   {
+    "code": "net.bind_all",
+    "confidence": "LIKELY",
+    "evidence": [
+     "literal: 0.0.0.0"
+    ],
+    "fingerprint": "ae944d48198a6311dade6bcefd700d65a034428de571533daad4908c8551bada",
+    "fix": null,
+    "level": "WARN",
+    "node": "risky/network.py:16",
+    "severity": "partial",
+    "summary": "binds to all interfaces (0.0.0.0)",
+    "try": [
+     "bind to 127.0.0.1 unless other machines must connect"
+    ]
+   },
+   {
+    "code": "exec.shell",
+    "confidence": "LIKELY",
+    "evidence": [
+     "call: os.system",
+     "the command text flows from input(), os.environ, sys.argv or a network read"
+    ],
+    "fingerprint": "ebec9d8728a698dd6d23d8ad3e6098b409255440640a9512fd410e6b00f0ba6c",
+    "fix": null,
+    "level": "FAIL",
+    "node": "risky/runner.py:7",
+    "severity": "partial",
+    "summary": "os.system runs a shell command built from input, env or network",
+    "try": [
+     "pass an argument list without shell=True",
+     "validate the value against an allow-list"
+    ]
+   },
+   {
+    "code": "exec.shell",
+    "confidence": "LIKELY",
+    "evidence": [
+     "call: subprocess.run(shell=True)"
+    ],
+    "fingerprint": "41da63ccc513ed86e0a273f183a74b0c3ceecf039ab2256bcf4a2fbbae5a068f",
+    "fix": null,
+    "level": "WARN",
+    "node": "risky/runner.py:11",
+    "severity": "partial",
+    "summary": "subprocess.run(shell=True) runs a command through the shell",
+    "try": [
+     "pass an argument list without shell=True"
+    ]
+   },
+   {
+    "code": "exec.dynamic",
+    "confidence": "LIKELY",
+    "evidence": [
+     "call: eval(<non-literal>)"
+    ],
+    "fingerprint": "15ce8c0451a1a4d2d9927f1680566c267c459e89043d616e5ccead8ff289852a",
+    "fix": null,
+    "level": "WARN",
+    "node": "risky/runner.py:15",
+    "severity": "partial",
+    "summary": "eval() runs code built at runtime",
+    "try": [
+     "replace it with a parser or a lookup table (ast.literal_eval for data)"
+    ]
+   },
+   {
+    "code": "secret.key",
+    "confidence": "LIKELY",
+    "evidence": [
+     "matched: sk- key shape (privacy pattern 5)",
+     "length: 27 characters",
+     "kind: provider key shape"
+    ],
+    "fingerprint": "ba2ab945c56c63a1e596216aaf6c6b16bf68d4ef66c81d2721fd8552b5f92eaf",
+    "fix": null,
+    "level": "FAIL",
+    "node": "risky/settings.py:1",
+    "severity": "partial",
+    "summary": "sk- key shape (privacy pattern 5) in the source; value redacted",
+    "try": [
+     "move it to an environment variable or a secret store",
+     "rotate it: it is in this file's history"
+    ]
+   },
+   {
+    "code": "secret.key",
+    "confidence": "LIKELY",
+    "evidence": [
+     "matched: password-like literal assigned to 'password'",
+     "length: 15 characters"
+    ],
+    "fingerprint": "f21fd294fb3ece4de36f4c48cd8fcfd17cad7d57c03429ce089b925dd0149266",
+    "fix": null,
+    "level": "FAIL",
+    "node": "risky/settings.py:2",
+    "severity": "partial",
+    "summary": "password-like literal assigned to 'password' in the source; value redacted",
+    "try": [
+     "move it to an environment variable or a secret store",
+     "rotate it: it is in this file's history"
+    ]
+   },
+   {
+    "code": "obfuscation",
+    "confidence": "LIKELY",
+    "evidence": [
+     "kind: high-entropy literal",
+     "entropy: 5.05 bits/char"
+    ],
+    "fingerprint": "c0510605f687b69e4d2fc45114c180f6218588753671e3dd4eac4f805650714f",
+    "fix": null,
+    "level": "WARN",
+    "node": "risky/settings.py:3",
+    "severity": "partial",
+    "summary": "high-entropy literal of 48 characters",
+    "try": [
+     "check whether it is a credential or an encoded payload"
+    ]
+   },
+   {
+    "code": "deser.unsafe",
+    "confidence": "LIKELY",
+    "evidence": [
+     "call: pickle.load"
+    ],
+    "fingerprint": "0498f0836f2ccb6e1dc1b87bd971ce20c08699ad0faefdbc01666547519393a3",
+    "fix": null,
+    "level": "WARN",
+    "node": "risky/storage.py:8",
+    "severity": "partial",
+    "summary": "pickle.load can run code hidden in the data",
+    "try": [
+     "load only files you created, or use a data-only format (json, safetensors, yaml.safe_load)"
+    ]
+   },
+   {
+    "code": "deser.unsafe",
+    "confidence": "LIKELY",
+    "evidence": [
+     "call: yaml.load"
+    ],
+    "fingerprint": "afa3deaaae4e9c89864f897c87db199c22bf8810ce3fbef14f751e364d4f5dff",
+    "fix": null,
+    "level": "WARN",
+    "node": "risky/storage.py:12",
+    "severity": "partial",
+    "summary": "yaml.load without SafeLoader can build arbitrary Python objects",
+    "try": [
+     "load only files you created, or use a data-only format (json, safetensors, yaml.safe_load)"
+    ]
+   },
+   {
+    "code": "fs.outside",
+    "confidence": "LIKELY",
+    "evidence": [
+     "call: open",
+     "path starts: /tmp/risky-report.txt"
+    ],
+    "fingerprint": "ecbb271c9d928b4c536d5b49b63fbbeb1b79414cdb623ee63ed79579517c67b4",
+    "fix": null,
+    "level": "WARN",
+    "node": "risky/storage.py:16",
+    "severity": "partial",
+    "summary": "writes outside the project: /tmp/risky-report.txt (absolute path)",
+    "try": [
+     "write under the project or a path the user passes in"
+    ]
+   },
+   {
+    "code": "install.hook",
+    "confidence": "LIKELY",
+    "evidence": [
+     "class PostInstall(setuptools.command.install.install)"
+    ],
+    "fingerprint": "fb6983e53e6a4338c3c9e4c986272fa1658b21292ec5bcc5d088b8e68c791227",
+    "fix": null,
+    "level": "WARN",
+    "node": "setup.py:5",
+    "severity": "partial",
+    "summary": "class PostInstall overrides the install command",
+    "try": [
+     "read what the hook runs before installing",
+     "prefer packages without install-time code"
+    ]
+   },
+   {
+    "code": "deps.unpinned",
+    "confidence": "LIKELY",
+    "evidence": [
+     "manifest: setup.py",
+     "requirement: requests"
+    ],
+    "fingerprint": "02a733773a106cb5616c2318873e60ce3fe95981a2432474e7a482de044edea0",
+    "fix": null,
+    "level": "INFO",
+    "node": "setup.py:13",
+    "severity": "partial",
+    "summary": "dependency requests has no pin or upper bound",
+    "try": [
+     "pin it (==) or cap it (<next major)"
+    ]
+   },
+   {
+    "code": "install.hook",
+    "confidence": "LIKELY",
+    "evidence": [
+     "setup(cmdclass=...)"
+    ],
+    "fingerprint": "74da4763f7a60a2a5ba93cad17ea38afc6a75c38f08a57920a63f987e1b1ab43",
+    "fix": null,
+    "level": "WARN",
+    "node": "setup.py:14",
+    "severity": "partial",
+    "summary": "setup() cmdclass overrides build/install commands",
+    "try": [
+     "read what the hook runs before installing",
+     "prefer packages without install-time code"
+    ]
+   },
+   {
+    "code": "net.egress",
+    "confidence": "LIKELY",
+    "evidence": [
+     "kind: call",
+     "target: https://example.com/hello",
+     "why: reserved documentation name",
+     "call: fetch"
+    ],
+    "fingerprint": "ef0f66f2b3582c0da63b9946d82dda5c870b3a7870738da9f8f0718e0b0c6c65",
+    "fix": null,
+    "level": "INFO",
+    "node": "web/setup.js:1",
+    "severity": "partial",
+    "summary": "network call fetch to https://example.com/hello (reserved documentation name)",
+    "try": []
+   }
+  ],
+  "goal_file": null,
+  "hygiene": {
+   "counts": {
+    "orphan.dead": 0,
+    "orphan.test_only": 0,
+    "orphan.uncertain": 0
+   },
+   "entry_points": [
+    "risky.runner:run_user_command"
+   ],
+   "findings": [],
+   "goal": "",
+   "keep": [],
+   "notes": [],
+   "source": "inferred (library public API)"
+  },
+  "notes": [],
+  "other_languages": {},
+  "outcomes": [
+   {
+    "check": "walk",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secrets",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "manifests",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secret.key",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.dynamic",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.shell",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "deser.unsafe",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.egress",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.bind_all",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "tls.off",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "obfuscation",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "fs.outside",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_log",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_prompt",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "works",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "complete",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "supply",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "javascript",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "js_works",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "orphans",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "leftovers",
+    "outcome": "ran",
+    "reason": null
+   }
+  ],
+  "scores": {
+   "cap_reason": "a Safe check is FAIL (exec.shell, obfuscation, secret.key, tls.off): the grade is at most D",
+   "capped": true,
+   "complete": 35,
+   "grade": "F",
+   "grade_uncapped": "F",
+   "overall": 33,
+   "safe": 0,
+   "works": 85
+  },
+  "status": "COMPLETE",
+  "status_reasons": [],
+  "tool": "code-guardian",
+  "top": [
+   {
+    "code": "secret.key",
+    "count": 3,
+    "deduction": 60,
+    "dimension": "safe",
+    "first": "deploy/id_rsa:1",
+    "level": "FAIL",
+    "locations": [
+     "deploy/id_rsa:1",
+     "risky/settings.py:1",
+     "risky/settings.py:2"
+    ],
+    "more": 0,
+    "weight": 40
+   },
+   {
+    "code": "obfuscation",
+    "count": 1,
+    "deduction": 40,
+    "dimension": "safe",
+    "first": "risky/loader.py:7",
+    "level": "FAIL",
+    "locations": [
+     "risky/loader.py:7"
+    ],
+    "more": 0,
+    "weight": 40
+   },
+   {
+    "code": "exec.shell",
+    "count": 1,
+    "deduction": 30,
+    "dimension": "safe",
+    "first": "risky/runner.py:7",
+    "level": "FAIL",
+    "locations": [
+     "risky/runner.py:7"
+    ],
+    "more": 0,
+    "weight": 30
+   },
+   {
+    "code": "tls.off",
+    "count": 1,
+    "deduction": 25,
+    "dimension": "safe",
+    "first": "risky/network.py:11",
+    "level": "FAIL",
+    "locations": [
+     "risky/network.py:11"
+    ],
+    "more": 0,
+    "weight": 25
+   },
+   {
+    "code": "install.hook",
+    "count": 3,
+    "deduction": 23,
+    "dimension": "safe",
+    "first": "package.json:5",
+    "level": "WARN",
+    "locations": [
+     "package.json:5",
+     "setup.py:5",
+     "setup.py:14"
+    ],
+    "more": 0,
+    "weight": 15
+   }
+  ],
+  "weights_rule": "each check (code + level) deducts its weight once, plus a quarter of the weight per extra occurrence (rounded up), at most 2x the weight; INFO is never scored"
+ },
+ "supply_repo": {
+  "anchor": "pyproject.toml",
+  "coverage": {
+   "analysed": "python",
+   "languages": {
+    "python": {
+     "depth": "full",
+     "files": 2
+    }
+   },
+   "other_source": {},
+   "other_source_files": 0,
+   "partial": false,
+   "python": 2,
+   "reason": null,
+   "safe_partial": false,
+   "works_scored": true
+  },
+  "dimensions": {
+   "complete": {
+    "checks": [
+     {
+      "code": "complete.license_missing",
+      "count": 1,
+      "deduction": 20,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 20
+     },
+     {
+      "code": "complete.readme_missing",
+      "count": 1,
+      "deduction": 20,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 20
+     },
+     {
+      "code": "complete.ci_missing",
+      "count": 1,
+      "deduction": 10,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 10
+     }
+    ],
+    "deducted": 50,
+    "partial": false,
+    "score": 50,
+    "scored": true
+   },
+   "safe": {
+    "checks": [
+     {
+      "code": "supply.lookalike",
+      "count": 2,
+      "deduction": 19,
+      "first": "app/__init__.py:1",
+      "level": "WARN",
+      "locations": [
+       "app/__init__.py:1",
+       "pyproject.toml:6"
+      ],
+      "more": 0,
+      "weight": 15
+     }
+    ],
+    "deducted": 19,
+    "partial": false,
+    "score": 81,
+    "scored": true
+   },
+   "works": {
+    "checks": [
+     {
+      "code": "works.import_unresolved",
+      "count": 1,
+      "deduction": 10,
+      "first": "app/__init__.py:1",
+      "level": "WARN",
+      "locations": [
+       "app/__init__.py:1"
+      ],
+      "more": 0,
+      "weight": 10
+     }
+    ],
+    "deducted": 10,
+    "partial": false,
+    "score": 90,
+    "scored": true
+   }
+  },
+  "egress": [],
+  "files": {
+   "excluded": 0,
+   "generated": 0,
+   "ignored": 0,
+   "javascript": 0,
+   "manifests": 1,
+   "other": 0,
+   "python": 2,
+   "skipped": 0,
+   "unparsed": 0
+  },
+  "findings": [
+   {
+    "code": "complete.ci_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: .github/workflows/, .gitlab-ci.yml, .circleci/, and other CI files"
+    ],
+    "fingerprint": "82614cc74cd71f3da6532c94a455c16972f894ad2b07091d9f8566d157847cbe",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no CI configuration: nothing runs the tests on each change",
+    "try": [
+     "add a CI workflow that runs the tests"
+    ]
+   },
+   {
+    "code": "complete.license_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: LICENSE, LICENCE, COPYING, UNLICENSE (any extension)"
+    ],
+    "fingerprint": "930beae195cf4084bc0835387d1df2762d4f7f5b636e4ce39dcffd55c5eed80c",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no licence file: nobody may legally reuse this code",
+    "try": [
+     "add a LICENSE file (choosealicense.com helps pick one)"
+    ]
+   },
+   {
+    "code": "complete.readme_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: README, README.md, README.rst, README.txt"
+    ],
+    "fingerprint": "ed3b257121a6493e37b33e1961caf4d9b94cbfd123c7611c5dc77d03a427b67f",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no README: nobody can tell what this is or how to run it",
+    "try": [
+     "add a README.md"
+    ]
+   },
+   {
+    "code": "supply.lookalike",
+    "confidence": "LIKELY",
+    "evidence": [
+     "name: pandaz",
+     "looks like: pandas"
+    ],
+    "fingerprint": "4207704b9ea742485d9d490fcf8c33ffcc4b80afefdacfd2d03c438f8155ad85",
+    "fix": null,
+    "level": "WARN",
+    "node": "app/__init__.py:1",
+    "severity": "partial",
+    "summary": "pandaz is one or two letters away from the popular package pandas",
+    "try": [
+     "check you meant pandas; a lookalike name is how typosquatting works"
+    ]
+   },
+   {
+    "code": "works.import_unresolved",
+    "confidence": "LIKELY",
+    "evidence": [
+     "module: pandaz",
+     "declared dependencies: 3"
+    ],
+    "fingerprint": "17e8bb6ae0b23e59a0114d433a84e04d38eaa5558645ca6d3cda191d2e3caef3",
+    "fix": null,
+    "level": "WARN",
+    "node": "app/__init__.py:1",
+    "severity": "partial",
+    "summary": "import pandaz: not in the standard library, the repo, or a declared dependency",
+    "try": [
+     "add the distribution that provides pandaz to your dependencies",
+     "or guard the import with try/except ImportError if it is optional"
+    ]
+   },
+   {
+    "code": "deps.declared_unused",
+    "confidence": "LIKELY",
+    "evidence": [
+     "kind: runtime"
+    ],
+    "fingerprint": "46ba73d0183fcf37d3f14a0b0eaf1ff1ba8a6363964f1dfba73c79d432c92309",
+    "fix": null,
+    "level": "INFO",
+    "node": "pyproject.toml:6",
+    "severity": "partial",
+    "summary": "dependency flask-gpt-helperz is declared but never imported",
+    "try": [
+     "remove it, or note why it is needed (a plugin or a runner)"
+    ]
+   },
+   {
+    "code": "supply.lookalike",
+    "confidence": "LIKELY",
+    "evidence": [
+     "name: reqeusts",
+     "looks like: requests"
+    ],
+    "fingerprint": "10fed1b977da5c7e353ac18c81a1a1e70a6c4727673bf445a1443857a9f0433b",
+    "fix": null,
+    "level": "WARN",
+    "node": "pyproject.toml:6",
+    "severity": "partial",
+    "summary": "reqeusts is one or two letters away from the popular package requests",
+    "try": [
+     "check you meant requests; a lookalike name is how typosquatting works"
+    ]
+   },
+   {
+    "code": "supply.unknown_package",
+    "confidence": "LIKELY",
+    "evidence": [
+     "name: flask-gpt-helperz",
+     "offline list: 957 names"
+    ],
+    "fingerprint": "0f70190d3b2e0873ef12798e38db41ab0b6695bdc19baceaac592286d6012811",
+    "fix": null,
+    "level": "INFO",
+    "node": "pyproject.toml:6",
+    "severity": "partial",
+    "summary": "flask-gpt-helperz is not in the offline list of known packages; run with --online to check it exists",
+    "try": [
+     "run code-guardian scan --online"
+    ]
+   }
+  ],
+  "goal_file": null,
+  "hygiene": {
+   "counts": {
+    "orphan.dead": 0,
+    "orphan.test_only": 0,
+    "orphan.uncertain": 0
+   },
+   "entry_points": [],
+   "findings": [],
+   "goal": "",
+   "keep": [],
+   "notes": [],
+   "source": "inferred (library public API)"
+  },
+  "notes": [],
+  "other_languages": {},
+  "outcomes": [
+   {
+    "check": "walk",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secrets",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secret.key",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.dynamic",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.shell",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "deser.unsafe",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.egress",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.bind_all",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "tls.off",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "obfuscation",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "fs.outside",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_log",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_prompt",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "manifests",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "works",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "complete",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "supply",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "orphans",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "leftovers",
+    "outcome": "ran",
+    "reason": null
+   }
+  ],
+  "scores": {
+   "cap_reason": null,
+   "capped": false,
+   "complete": 50,
+   "grade": "B",
+   "grade_uncapped": "B",
+   "overall": 78,
+   "safe": 81,
+   "works": 90
+  },
+  "status": "COMPLETE",
+  "status_reasons": [],
+  "tool": "code-guardian",
+  "top": [
+   {
+    "code": "complete.license_missing",
+    "count": 1,
+    "deduction": 20,
+    "dimension": "complete",
+    "first": ".",
+    "level": "WARN",
+    "locations": [
+     "."
+    ],
+    "more": 0,
+    "weight": 20
+   },
+   {
+    "code": "complete.readme_missing",
+    "count": 1,
+    "deduction": 20,
+    "dimension": "complete",
+    "first": ".",
+    "level": "WARN",
+    "locations": [
+     "."
+    ],
+    "more": 0,
+    "weight": 20
+   },
+   {
+    "code": "supply.lookalike",
+    "count": 2,
+    "deduction": 19,
+    "dimension": "safe",
+    "first": "app/__init__.py:1",
+    "level": "WARN",
+    "locations": [
+     "app/__init__.py:1",
+     "pyproject.toml:6"
+    ],
+    "more": 0,
+    "weight": 15
+   },
+   {
+    "code": "works.import_unresolved",
+    "count": 1,
+    "deduction": 10,
+    "dimension": "works",
+    "first": "app/__init__.py:1",
+    "level": "WARN",
+    "locations": [
+     "app/__init__.py:1"
+    ],
+    "more": 0,
+    "weight": 10
+   },
+   {
+    "code": "complete.ci_missing",
+    "count": 1,
+    "deduction": 10,
+    "dimension": "complete",
+    "first": ".",
+    "level": "WARN",
+    "locations": [
+     "."
+    ],
+    "more": 0,
+    "weight": 10
+   }
+  ],
+  "weights_rule": "each check (code + level) deducts its weight once, plus a quarter of the weight per extra occurrence (rounded up), at most 2x the weight; INFO is never scored"
+ },
+ "works_broken": {
+  "anchor": "pyproject.toml",
+  "coverage": {
+   "analysed": "python",
+   "languages": {
+    "python": {
+     "depth": "full",
+     "files": 4
+    }
+   },
+   "other_source": {},
+   "other_source_files": 0,
+   "partial": false,
+   "python": 4,
+   "reason": null,
+   "safe_partial": false,
+   "works_scored": true
+  },
+  "dimensions": {
+   "complete": {
+    "checks": [
+     {
+      "code": "complete.license_missing",
+      "count": 1,
+      "deduction": 20,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 20
+     },
+     {
+      "code": "complete.readme_missing",
+      "count": 1,
+      "deduction": 20,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 20
+     },
+     {
+      "code": "complete.ci_missing",
+      "count": 1,
+      "deduction": 10,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 10
+     },
+     {
+      "code": "complete.license_undeclared",
+      "count": 1,
+      "deduction": 5,
+      "first": "pyproject.toml:1",
+      "level": "WARN",
+      "locations": [
+       "pyproject.toml:1"
+      ],
+      "more": 0,
+      "weight": 5
+     }
+    ],
+    "deducted": 55,
+    "partial": false,
+    "score": 45,
+    "scored": true
+   },
+   "safe": {
+    "checks": [],
+    "deducted": 0,
+    "partial": false,
+    "score": 100,
+    "scored": true
+   },
+   "works": {
+    "checks": [
+     {
+      "code": "works.entry_missing",
+      "count": 2,
+      "deduction": 38,
+      "first": "pyproject.toml:9",
+      "level": "FAIL",
+      "locations": [
+       "pyproject.toml:9",
+       "pyproject.toml:10"
+      ],
+      "more": 0,
+      "weight": 30
+     },
+     {
+      "code": "works.syntax",
+      "count": 1,
+      "deduction": 30,
+      "first": "brokenpkg/legacy.py:1",
+      "level": "FAIL",
+      "locations": [
+       "brokenpkg/legacy.py:1"
+      ],
+      "more": 0,
+      "weight": 30
+     },
+     {
+      "code": "works.relative_missing",
+      "count": 1,
+      "deduction": 25,
+      "first": "brokenpkg/cli.py:9",
+      "level": "FAIL",
+      "locations": [
+       "brokenpkg/cli.py:9"
+      ],
+      "more": 0,
+      "weight": 25
+     },
+     {
+      "code": "works.tests_missing",
+      "count": 1,
+      "deduction": 15,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 15
+     },
+     {
+      "code": "works.import_unresolved",
+      "count": 1,
+      "deduction": 10,
+      "first": "brokenpkg/cli.py:3",
+      "level": "WARN",
+      "locations": [
+       "brokenpkg/cli.py:3"
+      ],
+      "more": 0,
+      "weight": 10
+     }
+    ],
+    "deducted": 118,
+    "partial": false,
+    "score": 0,
+    "scored": true
+   }
+  },
+  "egress": [],
+  "files": {
+   "excluded": 0,
+   "generated": 0,
+   "ignored": 0,
+   "javascript": 0,
+   "manifests": 1,
+   "other": 0,
+   "python": 4,
+   "skipped": 0,
+   "unparsed": 1
+  },
+  "findings": [
+   {
+    "code": "complete.ci_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: .github/workflows/, .gitlab-ci.yml, .circleci/, and other CI files"
+    ],
+    "fingerprint": "82614cc74cd71f3da6532c94a455c16972f894ad2b07091d9f8566d157847cbe",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no CI configuration: nothing runs the tests on each change",
+    "try": [
+     "add a CI workflow that runs the tests"
+    ]
+   },
+   {
+    "code": "complete.license_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: LICENSE, LICENCE, COPYING, UNLICENSE (any extension)"
+    ],
+    "fingerprint": "930beae195cf4084bc0835387d1df2762d4f7f5b636e4ce39dcffd55c5eed80c",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no licence file: nobody may legally reuse this code",
+    "try": [
+     "add a LICENSE file (choosealicense.com helps pick one)"
+    ]
+   },
+   {
+    "code": "complete.readme_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: README, README.md, README.rst, README.txt"
+    ],
+    "fingerprint": "ed3b257121a6493e37b33e1961caf4d9b94cbfd123c7611c5dc77d03a427b67f",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no README: nobody can tell what this is or how to run it",
+    "try": [
+     "add a README.md"
+    ]
+   },
+   {
+    "code": "works.tests_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: tests/, test_*.py, *_test.py, tests.py, conftest.py"
+    ],
+    "fingerprint": "af61c7db491aa0f6f1c07962bd6797e96d8114856e6d6c2a8a93154dcf2e05d4",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no test files: nothing checks that the code works",
+    "try": [
+     "add a tests/ folder with at least one test per entry point"
+    ]
+   },
+   {
+    "code": "works.import_unresolved",
+    "confidence": "LIKELY",
+    "evidence": [
+     "module: numpy",
+     "declared dependencies: 3"
+    ],
+    "fingerprint": "da072263ab920343cc12d682c3ee64be8e9e21e0b9c995e0c8514c8f9b40dc28",
+    "fix": null,
+    "level": "WARN",
+    "node": "brokenpkg/cli.py:3",
+    "severity": "partial",
+    "summary": "import numpy: not in the standard library, the repo, or a declared dependency",
+    "try": [
+     "add the distribution that provides numpy to your dependencies",
+     "or guard the import with try/except ImportError if it is optional"
+    ]
+   },
+   {
+    "code": "works.relative_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "why: no module brokenpkg/gone in the repo"
+    ],
+    "fingerprint": "44912cdbba97ba7f87950bd2415974e4bf96c4d673d45d21d9b2ee21b8ca08a7",
+    "fix": null,
+    "level": "FAIL",
+    "node": "brokenpkg/cli.py:9",
+    "severity": "partial",
+    "summary": "relative import .gone points at nothing in the repo",
+    "try": [
+     "fix the module path or add the missing module"
+    ]
+   },
+   {
+    "code": "works.syntax",
+    "confidence": "LIKELY",
+    "evidence": [
+     "SyntaxError: Missing parentheses in call to 'print'. Did you mean print(...)?"
+    ],
+    "fingerprint": "e80aadf6a60e8b7c620cbd8edc5e77380d7fc6f3795629c9f58822a15ab25027",
+    "fix": null,
+    "level": "FAIL",
+    "node": "brokenpkg/legacy.py:1",
+    "severity": "partial",
+    "summary": "Python file does not parse: it cannot be imported or run",
+    "try": [
+     "fix the syntax error (Python 2 code needs porting to Python 3)"
+    ]
+   },
+   {
+    "code": "complete.license_undeclared",
+    "confidence": "LIKELY",
+    "evidence": [
+     "no license / license-files / License classifier"
+    ],
+    "fingerprint": "c5772dbbd3e346e368c05641ff50cc5131e8ea3fabf53700395cfb9e8a47d025",
+    "fix": null,
+    "level": "WARN",
+    "node": "pyproject.toml:1",
+    "severity": "partial",
+    "summary": "the package metadata declares no licence",
+    "try": [
+     "add license = \"MIT\" (or your licence) to [project]"
+    ]
+   },
+   {
+    "code": "works.entry_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "the installed command would crash on start"
+    ],
+    "fingerprint": "4b5db54c76f9137af81f883028cebf191292a28333228e6124a7e2d0285f1cf5",
+    "fix": null,
+    "level": "FAIL",
+    "node": "pyproject.toml:9",
+    "severity": "partial",
+    "summary": "script 'ghost' points at brokenpkg.missing:run, but module brokenpkg.missing is not in the repo",
+    "try": [
+     "point the script at an existing module:function"
+    ]
+   },
+   {
+    "code": "works.entry_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "the installed command would crash on start"
+    ],
+    "fingerprint": "4ef72aa946258ec84eb71d08b61c50529314a9ac65fba7e98cf9cf9debfdd734",
+    "fix": null,
+    "level": "FAIL",
+    "node": "pyproject.toml:10",
+    "severity": "partial",
+    "summary": "script 'nofunc' points at brokenpkg.cli:nope, but brokenpkg.cli defines no nope",
+    "try": [
+     "point the script at an existing module:function"
+    ]
+   }
+  ],
+  "goal_file": null,
+  "hygiene": {
+   "counts": {
+    "orphan.dead": 0,
+    "orphan.test_only": 0,
+    "orphan.uncertain": 0
+   },
+   "entry_points": [
+    "brokenpkg.cli:main",
+    "brokenpkg.missing:run",
+    "brokenpkg.cli:nope"
+   ],
+   "findings": [],
+   "goal": "",
+   "keep": [],
+   "notes": [
+    "entry point brokenpkg.missing:run: module brokenpkg.missing is not among the scanned Python files",
+    "entry point brokenpkg.cli:nope: nope is not a function or class; rooted the whole module"
+   ],
+   "source": "inferred (library public API)"
+  },
+  "notes": [],
+  "other_languages": {},
+  "outcomes": [
+   {
+    "check": "walk",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secrets",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secret.key",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.dynamic",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.shell",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "deser.unsafe",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.egress",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.bind_all",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "tls.off",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "obfuscation",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "fs.outside",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_log",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_prompt",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "manifests",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "works",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "complete",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "supply",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "orphans",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "leftovers",
+    "outcome": "ran",
+    "reason": null
+   }
+  ],
+  "scores": {
+   "cap_reason": "the scan is PARTIAL: the grade is at most B",
+   "capped": true,
+   "complete": 45,
+   "grade": "D",
+   "grade_uncapped": "D",
+   "overall": 59,
+   "safe": 100,
+   "works": 0
+  },
+  "status": "PARTIAL",
+  "status_reasons": [
+   "1 Python file(s) did not parse: brokenpkg/legacy.py"
+  ],
+  "tool": "code-guardian",
+  "top": [
+   {
+    "code": "works.entry_missing",
+    "count": 2,
+    "deduction": 38,
+    "dimension": "works",
+    "first": "pyproject.toml:9",
+    "level": "FAIL",
+    "locations": [
+     "pyproject.toml:9",
+     "pyproject.toml:10"
+    ],
+    "more": 0,
+    "weight": 30
+   },
+   {
+    "code": "works.syntax",
+    "count": 1,
+    "deduction": 30,
+    "dimension": "works",
+    "first": "brokenpkg/legacy.py:1",
+    "level": "FAIL",
+    "locations": [
+     "brokenpkg/legacy.py:1"
+    ],
+    "more": 0,
+    "weight": 30
+   },
+   {
+    "code": "works.relative_missing",
+    "count": 1,
+    "deduction": 25,
+    "dimension": "works",
+    "first": "brokenpkg/cli.py:9",
+    "level": "FAIL",
+    "locations": [
+     "brokenpkg/cli.py:9"
+    ],
+    "more": 0,
+    "weight": 25
+   },
+   {
+    "code": "complete.license_missing",
+    "count": 1,
+    "deduction": 20,
+    "dimension": "complete",
+    "first": ".",
+    "level": "WARN",
+    "locations": [
+     "."
+    ],
+    "more": 0,
+    "weight": 20
+   },
+   {
+    "code": "complete.readme_missing",
+    "count": 1,
+    "deduction": 20,
+    "dimension": "complete",
+    "first": ".",
+    "level": "WARN",
+    "locations": [
+     "."
+    ],
+    "more": 0,
+    "weight": 20
+   }
+  ],
+  "weights_rule": "each check (code + level) deducts its weight once, plus a quarter of the weight per extra occurrence (rounded up), at most 2x the weight; INFO is never scored"
+ },
+ "works_weak_tests": {
+  "anchor": "tests/test_add.py",
+  "coverage": {
+   "analysed": "python",
+   "languages": {
+    "python": {
+     "depth": "full",
+     "files": 2
+    }
+   },
+   "other_source": {},
+   "other_source_files": 0,
+   "partial": false,
+   "python": 2,
+   "reason": null,
+   "safe_partial": false,
+   "works_scored": true
+  },
+  "dimensions": {
+   "complete": {
+    "checks": [
+     {
+      "code": "complete.license_missing",
+      "count": 1,
+      "deduction": 20,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 20
+     },
+     {
+      "code": "complete.readme_missing",
+      "count": 1,
+      "deduction": 20,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 20
+     },
+     {
+      "code": "complete.ci_missing",
+      "count": 1,
+      "deduction": 10,
+      "first": ".",
+      "level": "WARN",
+      "locations": [
+       "."
+      ],
+      "more": 0,
+      "weight": 10
+     }
+    ],
+    "deducted": 50,
+    "partial": false,
+    "score": 50,
+    "scored": true
+   },
+   "safe": {
+    "checks": [],
+    "deducted": 0,
+    "partial": false,
+    "score": 100,
+    "scored": true
+   },
+   "works": {
+    "checks": [
+     {
+      "code": "works.test_no_assert",
+      "count": 1,
+      "deduction": 5,
+      "first": "tests/test_add.py:12",
+      "level": "WARN",
+      "locations": [
+       "tests/test_add.py:12"
+      ],
+      "more": 0,
+      "weight": 5
+     }
+    ],
+    "deducted": 5,
+    "partial": false,
+    "score": 95,
+    "scored": true
+   }
+  },
+  "egress": [],
+  "files": {
+   "excluded": 0,
+   "generated": 0,
+   "ignored": 0,
+   "javascript": 0,
+   "manifests": 0,
+   "other": 0,
+   "python": 2,
+   "skipped": 0,
+   "unparsed": 0
+  },
+  "findings": [
+   {
+    "code": "complete.ci_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: .github/workflows/, .gitlab-ci.yml, .circleci/, and other CI files"
+    ],
+    "fingerprint": "82614cc74cd71f3da6532c94a455c16972f894ad2b07091d9f8566d157847cbe",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no CI configuration: nothing runs the tests on each change",
+    "try": [
+     "add a CI workflow that runs the tests"
+    ]
+   },
+   {
+    "code": "complete.license_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: LICENSE, LICENCE, COPYING, UNLICENSE (any extension)"
+    ],
+    "fingerprint": "930beae195cf4084bc0835387d1df2762d4f7f5b636e4ce39dcffd55c5eed80c",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no licence file: nobody may legally reuse this code",
+    "try": [
+     "add a LICENSE file (choosealicense.com helps pick one)"
+    ]
+   },
+   {
+    "code": "complete.readme_missing",
+    "confidence": "LIKELY",
+    "evidence": [
+     "looked for: README, README.md, README.rst, README.txt"
+    ],
+    "fingerprint": "ed3b257121a6493e37b33e1961caf4d9b94cbfd123c7611c5dc77d03a427b67f",
+    "fix": null,
+    "level": "WARN",
+    "node": ".",
+    "severity": "partial",
+    "summary": "no README: nobody can tell what this is or how to run it",
+    "try": [
+     "add a README.md"
+    ]
+   },
+   {
+    "code": "works.test_no_assert",
+    "confidence": "LIKELY",
+    "evidence": [
+     "without an assertion: test_runs, test_nothing, TestAdd.test_silent"
+    ],
+    "fingerprint": "d42dc9e7ee5a2bc8303b9213e886725ac925bed18af406d7ff428ccc752601ae",
+    "fix": null,
+    "level": "WARN",
+    "node": "tests/test_add.py:12",
+    "severity": "partial",
+    "summary": "3 of 7 test functions in this file make no assertion",
+    "try": [
+     "assert on the result, or use pytest.raises for the expected error"
+    ]
+   }
+  ],
+  "goal_file": null,
+  "hygiene": {
+   "counts": {
+    "orphan.dead": 0,
+    "orphan.test_only": 0,
+    "orphan.uncertain": 0
+   },
+   "entry_points": [],
+   "findings": [],
+   "goal": "",
+   "keep": [],
+   "notes": [
+    "no entry points found, so nothing is reported: run `code-guardian init` and edit the goal file"
+   ],
+   "source": "inferred"
+  },
+  "notes": [],
+  "other_languages": {},
+  "outcomes": [
+   {
+    "check": "walk",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secrets",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "secret.key",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.dynamic",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "exec.shell",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "deser.unsafe",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.egress",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "net.bind_all",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "tls.off",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "obfuscation",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "fs.outside",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_log",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "privacy.pii_prompt",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "manifests",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "works",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "complete",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "supply",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "orphans",
+    "outcome": "ran",
+    "reason": null
+   },
+   {
+    "check": "leftovers",
+    "outcome": "ran",
+    "reason": null
+   }
+  ],
+  "scores": {
+   "cap_reason": null,
+   "capped": false,
+   "complete": 50,
+   "grade": "B",
+   "grade_uncapped": "B",
+   "overall": 89,
+   "safe": 100,
+   "works": 95
+  },
+  "status": "COMPLETE",
+  "status_reasons": [],
+  "tool": "code-guardian",
+  "top": [
+   {
+    "code": "complete.license_missing",
+    "count": 1,
+    "deduction": 20,
+    "dimension": "complete",
+    "first": ".",
+    "level": "WARN",
+    "locations": [
+     "."
+    ],
+    "more": 0,
+    "weight": 20
+   },
+   {
+    "code": "complete.readme_missing",
+    "count": 1,
+    "deduction": 20,
+    "dimension": "complete",
+    "first": ".",
+    "level": "WARN",
+    "locations": [
+     "."
+    ],
+    "more": 0,
+    "weight": 20
+   },
+   {
+    "code": "complete.ci_missing",
+    "count": 1,
+    "deduction": 10,
+    "dimension": "complete",
+    "first": ".",
+    "level": "WARN",
+    "locations": [
+     "."
+    ],
+    "more": 0,
+    "weight": 10
+   },
+   {
+    "code": "works.test_no_assert",
+    "count": 1,
+    "deduction": 5,
+    "dimension": "works",
+    "first": "tests/test_add.py:12",
+    "level": "WARN",
+    "locations": [
+     "tests/test_add.py:12"
+    ],
+    "more": 0,
+    "weight": 5
+   }
+  ],
+  "weights_rule": "each check (code + level) deducts its weight once, plus a quarter of the weight per extra occurrence (rounded up), at most 2x the weight; INFO is never scored"
+ }
+}
