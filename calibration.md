@@ -370,5 +370,6 @@ Scanned 2026-10-25 by the overseer with PR #52 (head `6ed24c3`) on the five pinn
 |---|---|---|---|---|---|---|
 | this repo, `tests/` (`test_*.py` and `conftest.py`) | 73 | 918 | 0 | 0 | 0 | 0 |
 | the 13 fixtures, test files under them | 5 | 12 | 0 | 0 | 0 | 0 |
+| a private studio's script tree (Windows, py3.11; `test_*.py`, `*_test.py`) | 3845 | 78650 | 122 | 12 | 9 | 103 |
 
-Zero hits on both: neither input has a test that asserts only a constant, only a mock, or swallows an exception, so these counts show no false positives and say nothing about recall (the detector is exercised by `tests/test_hollow.py` and `python -m code_guardian.hollow --selftest`). The count on `F:\AI\LuminariStudio\scripts\` is run on the Windows studio machine and added by the overseer.
+Zero hits on both: neither input has a test that asserts only a constant, only a mock, or swallows an exception, so these counts show no false positives and say nothing about recall (the detector is exercised by `tests/test_hollow.py` and `python -m code_guardian.hollow --selftest`). The third row is a large private script tree, counted on Windows: 103 of 3,845 files carry at least one hollow test, mostly tautologies. Counts only; the hits were not reviewed one by one, so no precision is claimed.
