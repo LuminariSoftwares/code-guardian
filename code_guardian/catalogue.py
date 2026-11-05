@@ -187,7 +187,8 @@ CATALOGUE = {
         "A mock call count that is the behaviour under test; an except Exception: pass around cleanup."),
     "works.layer_import": _e(
         "Import a layer forbids",
-        "A file under a [[layers]] path in the goal file imports a module prefix that layer lists in forbidden_imports.",
+        "A file under a [[layers]] path in the goal file imports a module prefix that layer lists in "
+        "forbidden_imports.",
         "Move the call behind a module the layer may import, or update forbidden_imports if the rule is out of date.",
         "A rule written too broadly; an import kept on purpose in one adapter file (narrow the layer path)."),
     "works.file_too_long": _e(

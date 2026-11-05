@@ -34,8 +34,8 @@ import tempfile
 import warnings
 
 from . import (__version__, agents, baseline as baseline_mod, complete, explain as explain_mod, history as history_mod,
-               leftovers, goal, hollow, layers as layers_mod, manifests, orphans as orphans_mod, scanners, scanners_js, score,
-               supply, walk, works, works_js)
+               leftovers, goal, hollow, layers as layers_mod, manifests, orphans as orphans_mod, scanners,
+               scanners_js, score, supply, walk, works, works_js)
 from .finding import LEVELS, crash_finding, summarize
 from .scanners import redact_report
 
