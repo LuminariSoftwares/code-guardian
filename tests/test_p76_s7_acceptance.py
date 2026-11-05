@@ -68,7 +68,8 @@ def test_changelog_names_the_release():
     text = _read("CHANGELOG.md")
     head = re.search(r"^## .*\b%s\b.*\(20\d\d-\d\d-\d\d\)\s*$" % re.escape(RELEASE), text, re.M)
     assert head, "no '## ... 0.4.0 ... (YYYY-MM-DD)' heading"
-    # amended for P141 S11: CHANGELOG now carries a '## Unreleased' section between releases
+    unreleased = re.search(r"^## Unreleased\s*$(.*?)(?=^## |\Z)", text, re.M | re.S)
+    assert unreleased is None or not unreleased.group(1).strip(), "## Unreleased still has entries"
     body = text[head.end():]
     nxt = re.search(r"^## ", body, re.M)
     body = (body[:nxt.start()] if nxt else body).lower()

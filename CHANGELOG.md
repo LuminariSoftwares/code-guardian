@@ -1,9 +1,5 @@
 # Changelog
 
-## Unreleased
-
-- **Shipped agent configs as Safe findings (P141 S11).** New `code_guardian/agents.py` reads `.claude/settings.json`, `.claude/settings.local.json`, `.mcp.json`, `.cursor/mcp.json`, `.cursor/rules*`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` and `.github/copilot-instructions.md` from the scan root (text only; nothing is run, imported or installed; symlinks and skipped folders are not followed) and adds six Safe codes: `safe.agent_hook_runs_command` (WARN 5), `safe.agent_auto_approve` (FAIL 15), `safe.agent_pipe_to_shell` (FAIL 15), `safe.agent_mcp_unpinned` (WARN 5, one per server with no version fixed), `safe.agent_injection_text` (WARN 5) and `safe.agent_hidden_unicode` (FAIL 15). The last two read `code_guardian/data/injection_patterns.json`, a byte-identical copy of tool-guardian's `tg_poison_patterns.json`, now shipped in the wheel. A repository with none of those files gets no new coverage key (`coverage.agent_configs`), no `agents` outcome row and no finding, so existing reports are unchanged. The idea comes from MCP and agent security scanners reviewed on Glama (for example invariantlabs-ai/mcp-scan); the code is rewritten from the idea.
-
 ## code-guardian-mcp 0.5.0 (2026-10-26)
 
 JavaScript and TypeScript are now analysed, not only secret-scanned. Before, an `eval` of request input in a `.js` file went unseen and a JavaScript-only repo came out PARTIAL with Works not scored; now the Safe and Works checks run on those files at token level, and a JavaScript-only repo is COMPLETE with every score. Python reports are unchanged.
