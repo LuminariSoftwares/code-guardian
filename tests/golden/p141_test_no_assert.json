@@ -1,0 +1,105 @@
+{
+ "backup_repo": {
+  "direct": {},
+  "findings": []
+ },
+ "clean_repo": {
+  "direct": {
+   "tests/test_cli.py": [
+    0,
+    1,
+    []
+   ]
+  },
+  "findings": []
+ },
+ "complete_app": {
+  "direct": {
+   "tests/test_web.py": [
+    0,
+    1,
+    []
+   ]
+  },
+  "findings": []
+ },
+ "complete_bare": {
+  "direct": {},
+  "findings": []
+ },
+ "js_broken": {
+  "direct": {},
+  "findings": []
+ },
+ "js_clean": {
+  "direct": {},
+  "findings": []
+ },
+ "js_risky": {
+  "direct": {},
+  "findings": []
+ },
+ "jsx_torture": {
+  "direct": {},
+  "findings": []
+ },
+ "orphan_repo": {
+  "direct": {
+   "tests/test_core.py": [
+    0,
+    2,
+    []
+   ]
+  },
+  "findings": []
+ },
+ "risky_repo": {
+  "direct": {},
+  "findings": []
+ },
+ "supply_repo": {
+  "direct": {
+   "tests/test_app.py": [
+    0,
+    1,
+    []
+   ]
+  },
+  "findings": []
+ },
+ "works_broken": {
+  "direct": {},
+  "findings": []
+ },
+ "works_weak_tests": {
+  "direct": {
+   "tests/test_add.py": [
+    12,
+    7,
+    [
+     "test_runs",
+     "test_nothing",
+     "TestAdd.test_silent"
+    ]
+   ]
+  },
+  "findings": [
+   {
+    "code": "works.test_no_assert",
+    "confidence": "LIKELY",
+    "evidence": [
+     "without an assertion: test_runs, test_nothing, TestAdd.test_silent"
+    ],
+    "fingerprint": "d42dc9e7ee5a2bc8303b9213e886725ac925bed18af406d7ff428ccc752601ae",
+    "fix": null,
+    "level": "WARN",
+    "node": "tests/test_add.py:12",
+    "severity": "partial",
+    "summary": "3 of 7 test functions in this file make no assertion",
+    "try": [
+     "assert on the result, or use pytest.raises for the expected error"
+    ]
+   }
+  ]
+ }
+}
