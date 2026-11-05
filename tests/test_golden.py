@@ -40,7 +40,8 @@ GOLDEN = HERE / "golden"
 EXCLUDED = ("version", "schema_version", "weights", "path")
 ADDITIVE = {"files.javascript", "files.generated", "coverage.languages"}
 JS_FIXTURES = ("js_clean", "js_risky", "js_broken", "jsx_torture")
-GOLDEN_FIXTURES = sorted(p.name for p in FIXTURES.iterdir() if p.is_dir() and p.name not in JS_FIXTURES)
+GOLDEN_FIXTURES = sorted(p.name for p in FIXTURES.iterdir()
+                        if p.is_dir() and p.name not in JS_FIXTURES + ("agent_risky",))  # agent_risky: P141 S11, own tests
 LITERAL = ("scores", "status", "hygiene")
 
 

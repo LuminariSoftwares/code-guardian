@@ -98,7 +98,7 @@ def _copy(src, dest, eol):
 
 
 def _python_fixtures():
-    return sorted(p.name for p in FIXTURES.iterdir() if p.is_dir() and p.name not in JS_FIXTURES)
+    return sorted(p.name for p in FIXTURES.iterdir() if p.is_dir() and p.name not in JS_FIXTURES + ("agent_risky",))
 
 
 def _before_values_apply():
@@ -177,7 +177,7 @@ def test_js_fixture_files(fixture):
 def test_js_fixture_content():
     server = (FIXTURES / "js_risky" / "server.js").read_text(encoding="utf-8")
     for needle in ("eval(req.query.code)", "child_process", "innerHTML", "location.hash", "rejectUnauthorized",
-                   "0.0.0.0", "example.org", "atob(", "/etc/motd", "console.log(password)"):
+                   "0.0.0.0", "example.org", "atob(", "/etc/motd", "console.log(password)"):  # nosec B104 -- a needle the fixture must contain, not a bind
         assert needle in server, "js_risky/server.js lacks %r" % needle
     pkg = json.loads((FIXTURES / "js_risky" / "package.json").read_text(encoding="utf-8"))
     assert "postinstall" in pkg.get("scripts", {}) and "*" in pkg.get("dependencies", {}).values()

