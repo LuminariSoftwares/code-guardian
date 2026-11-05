@@ -89,7 +89,7 @@ Install it as **`code-guardian-mcp`**; `code-guardian` on PyPI is an unrelated p
 CLI, a GitHub Action, a pre-commit hook and an MCP server. The MCP side is a hand-written stdio server speaking
 **MCP protocol 2024-11-05** — no SDK, no dependencies (see
 [ADR 0003](docs/adr/0003-hand-written-mcp-stdio-server.md)) — and it is **stdio only**: to reach it over a network,
-put an authenticating proxy in front of it rather than exposing the process. **One maintainer, no response-time promise**: issues
+put an authenticating proxy in front of it rather than exposing the process. **One maintainer, best effort**: issues
 and pull requests get a reply when evenings allow, and there is no paid support
 ([CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md)).
 
