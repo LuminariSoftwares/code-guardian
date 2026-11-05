@@ -26,7 +26,7 @@ from deterministic checks with fixed weights: same repo, same version, same outp
 
 It parses the code (`ast` for Python; a small lexer for JavaScript and TypeScript; `json`, `tomllib` and
 `configparser` for manifests; regular expressions for secrets) and never executes, imports or installs it. A scan makes
-no network calls. Python 3.11+, standard library only. Status: **0.5.0 is the current release.**
+no network calls. Python 3.11+, standard library only. Status: **0.6.0 is the current release.**
 
 **Who it is for.** Anyone running local AI models, or code an AI assistant wrote, on their own machine: you cloned a
 repository, or an assistant just rewrote a module, and you want a verdict before you run it. It is the fourth of four
@@ -114,7 +114,7 @@ code-guardian scan /home/user/project              # the grade, every finding wi
 code-guardian plan /home/user/project --top 3      # the three fixes worth the most Overall points
 ```
 
-Success looks like a first line `code-guardian 0.5.0  scan of <name>`, then a `status: COMPLETE` line and four score
+Success looks like a first line `code-guardian 0.6.0  scan of <name>`, then a `status: COMPLETE` line and four score
 lines. On a one-file project it takes well under a second. To give the same tools to an AI client, add the MCP server
 (see [MCP server](#mcp-server) for Claude Desktop and other clients):
 
@@ -812,7 +812,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: LuminariSoftwares/code-guardian@v0.5.0
+      - uses: LuminariSoftwares/code-guardian@v0.6.0
         with:
           path: .
           fail-on: FAIL        # or WARN
@@ -828,7 +828,7 @@ environment variables, never by text substitution.
 ```yaml
 repos:
   - repo: https://github.com/LuminariSoftwares/code-guardian
-    rev: v0.5.0
+    rev: v0.6.0
     hooks:
       - id: code-guardian
         # args: [--fail-on, WARN]
