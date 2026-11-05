@@ -190,6 +190,12 @@ WHY = {
     "works.test_hollow":
         "These tests do check something, but what they check cannot go wrong (a constant, a mock the test built, or "
         "an error that is swallowed), so they may pass whether or not the code works.",
+    "works.layer_import":
+        "A file here imports something that the project's own goal file says this part of the code must not use, so "
+        "the structure the project declared is being broken.",
+    "works.file_too_long":
+        "A file here is longer than the limit the project's own goal file sets for it, which makes it harder to read "
+        "and to change safely.",
     "works.entry_missing":
         "A command this project installs points at a function that is not in the project, so typing that command "
         "can fail straight away.",

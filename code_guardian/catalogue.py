@@ -185,6 +185,16 @@ CATALOGUE = {
         "failure.",
         "Assert on a value the code under test returns; let the exception fail the test or use pytest.raises.",
         "A mock call count that is the behaviour under test; an except Exception: pass around cleanup."),
+    "works.layer_import": _e(
+        "Import a layer forbids",
+        "A file under a [[layers]] path in the goal file imports a module prefix that layer lists in forbidden_imports.",
+        "Move the call behind a module the layer may import, or update forbidden_imports if the rule is out of date.",
+        "A rule written too broadly; an import kept on purpose in one adapter file (narrow the layer path)."),
+    "works.file_too_long": _e(
+        "File over its size limit",
+        "A file matching a [size_limits] glob in the goal file has more lines than the limit.",
+        "Split the file by responsibility, or raise the limit in the goal file if the size is intended.",
+        "A file that is long on purpose (a table or generated data); raise its limit."),
     "works.entry_missing": _e(
         "Command points at nothing",
         "A [project.scripts] (or setup.cfg console script) target module:function is not in the tree.",

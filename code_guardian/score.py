@@ -77,6 +77,8 @@ WORKS_WEIGHTS = {
     ("works.tests_missing", "WARN"): 15,
     ("works.test_no_assert", "WARN"): 5,
     ("works.test_hollow", "WARN"): 5,
+    ("works.layer_import", "WARN"): 5,
+    ("works.file_too_long", "WARN"): 5,
     ("works.entry_missing", "FAIL"): 30,
     ("orphan.dead", "WARN"): 3,  # from the hygiene section; only when entry points exist (contract or inferred)
     ("works.todo_stub", "WARN"): 3,  # AI leftovers (leftovers.py)
