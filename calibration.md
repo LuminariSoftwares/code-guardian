@@ -361,3 +361,14 @@ Scanned 2026-10-25 by the overseer with PR #52 (head `6ed24c3`) on the five pinn
 - **Lexer-loss: 0 of 7.** Every in-category grep hit in a file the scan analyses is found: `routes/captcha.ts:22`, `routes/b2bOrder.ts:23`, `routes/userProfile.ts:65`, `routes/fileUpload.ts:114`, `lib/xml.ts:12`, `lib/xml.ts:38` (`exec.dynamic` WARN) and `frontend/src/hacking-instructor/index.ts:126` (`dom.html_sink` WARN).
 - **Marker recall: 0 of 2 at scan level, 2 of 2 when the files are lexed directly.** Both marked `vuln-line`s, `frontend/src/app/search-result/search-result.component.ts:113` and `:146`, are in `frontend/src/app/`. The walk leaves that folder out: the repo's `.gitignore` has `app/` and then `!frontend/src/app`, and code-guardian's `.gitignore` support ignores `!` negation (README, Limitations). Lexed directly (the S2 run), both are `dom.html_sink` WARN. With a sample of 2, this shows only whether the Angular sanitizer bypass is caught; it says nothing about recall in general.
 - **The other 10 in-category grep hits are not scanned, for the same reason:** `frontend/src/assets/private/three.js:11375` (`!frontend/src/assets/`), `score-board.component.ts:83`, `administration.component.ts:74` and `:92`, `search-result.component.ts:113` and `:146`, `data-export.component.ts:58`, `track-result.component.ts:49`, `last-login-ip.component.ts:40` and `about.component.ts:120` (all under `frontend/src/app/`). This is a walk limit, not a lexer loss, and it is carried as a pickup item: honour `!` negation in `.gitignore` (or take the tracked-file list from git when a `.git` folder is present), so committed code that a negated pattern brings back is analysed.
+
+## P141 S12 hollow tests
+
+`works.test_hollow` (tautology, mock-only, swallowed exception; WARN, weight 5) run on this repo's own tests and on the 13 fixture repos. Counts only; no verdicts are claimed.
+
+| input | test files | test functions | tautology | mock-only | swallowed | files with a finding |
+|---|---|---|---|---|---|---|
+| this repo, `tests/` (`test_*.py` and `conftest.py`) | 73 | 918 | 0 | 0 | 0 | 0 |
+| the 13 fixtures, test files under them | 5 | 12 | 0 | 0 | 0 | 0 |
+
+Zero hits on both: neither input has a test that asserts only a constant, only a mock, or swallows an exception, so these counts show no false positives and say nothing about recall (the detector is exercised by `tests/test_hollow.py` and `python -m code_guardian.hollow --selftest`). The count on `F:\AI\LuminariStudio\scripts\` is run on the Windows studio machine and added by the overseer.

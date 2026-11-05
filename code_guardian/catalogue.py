@@ -178,6 +178,13 @@ CATALOGUE = {
         "Test functions with no assert, no pytest.raises/warns, no self.assert* and no call to an asserting helper.",
         "Assert on the result; use pytest.raises for expected errors.",
         "Smoke tests that only check nothing raises; helpers defined in another file."),
+    "works.test_hollow": _e(
+        "Tests that cannot fail",
+        "Test functions whose assertions are vacuous: assert True, assert 1, assert x == x or assertTrue(True); "
+        "assertions only on a mock the test built; or an except: pass / except Exception: pass that swallows the "
+        "failure.",
+        "Assert on a value the code under test returns; let the exception fail the test or use pytest.raises.",
+        "A mock call count that is the behaviour under test; an except Exception: pass around cleanup."),
     "works.entry_missing": _e(
         "Command points at nothing",
         "A [project.scripts] (or setup.cfg console script) target module:function is not in the tree.",

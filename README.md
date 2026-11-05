@@ -301,8 +301,8 @@ weights used (each check (code + level) deducts its weight once, plus a quarter 
            supply.unknown_package INFO 0 · supply.unknown_package WARN 10 · tls.off FAIL 25 · tls.off WARN 10
   Works    orphan.dead WARN 3 · works.commented_code INFO 0 · works.dead_flag INFO 0 ·
            works.entry_missing FAIL 30 · works.import_unresolved WARN 10 · works.relative_missing FAIL 25 ·
-           works.syntax FAIL 30 · works.syntax INFO 0 · works.test_no_assert WARN 5 ·
-           works.tests_missing WARN 15 · works.todo_stub WARN 3
+           works.syntax FAIL 30 · works.syntax INFO 0 · works.test_hollow WARN 5 ·
+           works.test_no_assert WARN 5 · works.tests_missing WARN 15 · works.todo_stub WARN 3
   Complete complete.ci_missing WARN 10 · complete.env_example WARN 10 · complete.license_missing WARN 20 ·
            complete.license_undeclared WARN 5 · complete.lockfile WARN 10 · complete.metadata WARN 10 ·
            complete.readme_missing WARN 20 · complete.readme_sections WARN 5 · complete.readme_short WARN 10 ·
@@ -646,6 +646,7 @@ or running anything.
 | `works.relative_missing` | a relative import (`from .x import y`) that points at a module the repo does not have | FAIL | 25 |
 | `works.tests_missing` | no test files at all (`tests/`, `test_*.py`, `*_test.py`, `tests.py`, `conftest.py`) | WARN | 15 |
 | `works.test_no_assert` | test functions with no `assert`, no `pytest.raises`/`warns`, no `self.assert*` and no call to a local helper that asserts; once per file, with the count | WARN | 5 |
+| `works.test_hollow` | test functions that do assert but cannot fail: a tautology (`assert True`, `assert 1`, `assert x == x`, `assertTrue(True)`), assertions only on a mock the test built, or an `except: pass` / `except Exception: pass` that swallows the failure; one kind per test, a test already reported by `works.test_no_assert` is left to it; once per file, with the counts by kind | WARN | 5 |
 | `works.entry_missing` | a `[project.scripts]` (or `setup.cfg` console script) target `module:function` whose module or function is not in the tree | FAIL | 30 |
 | `orphan.dead` | dead code from the hygiene section (below), folded in at a low weight, only when entry points exist | WARN | 3 |
 | `works.todo_stub` | a function whose body is only `pass`, `...` or `raise NotImplementedError` (a docstring allowed) **and** an entry point reaches it; not abstract methods, `Protocol` classes, `@overload` or a method a subclass in the repo overrides | WARN | 3 |
@@ -669,7 +670,7 @@ JSON with comments and trailing commas allowed). Same weights as above:
 
 `works.tests_missing` is reported once for the repository: when there are Python files the Python check reports it,
 and it is dropped when the JavaScript side has a test file or a `scripts.test` that is not npm's placeholder. Generated
-files get no Works check. Not checked on JavaScript / TypeScript: `works.test_no_assert`, `works.todo_stub`,
+files get no Works check. Not checked on JavaScript / TypeScript: `works.test_no_assert`, `works.test_hollow`, `works.todo_stub`,
 `works.commented_code`, `works.dead_flag` and orphan (dead) code.
 
 How `works.import_unresolved` decides (Python):
@@ -887,6 +888,7 @@ above. Two rules apply across Safe:
 | `works.dead_flag` | Works | A module-level ALL_CAPS boolean constant (DEBUG = False) that no file reads, imports or names. | Delete it, or wire it to the code it was meant to switch. | Flags read only by another tool or by string name; INFO, never scored. |
 | `works.syntax` | Works | ast.parse rejects the file, so it cannot be imported or run (INFO when the project needs a newer Python than the one scanning); in JavaScript or TypeScript, a template literal or block comment that never closes. | Fix the syntax error; port Python 2 code to Python 3. | Files kept on purpose for another interpreter, or templates with a .py name. |
 | `works.test_no_assert` | Works | Test functions with no assert, no pytest.raises/warns, no self.assert* and no call to an asserting helper. | Assert on the result; use pytest.raises for expected errors. | Smoke tests that only check nothing raises; helpers defined in another file. |
+| `works.test_hollow` | Works | Test functions whose assertions are vacuous: assert True, assert 1, assert x == x or assertTrue(True); assertions only on a mock the test built; or an except: pass / except Exception: pass that swallows the failure. | Assert on a value the code under test returns; let the exception fail the test or use pytest.raises. | A mock call count that is the behaviour under test; an except Exception: pass around cleanup. |
 | `works.tests_missing` | Works | There are no test files at all (for JavaScript or TypeScript: no test file and no scripts.test). | Add a tests/ folder with at least one test per entry point. | Tests kept in another repository. |
 | `complete.ci_missing` | Complete | No CI configuration was found. | Add a CI workflow that runs the tests on each change. | CI configured outside the repository. |
 | `complete.env_example` | Complete | The code reads environment variables but there is no .env.example listing them. | Add a .env.example with every variable and a safe placeholder. | Libraries that read only optional, well-known variables (NO_COLOR, TERM). |
