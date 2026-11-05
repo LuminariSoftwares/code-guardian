@@ -100,6 +100,6 @@ def test_readme_names_the_release():
     text = _read("README.md")
     old = [m.group(0) for m in re.finditer(r"[^\n]*\b0\.3\.\d+\b[^\n]*", text)]
     assert not old, "README still names 0.3.x: %s" % old[:5]
-    assert "**%s is the current release.**" % VERSION in text
+    assert "https://img.shields.io/pypi/v/code-guardian-mcp" in text and "Status: active development -- [changelog](CHANGELOG.md)" in text  # P82 R2 (C12 a): the version lives in the PyPI badge, not a status sentence
     assert "code-guardian@v%s" % VERSION in text and "rev: v%s" % VERSION in text
     assert "code-guardian %s  scan of" % VERSION in text

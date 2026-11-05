@@ -4,8 +4,52 @@
 [![privacy](https://github.com/LuminariSoftwares/code-guardian/actions/workflows/privacy.yml/badge.svg)](https://github.com/LuminariSoftwares/code-guardian/actions/workflows/privacy.yml)
 [![XERJ Corpus Hub contributor](https://hub.xerj.org/contributors/LuminariSoftwares/badge.svg)](https://hub.xerj.org/contributors/LuminariSoftwares)
 [![code-guardian MCP server – quality and maintenance score on Glama](https://glama.ai/mcp/servers/LuminariSoftwares/code-guardian/badges/score.svg)](https://glama.ai/mcp/servers/LuminariSoftwares/code-guardian)
+[![PyPI](https://img.shields.io/pypi/v/code-guardian-mcp.svg)](https://pypi.org/project/code-guardian-mcp/)
+
+Status: active development -- [changelog](CHANGELOG.md)
 
 mcp-name: io.github.LuminariSoftwares/code-guardian
+
+**0 FAIL findings on 8 of 8 clean, well-known repositories, scanned without running them.** <!-- c9 -->
+
+A deterministic A-F grade for any repo -- is it safe to run, will it work, is it complete -- for people about to run code they did not write.
+
+## Quick start (60 seconds)
+
+From a clean Python 3.11+ environment (no other dependencies):
+
+```
+pip install code-guardian-mcp
+code-guardian scan /home/user/project              # the grade, every finding with file:line; exit 0, 1 or 3
+code-guardian plan /home/user/project --top 3      # the three fixes worth the most Overall points
+```
+
+Success looks like a first line `code-guardian 0.6.0  scan of <name>`, then a `status: COMPLETE` line and four score
+lines. On a one-file project it takes well under a second. To give the same tools to an AI client, add the MCP server
+(see [MCP server](#mcp-server) for Claude Desktop and other clients):
+
+```
+claude mcp add code-guardian -- uvx code-guardian-mcp mcp
+```
+
+## Proof
+
+Run on 2026-11-05 from a fresh clone of the v0.6.0 tag, with `code-guardian-mcp==0.6.0` installed from PyPI:
+
+```
+python tools/calibrate.py
+```
+
+Result: 0 FAIL findings on 8 pinned repositories (5 well-known Python projects and 3 sibling guardians). <!-- c9 -->
+
+```
+python -m pytest -q
+1386 passed, 82 skipped in 147.56s (0:02:27)
+```
+
+<!-- c11 -->
+
+Caveat: this is static analysis. A grade A is "nothing the scanners recognise", not "proven safe". Python is analysed in full, JavaScript and TypeScript at token level, and every other language gets the secret scan and the repo-hygiene checks only.
 
 Before you run a repository you did not write, or merge a change an AI assistant made, you want to know whether it
 is dangerous, whether it is broken and what is missing. code-guardian answers that from the source alone, in one
@@ -26,7 +70,9 @@ from deterministic checks with fixed weights: same repo, same version, same outp
 
 It parses the code (`ast` for Python; a small lexer for JavaScript and TypeScript; `json`, `tomllib` and
 `configparser` for manifests; regular expressions for secrets) and never executes, imports or installs it. A scan makes
-no network calls. Python 3.11+, standard library only. Status: **0.6.0 is the current release.**
+no network calls. Python 3.11+, standard library only.
+
+One of four free, MIT-licensed guardians for people running local models, each answering one question from the outside: tool-guardian (what do my tools cost the window?), context-guardian (will this session hit the limit?), stack-guardian (is my stack healthy?), code-guardian (is this code safe to run?).
 
 **Who it is for.** Anyone running local AI models, or code an AI assistant wrote, on their own machine: you cloned a
 repository, or an assistant just rewrote a module, and you want a verdict before you run it. It is the fourth of four
@@ -103,24 +149,6 @@ python -m pytest -q
 
 The `[test]` extra is `pytest`, `build` and `jsonschema` — the whole suite needs them, and the package's own
 runtime `dependencies` stay empty. See [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Quick start (60 seconds)
-
-From a clean Python 3.11+ environment (no other dependencies):
-
-```
-pip install code-guardian-mcp
-code-guardian scan /home/user/project              # the grade, every finding with file:line; exit 0, 1 or 3
-code-guardian plan /home/user/project --top 3      # the three fixes worth the most Overall points
-```
-
-Success looks like a first line `code-guardian 0.6.0  scan of <name>`, then a `status: COMPLETE` line and four score
-lines. On a one-file project it takes well under a second. To give the same tools to an AI client, add the MCP server
-(see [MCP server](#mcp-server) for Claude Desktop and other clients):
-
-```
-claude mcp add code-guardian -- uvx code-guardian-mcp mcp
-```
 
 ## The app
 
