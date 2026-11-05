@@ -156,6 +156,18 @@ WHY = {
     "privacy.pii_prompt":
         "A value whose name says it holds personal data is passed to something that looks like a call to a language "
         "model; if it is one, that data can be sent to whoever runs the model and kept by them.",
+    "safe.agent_hook_runs_command":
+        "A settings file for an AI coding agent runs a command of its own each time the agent does something, so opening this project in that agent runs that command on your machine.",
+    "safe.agent_auto_approve":
+        "A setting for an AI coding agent stops it asking before it acts, so anything it reads can make it run commands on this machine without a prompt.",
+    "safe.agent_pipe_to_shell":
+        "A file for an AI coding agent downloads a script and runs it in the same step, so nobody gets to read what runs before it runs.",
+    "safe.agent_mcp_unpinned":
+        "A tool server for an AI coding agent is fetched from a package registry without a fixed version, so each start can bring in different code than the one that was checked.",
+    "safe.agent_injection_text":
+        "A file written for an AI coding agent contains wording of the kind used to turn an agent against its user, so the agent may follow instructions you did not choose.",
+    "safe.agent_hidden_unicode":
+        "A file written for an AI coding agent contains characters you cannot see but the agent can read, which is a way of hiding instructions inside a file that looks ordinary.",
     "check.crashed":
         "One of code-guardian's own checks stopped with an error on this file, so that one check did not finish; "
         "the rest of the scan did, and this says nothing about your project.",

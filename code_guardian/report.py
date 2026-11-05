@@ -33,7 +33,7 @@ import sys
 import tempfile
 import warnings
 
-from . import (__version__, baseline as baseline_mod, complete, explain as explain_mod, history as history_mod,
+from . import (__version__, agents, baseline as baseline_mod, complete, explain as explain_mod, history as history_mod,
                leftovers, goal, manifests, orphans as orphans_mod, scanners, scanners_js, score,
                supply, walk, works, works_js)
 from .finding import LEVELS, crash_finding, summarize
@@ -370,6 +370,13 @@ def scan(path, goal_file=None, explain=False, env=None, online=False, baseline=N
         notes.extend(history_notes)
         if skipped:
             out.skipped("history", skipped)
+    agent_files, agent_read = [] if invalid else agents.find(root), []
+    if agent_files:  # a repo with none of these files gets no outcome row, no coverage key and no finding
+        got = out.run("agents", lambda: agents.check(root, agent_files),
+                      {"findings": [], "read": [], "unreadable": []}, findings)
+        findings.extend(got["findings"])
+        agent_read = got["read"]
+        unreadable.extend(got["unreadable"])
     reached = set()
     hygiene = out.run("orphans", lambda: orphans_mod.analyse(trees, contract, entries, library=_is_library(project),
                                                              reached_out=reached), None, findings)
@@ -382,6 +389,8 @@ def scan(path, goal_file=None, explain=False, env=None, online=False, baseline=N
     langs = _languages(inv["other"])
     coverage = coverage_of(inv, langs, [code for code, _crash in js_crashed]
                            + ([] if js_works_ran or not (inv["javascript"] or inv["generated"]) else list(JS_WORKS_CODES)))
+    if agent_files:
+        coverage["agent_configs"] = agent_read
     for rel, why in inv["skipped"]:
         notes.append("skipped %s (%s)" % (rel, why))
     for rel in unreadable:
@@ -496,7 +505,8 @@ def _test_code_to_info(findings):
     real key is leaked wherever it sits) and exec of decoded data (a payload in conftest.py runs on every pytest)."""
     for f in findings:
         where = not_product(f["node"]) if f["level"] in ("WARN", "FAIL") else None
-        if (where is None or score.dimension_of(f["code"]) != "safe"
+        if (where is None or f["code"] in agents.CODES  # an agent config is read by the agent: .md is its product
+                or score.dimension_of(f["code"]) != "safe"
                 or (f["code"] == "obfuscation" and f["level"] == "FAIL")
                 or (f["code"] == "secret.key" and scanners.KEY_SHAPE in f["evidence"])):
             continue

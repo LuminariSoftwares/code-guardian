@@ -121,6 +121,36 @@ CATALOGUE = {
         ".complete( or .generate( call.",
         "Send an id or a redacted value; check the provider's data terms before sending personal data.",
         "A .complete( or .generate( method that is not a model call; a prompt built in another function is missed."),
+    "safe.agent_hook_runs_command": _e(
+        "Agent hook runs a command",
+        "An agent settings file has a hook that runs a shell command whenever the agent does something, on the machine of everyone who opens the project in that agent.",
+        "Read the command and keep it only if every collaborator should run it; otherwise delete the hook.",
+        "A formatter or linter hook the team wants on purpose; the finding says the command exists, not that it is harmful."),
+    "safe.agent_auto_approve": _e(
+        "Agent permission prompts switched off",
+        "A shipped agent setting turns off the agent's permission prompts, or allows any shell command or any tool without asking, so whatever text the agent reads can act on this machine unchecked.",
+        "Remove the setting so the agent asks first, and allow only exact commands the project needs, such as Bash(npm test).",
+        "A throwaway sandbox or container where the agent is meant to run unattended; keep that setting out of the shared file."),
+    "safe.agent_pipe_to_shell": _e(
+        "Agent file pipes a download into a shell",
+        "A hook or instruction file tells the agent, or the machine, to fetch a script from the network and run it in the same step, so nobody reads it before it runs.",
+        "Download the script, read it, check it against a published checksum, then run it.",
+        "A well-known installer line quoted in a note as an example; the finding cannot tell a quotation from an instruction."),
+    "safe.agent_mcp_unpinned": _e(
+        "MCP server with no version fixed",
+        "An MCP server is started with npx, uvx or pipx run and no fixed version, so every start can fetch new code from the package registry and run it with the agent's access.",
+        "Name an exact version, such as example-mcp-server@1.2.3 for npx or example-mcp-server==1.2.3 for uvx and pipx.",
+        "A package you publish yourself and want to track; a local path or a server reached by URL is not reported."),
+    "safe.agent_injection_text": _e(
+        "Instruction file text aimed at the agent",
+        "An agent instruction file contains wording of the kind used to hijack an agent: dropping its earlier instructions, hiding actions from the user, reading credential files or sending data to an address.",
+        "Read the line and delete it unless you wrote it and want the agent to follow it.",
+        "Security notes and tests that quote such wording on purpose, and honest rules like never reveal the user's password in a log."),
+    "safe.agent_hidden_unicode": _e(
+        "Invisible characters in an agent file",
+        "A shipped agent file contains zero-width, direction-control or tag characters that a person cannot see but the agent reads, which is how instructions get hidden in a file that looks harmless.",
+        "Delete the invisible characters, or open the file in an editor that shows them.",
+        "A zero-width joiner inside an emoji sequence, or a byte-order mark that is not at the start of the file."),
     # Works
     "works.syntax": _e(
         "File does not parse",

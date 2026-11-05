@@ -62,6 +62,12 @@ SAFE_WEIGHTS = {  # the v0.1 threat weights, unchanged
     ("privacy.pii_prompt", "WARN"): 5,
     ("dom.html_sink", "WARN"): 10,
     ("dom.html_sink", "FAIL"): 30,
+    ("safe.agent_hook_runs_command", "WARN"): 5,
+    ("safe.agent_auto_approve", "FAIL"): 15,
+    ("safe.agent_pipe_to_shell", "FAIL"): 15,
+    ("safe.agent_mcp_unpinned", "WARN"): 5,
+    ("safe.agent_injection_text", "WARN"): 5,
+    ("safe.agent_hidden_unicode", "FAIL"): 15,
 }
 WORKS_WEIGHTS = {
     ("works.syntax", "FAIL"): 30,

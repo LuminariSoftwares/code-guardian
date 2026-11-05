@@ -29,7 +29,9 @@ FIXTURES = HERE / "fixtures"
 GOLDEN = HERE / "golden"
 SCAN_GOLDEN = GOLDEN / "p141_scan_all13.json"
 ASSERT_GOLDEN = GOLDEN / "p141_test_no_assert.json"
-ALL13 = sorted(p.name for p in FIXTURES.iterdir() if p.is_dir())
+# the 13 fixtures recorded by P141 S0, by name: later fixture dirs (agent_risky, S11) are not part of this golden
+ALL13 = ["backup_repo", "clean_repo", "complete_app", "complete_bare", "js_broken", "js_clean", "js_risky",
+         "jsx_torture", "orphan_repo", "risky_repo", "supply_repo", "works_broken", "works_weak_tests"]
 
 
 def _scan_all(tmp):
@@ -52,6 +54,7 @@ def _no_assert_all(tmp):
 
 
 def test_fixture_list_is_the_thirteen():
+    assert sorted(p.name for p in FIXTURES.iterdir() if p.is_dir() and p.name != "agent_risky") == ALL13
     assert ALL13 == ["backup_repo", "clean_repo", "complete_app", "complete_bare", "js_broken", "js_clean",
                      "js_risky", "jsx_torture", "orphan_repo", "risky_repo", "supply_repo", "works_broken",
                      "works_weak_tests"]

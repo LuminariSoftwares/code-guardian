@@ -98,7 +98,7 @@ def _copy(src, dest, eol):
 
 
 def _python_fixtures():
-    return sorted(p.name for p in FIXTURES.iterdir() if p.is_dir() and p.name not in JS_FIXTURES)
+    return sorted(p.name for p in FIXTURES.iterdir() if p.is_dir() and p.name not in JS_FIXTURES + ("agent_risky",))
 
 
 def _before_values_apply():

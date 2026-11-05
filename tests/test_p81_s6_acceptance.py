@@ -64,7 +64,7 @@ def test_changelog_is_dated():
     m = re.search(r"^## code-guardian-mcp 0\.5\.0 \((20\d\d-\d\d-\d\d)\)\s*$", text, re.M)
     assert m, "the 0.5.0 heading is not dated"
     assert "(unreleased)" not in text.split("## code-guardian-mcp 0.4.2", 1)[0]
-    assert not re.search(r"^## Unreleased\s*$", text, re.M)
+    # amended for P141 S11: CHANGELOG now carries a '## Unreleased' section between releases
     section = text[m.end():].split("\n## ", 1)[0]
     assert "### Upgrading to 0.5.0" in section
     assert "P81 S5b" in section and "Advice in the file's language" in section
