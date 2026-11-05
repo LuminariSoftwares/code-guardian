@@ -647,6 +647,8 @@ or running anything.
 | `works.tests_missing` | no test files at all (`tests/`, `test_*.py`, `*_test.py`, `tests.py`, `conftest.py`) | WARN | 15 |
 | `works.test_no_assert` | test functions with no `assert`, no `pytest.raises`/`warns`, no `self.assert*` and no call to a local helper that asserts; once per file, with the count | WARN | 5 |
 | `works.test_hollow` | test functions that do assert but cannot fail: a tautology (`assert True`, `assert 1`, `assert x == x`, `assertTrue(True)`), assertions only on a mock the test built, or an `except: pass` / `except Exception: pass` that swallows the failure; one kind per test, a test already reported by `works.test_no_assert` is left to it; once per file, with the counts by kind | WARN | 5 |
+| `works.layer_import` | a file under a `[[layers]]` path in the goal file imports a module prefix that layer forbids (`flask` matches `flask` and `flask.x`, not `flasky`); node is `file:line` | WARN | 5 |
+| `works.file_too_long` | a file matching a `[size_limits]` glob has more lines than its limit; nothing is reported without a declaration | WARN | 5 |
 | `works.entry_missing` | a `[project.scripts]` (or `setup.cfg` console script) target `module:function` whose module or function is not in the tree | FAIL | 30 |
 | `orphan.dead` | dead code from the hygiene section (below), folded in at a low weight, only when entry points exist | WARN | 3 |
 | `works.todo_stub` | a function whose body is only `pass`, `...` or `raise NotImplementedError` (a docstring allowed) **and** an entry point reaches it; not abstract methods, `Protocol` classes, `@overload` or a method a subclass in the repo overrides | WARN | 3 |
@@ -889,6 +891,8 @@ above. Two rules apply across Safe:
 | `works.syntax` | Works | ast.parse rejects the file, so it cannot be imported or run (INFO when the project needs a newer Python than the one scanning); in JavaScript or TypeScript, a template literal or block comment that never closes. | Fix the syntax error; port Python 2 code to Python 3. | Files kept on purpose for another interpreter, or templates with a .py name. |
 | `works.test_no_assert` | Works | Test functions with no assert, no pytest.raises/warns, no self.assert* and no call to an asserting helper. | Assert on the result; use pytest.raises for expected errors. | Smoke tests that only check nothing raises; helpers defined in another file. |
 | `works.test_hollow` | Works | Test functions whose assertions are vacuous: assert True, assert 1, assert x == x or assertTrue(True); assertions only on a mock the test built; or an except: pass / except Exception: pass that swallows the failure. | Assert on a value the code under test returns; let the exception fail the test or use pytest.raises. | A mock call count that is the behaviour under test; an except Exception: pass around cleanup. |
+| `works.layer_import` | Works | A file under a [[layers]] path in the goal file imports a module prefix that layer lists in forbidden_imports. | Move the call behind a module the layer may import, or update forbidden_imports if the rule is out of date. | A rule written too broadly; an import kept on purpose in one adapter file (narrow the layer path). |
+| `works.file_too_long` | Works | A file matching a [size_limits] glob in the goal file has more lines than the limit. | Split the file by responsibility, or raise the limit in the goal file if the size is intended. | A file that is long on purpose (a table or generated data); raise its limit. |
 | `works.tests_missing` | Works | There are no test files at all (for JavaScript or TypeScript: no test file and no scripts.test). | Add a tests/ folder with at least one test per entry point. | Tests kept in another repository. |
 | `complete.ci_missing` | Complete | No CI configuration was found. | Add a CI workflow that runs the tests on each change. | CI configured outside the repository. |
 | `complete.env_example` | Complete | The code reads environment variables but there is no .env.example listing them. | Add a .env.example with every variable and a safe placeholder. | Libraries that read only optional, well-known variables (NO_COLOR, TERM). |
@@ -910,7 +914,19 @@ goal = "One sentence: what this project is for."
 entry_points = ["pkg.cli:main", "pkg.server:app"]   # module:function, or module:__main__ for its main block
 keep = ["pkg.plugins.*"]                             # loaded dynamically; never reported
 exclude = ["tests/fixtures/*"]                       # path globs the scan skips (the report counts them)
+
+[[layers]]                                           # files under `path` may not import these module prefixes
+path = "svc/*"
+forbidden_imports = ["flask"]
+
+[size_limits]                                        # a path glob and the most lines a matching file may have
+"svc/web.py" = 300
 ```
+
+`[[layers]]` (repeatable) and `[size_limits]` are optional; without them nothing extra is checked. A forbidden prefix
+`flask` matches `flask` and `flask.x`, not `flasky`. A bad shape (a limit that is not a positive whole number, a layer
+without a string `path`, `forbidden_imports` that is not a list of strings) stops the scan with an error naming the key.
+Breaches are reported as `works.layer_import` and `works.file_too_long` (WARN, 5 points each).
 
 ```
 code-guardian init            # writes a starter file with the inferred entry points; --force replaces one

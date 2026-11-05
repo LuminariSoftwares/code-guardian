@@ -34,8 +34,8 @@ import tempfile
 import warnings
 
 from . import (__version__, agents, baseline as baseline_mod, complete, explain as explain_mod, history as history_mod,
-               leftovers, goal, hollow, manifests, orphans as orphans_mod, scanners, scanners_js, score,
-               supply, walk, works, works_js)
+               leftovers, goal, hollow, layers as layers_mod, manifests, orphans as orphans_mod, scanners,
+               scanners_js, score, supply, walk, works, works_js)
 from .finding import LEVELS, crash_finding, summarize
 from .scanners import redact_report
 
@@ -69,6 +69,17 @@ def _parse(rel, raw):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         return ast.parse(raw, filename=rel)
+
+
+def _imports(tree):
+    """[(module, lineno)] for every absolute import in one parsed file (relative imports name no outside module)."""
+    found = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            found.extend((a.name, node.lineno) for a in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
+            found.append((node.module, node.lineno))
+    return found
 
 
 def _languages(files):
@@ -377,6 +388,10 @@ def scan(path, goal_file=None, explain=False, env=None, online=False, baseline=N
         findings.extend(got["findings"])
         agent_read = got["read"]
         unreadable.extend(got["unreadable"])
+    if contract and (contract["layers"] or contract["size_limits"]):
+        index = {rel: _imports(tree) for rel, tree in trees.items()}
+        counts = {rel: len(sources[rel].splitlines()) for rel in inv["python"] if rel in sources}
+        findings.extend(out.run("layers", lambda: layers_mod.violations(contract, counts, index), [], findings))
     reached = set()
     hygiene = out.run("orphans", lambda: orphans_mod.analyse(trees, contract, entries, library=_is_library(project),
                                                              reached_out=reached), None, findings)

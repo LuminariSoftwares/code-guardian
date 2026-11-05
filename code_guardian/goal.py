@@ -5,11 +5,19 @@
     keep = ["pkg.plugins.*"]                             # loaded dynamically; never reported as orphans
     exclude = ["tests/fixtures/*"]                       # paths (globs) the scan skips; the report counts them
 
+    [[layers]]                                           # files under `path` may not import these module prefixes
+    path = "svc/*"
+    forbidden_imports = ["flask"]
+
+    [size_limits]                                        # a glob and the most lines a matching file may have
+    "svc/web.py" = 300
+
 Public contract:
     FILENAME
-    load(path) -> {"goal", "entry_points", "keep", "exclude", "path"}   # raises GoalError on a bad file
+    load(path) -> {"goal", "entry_points", "keep", "exclude", "layers", "size_limits", "path"}
+                                                                          # raises GoalError on a bad file
     find(root, explicit=None) -> path or None
-    render(goal, entry_points, keep=(), exclude=()) -> TOML text
+    render(goal, entry_points, keep=(), exclude=(), layers=(), size_limits=None) -> TOML text
 """
 
 import json
@@ -45,9 +53,35 @@ def load(path):
         if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
             raise GoalError("%s must be a list of strings" % key)
         out[key] = [v.strip() for v in value if v.strip()]
-    unknown = sorted(set(data) - {"goal"} - set(LIST_KEYS))
+    out["layers"] = _layers(data.get("layers", []))
+    out["size_limits"] = _size_limits(data.get("size_limits", {}))
+    unknown = sorted(set(data) - {"goal", "layers", "size_limits"} - set(LIST_KEYS))
     out["unknown_keys"] = unknown
     return out
+
+
+def _layers(value):
+    if not isinstance(value, list) or not all(isinstance(v, dict) for v in value):
+        raise GoalError("layers must be a list of [[layers]] tables")
+    out = []
+    for layer in value:
+        path = layer.get("path")
+        if not isinstance(path, str) or not path.strip():
+            raise GoalError("layers: each [[layers]] table needs a string path")
+        banned = layer.get("forbidden_imports", [])
+        if not isinstance(banned, list) or not all(isinstance(v, str) for v in banned):
+            raise GoalError("layers: forbidden_imports must be a list of strings")
+        out.append({"path": path.strip(), "forbidden_imports": [v.strip() for v in banned if v.strip()]})
+    return out
+
+
+def _size_limits(value):
+    if not isinstance(value, dict):
+        raise GoalError("size_limits must be a table of glob = max lines")
+    for glob, limit in value.items():
+        if isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0:
+            raise GoalError("size_limits: %s must be a positive whole number of lines" % json.dumps(glob))
+    return dict(value)
 
 
 def find(root, explicit=None):
@@ -66,9 +100,9 @@ def _toml_list(items):
     return "[\n" + "".join("  %s,\n" % json.dumps(i) for i in items) + "]"
 
 
-def render(goal, entry_points, keep=(), exclude=()):
+def render(goal, entry_points, keep=(), exclude=(), layers=(), size_limits=None):
     """A goal file. JSON string escapes are valid TOML basic strings, so json.dumps quotes every value."""
-    return ("# code-guardian goal contract: see https://github.com/LuminariSoftwares/code-guardian#goal-contract\n"
+    text = ("# code-guardian goal contract: see https://github.com/LuminariSoftwares/code-guardian#goal-contract\n"
             "goal = %s\n\n"
             "# module:function, or module:__main__ for a module's `if __name__ == \"__main__\":` block\n"
             "entry_points = %s\n\n"
@@ -76,6 +110,12 @@ def render(goal, entry_points, keep=(), exclude=()):
             "keep = %s\n\n"
             "# path globs, relative to this file, that the scan skips\n"
             "exclude = %s\n" % (json.dumps(goal), _toml_list(entry_points), _toml_list(keep), _toml_list(exclude)))
+    for layer in layers:
+        text += "\n[[layers]]\npath = %s\nforbidden_imports = %s\n" % (
+            json.dumps(layer["path"]), _toml_list(layer.get("forbidden_imports", [])))
+    if size_limits:
+        text += "\n[size_limits]\n" + "".join("%s = %d\n" % (json.dumps(g), n) for g, n in size_limits.items())
+    return text
 
 
 def main(argv=None):
@@ -114,6 +154,16 @@ def selftest():
             ("bad_goal", raises("goal = 3")),
             ("unknown_keys", (write('goal = "x"\nextra = 1\n'), load(path)["unknown_keys"])[1] == ["extra"]),
             ("empty_ok", (write(""), load(path)["entry_points"])[1] == []),
+            ("layers_default", (write('goal = "x"\n'), load(path))[1]["layers"] == []
+             and load(path)["size_limits"] == {}),
+            ("layers_roundtrip", (write(render("x", [], layers=[{"path": "a/*", "forbidden_imports": ["b"]}],
+                                              size_limits={"a/x.py": 9})), load(path))[1]["layers"]
+             == [{"path": "a/*", "forbidden_imports": ["b"]}] and load(path)["size_limits"] == {"a/x.py": 9}
+             and "layers" not in load(path)["unknown_keys"]),
+            ("bad_layers", raises('goal = "x"\nlayers = "a"\n')),
+            ("bad_forbidden", raises('[[layers]]\npath = "a"\nforbidden_imports = "b"\n')),
+            ("bad_layer_path", raises('[[layers]]\nforbidden_imports = ["b"]\n')),
+            ("bad_size_limit", raises('[size_limits]\n"a.py" = "big"\n') and raises('[size_limits]\n"a.py" = 0\n')),
         ]
         try:
             find(tmp, os.path.join(tmp, "missing.toml"))
