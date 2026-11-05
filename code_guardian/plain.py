@@ -187,6 +187,9 @@ WHY = {
     "works.test_no_assert":
         "The check found no assertion in these tests, and it cannot see a helper that asserts in another file, so "
         "they may only notice a problem if the code stops with an error.",
+    "works.test_hollow":
+        "These tests do check something, but what they check cannot go wrong (a constant, a mock the test built, or "
+        "an error that is swallowed), so they may pass whether or not the code works.",
     "works.entry_missing":
         "A command this project installs points at a function that is not in the project, so typing that command "
         "can fail straight away.",

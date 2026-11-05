@@ -88,7 +88,7 @@ def test_orphans_fold_into_works_at_a_low_weight():
 
 def test_no_orphan_deduction_without_entry_points(tmp_path):
     (tmp_path / "a.py").write_text("def unused():\n    pass\n", encoding="utf-8")
-    (tmp_path / "test_a.py").write_text("def test_x():\n    assert True\n", encoding="utf-8")
+    (tmp_path / "test_a.py").write_text("def test_x():\n    assert int(\"1\") == 1\n", encoding="utf-8")
     rep = report.scan(str(tmp_path))
     assert rep["hygiene"]["entry_points"] == [] and rep["dimensions"]["works"]["checks"] == []
 

@@ -34,7 +34,7 @@ import tempfile
 import warnings
 
 from . import (__version__, agents, baseline as baseline_mod, complete, explain as explain_mod, history as history_mod,
-               leftovers, goal, manifests, orphans as orphans_mod, scanners, scanners_js, score,
+               leftovers, goal, hollow, manifests, orphans as orphans_mod, scanners, scanners_js, score,
                supply, walk, works, works_js)
 from .finding import LEVELS, crash_finding, summarize
 from .scanners import redact_report
@@ -335,7 +335,7 @@ def scan(path, goal_file=None, explain=False, env=None, online=False, baseline=N
                "files": sorted(inv["python"] + inv["manifests"] + inv["other"] + [r for r, _ in inv["skipped"]]),
                "read": lambda rel: walk.read(root, rel)[1]}
     if inv["python"] or inv["manifests"]:
-        findings.extend(out.run("works", lambda: works.check(project), [], findings))
+        findings.extend(out.run("works", lambda: works.check(project) + hollow.check(project), [], findings))
         findings.extend(out.run("complete", lambda: complete.check(project), [], findings))
         found, supply_notes = out.run("supply", lambda: supply.check(project, online=online, env=env), ([], []),
                                       findings)
