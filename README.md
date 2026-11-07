@@ -14,6 +14,8 @@ mcp-name: io.github.LuminariSoftwares/code-guardian
 
 A deterministic A-F grade for any repo -- is it safe to run, will it work, is it complete -- for people about to run code they did not write.
 
+<p align="center"><a href="docs/demo_poster.png"><img alt="code-guardian promo video: 0 FAIL findings on 8 pinned repos, stack-guardian v0.4.0 graded 90/100 A" src="docs/demo_poster.png" width="720"></a></p>
+
 ## Quick start (60 seconds)
 
 From a clean Python 3.11+ environment (no other dependencies):
