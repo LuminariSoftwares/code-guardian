@@ -34,7 +34,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from . import __version__, intake_binary, intake_code, intake_hidden, intake_hooks, intake_rules as rules, intake_text  # noqa: F401 - importing a group registers its checks
+from . import __version__, intake_binary, intake_code, intake_hidden, intake_hollow, intake_hooks, intake_rules as rules, intake_text  # noqa: F401 - importing a group registers its checks
 from .finding import summarize
 from .scanners import redact_report
 
