@@ -18,6 +18,7 @@ Public contract:
     run_all(ctx) -> (findings, errors)
 """
 
+import math
 import os
 import re
 import unicodedata
@@ -35,6 +36,27 @@ RULES = {
         "false_positives": "Only a wrong or stale entry on your own list; the shipped list is empty.",
     },
 }
+
+CODE_EXT = frozenset(".py .pyw .js .mjs .cjs .jsx .ts .tsx .sh .bash .zsh .ps1 .psm1 .bat .cmd .vbs .vbe .wsf .php .rb .pl "
+                     ".lua .go .rs .java .kt .cs .c .cc .cpp .h .hpp .swift .dart .vue .svelte .gradle .groovy".split())
+MINIFIED = re.compile(r"(?i)(?:\.min\.|[.-]bundle\.|\.packed\.|\.d\.ts$)")
+
+
+def ext(rel):
+    return os.path.splitext(rel)[1].lower()
+
+
+def is_code(rel):
+    return ext(rel) in CODE_EXT
+
+
+def entropy(s):
+    """Shannon entropy of s in bits per character."""
+    if not s:
+        return 0.0
+    n = len(s)
+    return -sum(c / n * math.log2(c / n) for c in (s.count(ch) for ch in set(s)))
+
 
 CHECKS = []  # [(name, fn(ctx) -> [finding])], filled by the check groups through @check
 
