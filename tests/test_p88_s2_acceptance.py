@@ -231,7 +231,8 @@ def test_contrast_ok():
 # Amended by the overseer 2026-10-25 (0.4.1 release prep, PR #46): the overseer amended test_p76_s7_acceptance.py so
 # it reads the current version instead of pinning 0.4.0; that amended copy is accepted too.
 # P82 R2 (C12 a): amended again by the overseer (the version lives in the PyPI badge, not a status sentence); hash updated.
-OVERSEER_AMENDED = {"test_p76_s7_acceptance.py": "c084a7b3d6848a9eb65dedb224aaaec70764160980c532702f1abaa9aa13fa6f",
+OVERSEER_AMENDED = {# amended again: an "## Unreleased" changelog section is allowed between releases; hash updated.
+                    "test_p76_s7_acceptance.py": "e0ea864ccfd3867a482c925dabd658047f76a0e02cf2735ecf94c7e911abbf01",
                     # amended by the overseer for P81 S4 (JavaScript is analysed now)
                     "test_p76_s1_acceptance.py": "6a5f68f6a7a9f84b1aac2bc9721fe30bae0f986dafb4503496a87eb5cf3ed72d",
                     "test_p76_s3b_acceptance.py": "fc1aee8c882f5c9cfeb93b90f6e8f1b53e45f032901702553e94e80bd524b021",

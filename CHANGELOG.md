@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- **Repo intake: `code-guardian intake PATH`.** A separate command that checks a repository before you run or open it, on a read-only copy. Options: `--json`, `--sarif`, `--bad-hashes FILE`, `--stars OWNER/REPO`, `--fail-on LEVEL`. The verdict is advisory and each finding carries low, medium or high confidence. "No checks fired" is not a guarantee. Safe/Works/Complete scores, the MCP tools and the goldens are unchanged. Rule list, confidence levels and false-positive notes are in `docs/intake.md`.
+- **22 rules.** Hooks that run on open or install: `hook.npm_lifecycle`, `hook.vscode_folder_open`, `hook.msbuild_exec`, `hook.makefile_fetch_exec`, `hook.setup_exec`, `hook.build_backend_local`, `hook.git_hooks`. Hidden payloads: `hidden.long_line`, `hidden.whitespace_pad`, `hidden.oversized_file`, `hidden.high_entropy`, `hidden.blob_to_exec`. Text: `text.invisible_unicode`, `text.agent_instructions`. Binaries: `binary.disguised_executable`, `binary.embedded_executable`. Run on import: `exec.on_import`, `exec.pth_import` (Python only). Lures: `lure.pipe_to_shell`, `lure.run_download`. Also `hollow.readme_heavy` and `hash.known_bad` (the bundled hash list ships empty).
+- **Heuristics false-positive.** The hollow, entropy, lure and agent-wording rules fire on security tools and docs, including this repository's own tests. That is why confidence exists.
+- **Agent-config check covers more files.** `SKILL.md`, `.windsurfrules`, `.clinerules` and `skills/*/SKILL.md` are now read by the existing check.
+- **Feedback corpus and issue form** for reporting intake false positives and misses.
+- **Housekeeping.** Four raw U+FEFF characters in the source were replaced by escapes. Two acceptance tests now allow an `## Unreleased` section between releases.
+- **Credit.** Check categories inspired by public write-ups on repo-borne malware (including Carter Perez's erinyes research); implemented independently.
+
 ## code-guardian-mcp 0.6.0 (2026-11-04)
 
 - **Shipped agent configs as Safe findings (P141 S11).** New `code_guardian/agents.py` reads `.claude/settings.json`, `.claude/settings.local.json`, `.mcp.json`, `.cursor/mcp.json`, `.cursor/rules*`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` and `.github/copilot-instructions.md` from the scan root (text only; nothing is run, imported or installed; symlinks and skipped folders are not followed) and adds six Safe codes: `safe.agent_hook_runs_command` (WARN 5), `safe.agent_auto_approve` (FAIL 15), `safe.agent_pipe_to_shell` (FAIL 15), `safe.agent_mcp_unpinned` (WARN 5, one per server with no version fixed), `safe.agent_injection_text` (WARN 5) and `safe.agent_hidden_unicode` (FAIL 15). The last two read `code_guardian/data/injection_patterns.json`, a byte-identical copy of tool-guardian's `tg_poison_patterns.json`, now shipped in the wheel. A repository with none of those files gets no new coverage key (`coverage.agent_configs`), no `agents` outcome row and no finding, so existing reports are unchanged. The idea comes from MCP and agent security scanners reviewed on Glama (for example invariantlabs-ai/mcp-scan); the code is rewritten from the idea.

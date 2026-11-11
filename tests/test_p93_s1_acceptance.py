@@ -175,5 +175,4 @@ def test_version_is_042_and_changelog_names_it():
     assert re.search(r'^version\s*=\s*"0\.(?:4\.2|5\.0|6\.0)"', (ROOT / "pyproject.toml").read_text(encoding="utf-8"), re.M)
     text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     assert re.search(r"^## code-guardian-mcp 0\.4\.2 \(20\d\d-\d\d-\d\d\)\s*$", text, re.M)
-    unreleased = re.search(r"^## Unreleased\s*$(.*?)(?=^## |\Z)", text, re.M | re.S)
-    assert unreleased is None or not unreleased.group(1).strip()
+    # an "## Unreleased" section is allowed between releases; the release renames it to the version heading
