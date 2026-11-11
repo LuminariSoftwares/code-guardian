@@ -575,7 +575,7 @@ the text and Markdown reports print the status and the coverage line above the s
 | `safe.agent_auto_approve` | `skipPermissions` or `dangerouslySkipPermissions` switched on, or `permissions.allow` holding `Bash(*)` or `*` | FAIL | 15 |
 | `safe.agent_pipe_to_shell` | a `curl` or `wget` fetch piped into `sh` or `bash` in a hook command or an agent instruction file | FAIL | 15 |
 | `safe.agent_mcp_unpinned` | an MCP server in `.mcp.json` or `.cursor/mcp.json` launched by `npx`, `uvx` or `pipx run` with no `@<version>` or `==`; one finding per server, none for a server with a version fixed | WARN | 5 |
-| `safe.agent_injection_text` | a line of an agent instruction file (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`, `.cursor/rules*`) matching an `injection.*` pattern in `code_guardian/data/injection_patterns.json`; the finding names the pattern, not the text | WARN | 5 |
+| `safe.agent_injection_text` | a line of an agent instruction file (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`, `SKILL.md`, `.windsurfrules`, `.clinerules`, `.cursor/rules*`) matching an `injection.*` pattern in `code_guardian/data/injection_patterns.json`; the finding names the pattern, not the text | WARN | 5 |
 | `safe.agent_hidden_unicode` | a zero-width, direction-control or tag character (the `injection.hidden_unicode` class) in any of those files | FAIL | 15 |
 
 Every Safe code above except `privacy.pii_prompt` also runs on JavaScript and TypeScript, at the same levels and
@@ -589,8 +589,9 @@ expression is never a sink. `dom.html_sink` is JavaScript / TypeScript only.
 
 **Shipped agent configs.** A repository can carry files that steer an AI coding agent, and whoever opens an agent in
 the folder inherits them. When any of `.claude/settings.json`, `.claude/settings.local.json`, `.mcp.json`,
-`.cursor/mcp.json`, `.cursor/rules*`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` or `.github/copilot-instructions.md` sits at
-the root, code-guardian reads it (as text; no hook, server or package manager is ever run) and reports the six
+`.cursor/mcp.json`, `.cursor/rules*`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`,
+`SKILL.md`, `.windsurfrules` or `.clinerules` sits at the root, or a `skills/<name>/SKILL.md` or
+`.claude/skills/<name>/SKILL.md` exists, code-guardian reads it (as text; no hook, server or package manager is ever run) and reports the six
 `safe.agent_*` codes above, which keep their level inside `.md` files. The files it read are listed in
 `coverage.agent_configs`, and the check shows as the `agents` row of the outcomes; a repository with none of those
 files gets no key, no row and no finding. The injection wording and the invisible-character class come from
