@@ -98,8 +98,8 @@ code, pre, .mono {
 .brand-sub { color: var(--muted); font-weight: 400; }
 .top-actions { display: flex; align-items: center; gap: 0.5rem; }
 
-/* The Luminari name. The mark's slot is the empty <svg id="luminari-mark">; it takes no room until a mark is drawn
-   in it, and the mark is coloured through these classes, never with colours of its own. */
+/* The Luminari name. The mark is drawn in <svg id="luminari-mark">; the slot takes no room while it is empty, and
+   the mark is coloured through these classes, never with colours of its own. */
 .luminari {
   display: inline-flex;
   align-items: center;

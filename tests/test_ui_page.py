@@ -426,7 +426,7 @@ def test_the_gear_and_the_name_are_on_the_screen_with_no_token():
         page.goto(url)
         page.wait_for_selector("#screen-notoken:not([hidden])")
         assert page.is_visible("#luminari") and page.is_visible("#settings-button")
-        assert page.is_hidden("#luminari-mark"), "an empty mark slot takes no room"
+        assert page.is_visible("#luminari-mark"), "the mark is drawn in its slot, beside the name"
         page.click("#settings-button")
         assert page.is_visible("#settings")
         page.check('input[name="theme"][value="light"]')
