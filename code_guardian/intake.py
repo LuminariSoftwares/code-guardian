@@ -160,14 +160,14 @@ def _quarantine(src, dest):
 
 def _lock(root):
     """Make the copy read-only: files 0444, folders 0555 (bottom-up)."""
-    for dp, dns, fns in os.walk(root, topdown=False):
+    for dp, _dns, fns in os.walk(root, topdown=False):
         for fn in fns:
             os.chmod(os.path.join(dp, fn), 0o444)
         os.chmod(dp, 0o555)
 
 
 def _unlock_and_remove(root):
-    for dp, dns, fns in os.walk(root):
+    for dp, _dns, fns in os.walk(root):
         os.chmod(dp, 0o700)
         for fn in fns:
             try:
@@ -324,8 +324,6 @@ def to_sarif(result):
 
 
 def selftest():
-    import contextlib
-    import io
     tmp = tempfile.mkdtemp()
     try:
         src = os.path.join(tmp, "repo")

@@ -10,7 +10,6 @@ confidence: inside an HTML comment or an agent file is higher than visible READM
 discussing prompt injection (quoting the phrase, "detects", "example") is lowered one step.
 """
 
-import os
 import re
 import unicodedata
 

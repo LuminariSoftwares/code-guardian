@@ -289,17 +289,15 @@ def setup_exec(ctx):
             elif parts[-1] in EXEC_CALLS and (parts[0] in ("os", "subprocess", "pty", "commands") or parts[-1] in ("exec", "eval")):
                 run.append(node)
         lines = ctx.lines(rel)
-        def text_of(n):
-            return lines[n.lineno - 1].strip()
         if net and run:
             n = min(net + run, key=lambda c: c.lineno)
-            out.append(finding("hook.setup_exec", "high", rel, n.lineno, text_of(n),
+            out.append(finding("hook.setup_exec", "high", rel, n.lineno, lines[n.lineno - 1].strip(),
                                "setup.py reaches the network and also runs commands"))
         elif net:
-            out.append(finding("hook.setup_exec", "medium", rel, net[0].lineno, text_of(net[0]),
+            out.append(finding("hook.setup_exec", "medium", rel, net[0].lineno, lines[net[0].lineno - 1].strip(),
                                "setup.py reaches the network at install time"))
         elif run:
-            out.append(finding("hook.setup_exec", "low", rel, run[0].lineno, text_of(run[0]),
+            out.append(finding("hook.setup_exec", "low", rel, run[0].lineno, lines[run[0].lineno - 1].strip(),
                                "setup.py runs a command at install time"))
     return out
 
