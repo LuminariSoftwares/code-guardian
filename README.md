@@ -867,6 +867,24 @@ repos:
       # - id: code-guardian-new
 ```
 
+## Repo intake: a first look at a repository you do not trust
+
+`scan` grades a codebase you mean to use. `intake` is the question before that, for a repository you just found:
+does anything in it look like a way to attack you? It checks the things that ride inside a repository itself --
+install and build hooks, VS Code tasks that run on open, hidden code, invisible characters, text aimed at AI agents,
+executables under image names, code that runs on import, download lures, hollow projects and a known-bad hash list.
+
+```
+code-guardian intake /home/user/downloads/some-repo
+code-guardian intake /home/user/downloads/some-repo --json     # or --sarif
+```
+
+It scans a read-only copy, never the folder you pointed it at, and runs nothing from the repository. Each finding has
+a file, a line, a rule id, a confidence (low, medium or high) and the exact text that matched. The verdict is
+advisory, and **"no checks fired" is not a guarantee**. The optional `--stars OWNER/REPO` bought-stars signal needs
+your own GitHub token in the environment and never changes the verdict. Full details, the hash-list format and how
+misses feed back into the repository: [docs/intake.md](docs/intake.md).
+
 ## Check catalogue
 
 Every finding code: what it means, how to fix it, and when it can be wrong. Weights are in the dimension tables
@@ -1260,6 +1278,7 @@ scanners selftest: 38 checks, 38 passed, 0 failed
   reads alike.
 - Output follows the [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html) standard and
   the [Model Context Protocol](https://modelcontextprotocol.io/) specification.
+- Check categories inspired by public write-ups on repo-borne malware (including Carter Perez's erinyes research); implemented independently.
 - No third-party code is vendored; the known-packages list is hand-built (see
   [Invented and lookalike packages](#invented-and-lookalike-packages-safe)).
 

