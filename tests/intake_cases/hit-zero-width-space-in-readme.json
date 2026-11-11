@@ -1,0 +1,4 @@
+{"name": "hit-zero-width-space-in-readme", "kind": "miss",
+ "reason": "regression: a zero-width space inside README text is reported at medium with the escaped character in the match",
+ "files": {"README.md": "Install with pip​ install x\n"},
+ "expect": [{"rule": "text.invisible_unicode", "confidence": "medium", "file": "README.md"}]}

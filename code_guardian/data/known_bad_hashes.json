@@ -1,0 +1,5 @@
+{
+  "schema_version": 1,
+  "format": "sha256 maps a lowercase or uppercase 64-character SHA-256 hex digest of a whole file to a short label saying what it is (a name, a report link, a date). Add your own entries here or in a separate file passed with `code-guardian intake PATH --bad-hashes FILE` or the CODE_GUARDIAN_BAD_HASHES environment variable (same format; entries are merged). A file anywhere in the scanned copy with a listed hash forces the malicious verdict. This list ships empty on purpose: no hash is invented. Never put the sample itself in here, only its digest.",
+  "sha256": {}
+}

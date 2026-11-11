@@ -35,6 +35,8 @@ entry_points = [
   "code_guardian.refuse:__main__",
   "code_guardian.ui:__main__",
   "code_guardian.backups:__main__",
+  "code_guardian.intake:__main__",
+  "code_guardian.stars:__main__",
 ]
 
 keep = []

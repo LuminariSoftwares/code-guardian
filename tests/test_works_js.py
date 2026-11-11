@@ -57,7 +57,7 @@ def test_load_names_unreadable_and_unparseable_files(tmp_path):
 
 
 def test_loose_json_keeps_strings_and_lines():
-    text = '﻿{\n  // comment\n  "url": "http-ish // not a comment", /* a\n b */ "list": [1, 2,],\n  "k": {"x": 1,},\n}\n'
+    text = '\ufeff{\n  // comment\n  "url": "http-ish // not a comment", /* a\n b */ "list": [1, 2,],\n  "k": {"x": 1,},\n}\n'
     assert works_js._parse(text) == ({"url": "http-ish // not a comment", "list": [1, 2], "k": {"x": 1}}, None)
     lines = works_js._key_lines(works_js._loose(text))
     assert lines[("url",)] == 3 and lines[("list",)] == 4 and lines[("list", 1)] == 4 and lines[("k", "x")] == 5

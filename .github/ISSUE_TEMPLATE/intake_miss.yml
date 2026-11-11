@@ -1,0 +1,50 @@
+name: Intake miss or false positive
+description: "`code-guardian intake` flagged something innocent, or let something bad through."
+labels: ["intake"]
+body:
+  - type: markdown
+    id: intro
+    attributes:
+      value: |
+        Intake results are advisory, and every miss or false positive becomes a regression case (see
+        [docs/intake.md](https://github.com/LuminariSoftwares/code-guardian/blob/main/docs/intake.md)).
+        Please describe the case with a small synthetic reproduction. Do not paste or attach real malware, and do not
+        paste secrets. For a security problem use [private reporting](https://github.com/LuminariSoftwares/code-guardian/security/advisories/new).
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What happened
+      options:
+        - A rule fired on something innocent (false positive)
+        - A bad repository passed with no finding (miss)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The output of `code-guardian --version`.
+    validations:
+      required: true
+  - type: input
+    id: rule
+    attributes:
+      label: Rule id
+      description: The rule that fired wrongly, or the one you expected to fire.
+      placeholder: hook.npm_lifecycle
+    validations:
+      required: true
+  - type: textarea
+    id: synthetic
+    attributes:
+      label: A small synthetic reproduction
+      description: The file names and the benign text that reproduce it. Invisible characters as ​-style escapes.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true

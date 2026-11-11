@@ -7,6 +7,7 @@
     code-guardian diff BEFORE.json AFTER.json [--json]         # exit 1 when anything regressed
     code-guardian plan PATH [--top 10] [--json] [--goal FILE] [--exclude GLOB ...]  # Markdown by default
     code-guardian orphans PATH [--json] [--goal FILE] [--exclude GLOB ...] [--fail-on LEVEL]
+    code-guardian intake PATH [--json | --sarif] [--bad-hashes FILE] [--stars OWNER/REPO] [--fail-on LEVEL]   # first look at an untrusted repo
     code-guardian init [PATH] [--force]
     code-guardian ui [PATH] [--port N] [--no-browser] [--selftest]   # the local page, on 127.0.0.1 only
     code-guardian mcp                      # the MCP server on stdio (same as code-guardian-mcp)
@@ -24,7 +25,7 @@ import shutil
 import sys
 import tempfile
 
-from . import __version__, baseline, goal, outputs, report, verify
+from . import __version__, baseline, goal, intake, outputs, report, stars, verify
 from .finding import summarize
 from .scanners import redact_report
 
@@ -78,6 +79,19 @@ def _parser():
     o.add_argument("--goal", metavar="FILE")
     o.add_argument("--exclude", **exclude)
     o.add_argument("--fail-on", **fail_on)
+    t = sub.add_parser("intake", help="first look at an untrusted repository before you open, install or run it "
+                                      "(advisory; scans a read-only copy)")
+    t.add_argument("path")
+    tfmt = t.add_mutually_exclusive_group()
+    tfmt.add_argument("--json", action="store_true", help="print the result as JSON")
+    tfmt.add_argument("--sarif", action="store_true", help="print SARIF 2.1.0")
+    t.add_argument("--bad-hashes", metavar="FILE",
+                   help="a known-bad SHA-256 list to add to the (empty) shipped one; see docs/intake.md")
+    t.add_argument("--stars", metavar="OWNER/REPO",
+                   help="also sample that GitHub repo's stargazers for a bought-stars signal (separate from the verdict; "
+                        "needs your own token in CODE_GUARDIAN_GITHUB_TOKEN, skipped without one)")
+    t.add_argument("--fail-on", default="high", type=str.lower, choices=["low", "medium", "high"],
+                   help="exit 1 when any finding has at least this confidence (default high)")
     i = sub.add_parser("init", help="write a starter %s with the inferred entry points" % goal.FILENAME)
     i.add_argument("path", nargs="?", default=".")
     i.add_argument("--force", action="store_true", help="overwrite an existing goal file")
@@ -173,6 +187,16 @@ def main(argv=None):
             hyg = report.orphans(args.path, args.goal, exclude=args.exclude or ())
             sys.stdout.write(json.dumps(redact_report(hyg), indent=1) + "\n" if args.json else report.render_orphans(hyg))
             return report.exit_code(hyg["findings"], args.fail_on)
+        if args.command == "intake":
+            try:
+                res = intake.scan(args.path, args.bad_hashes)
+            except intake.UsageError as exc:
+                raise report.UsageError(str(exc)) from None
+            if args.stars:
+                res["stars"] = stars.analyse(args.stars)
+            sys.stdout.write(intake.to_json(res) if args.json else
+                             json.dumps(intake.to_sarif(res), indent=1) + "\n" if args.sarif else intake.render(res))
+            return intake.exit_code(res, args.fail_on)
         if args.command == "init":
             return init(args.path, args.force)
         if args.command == "ui":

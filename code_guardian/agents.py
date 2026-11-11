@@ -11,7 +11,8 @@ invariantlabs-ai/mcp-scan. This module is rewritten from the idea; no code, test
 
 Files read, relative to the scanned root:
     .claude/settings.json  .claude/settings.local.json  .mcp.json  .cursor/mcp.json  .cursor/rules*
-    AGENTS.md  CLAUDE.md  GEMINI.md  .github/copilot-instructions.md
+    AGENTS.md  CLAUDE.md  GEMINI.md  .github/copilot-instructions.md  SKILL.md  .windsurfrules  .clinerules
+    skills/*/SKILL.md  .claude/skills/*/SKILL.md
 
 Findings (all Safe; a finding here keeps its level in a .md file, because to an agent that file is the product):
     safe.agent_hook_runs_command  WARN   a hooks entry with a `command`
@@ -39,8 +40,10 @@ from . import walk
 from .finding import make_finding
 
 CONFIG_FILES = (".claude/settings.json", ".claude/settings.local.json", ".mcp.json", ".cursor/mcp.json")
-INSTRUCTION_FILES = ("AGENTS.md", "CLAUDE.md", "GEMINI.md", ".github/copilot-instructions.md")
-FILES = CONFIG_FILES + (".cursor/rules*",) + INSTRUCTION_FILES
+INSTRUCTION_FILES = ("AGENTS.md", "CLAUDE.md", "GEMINI.md", ".github/copilot-instructions.md", "SKILL.md", ".windsurfrules",
+                     ".clinerules")
+SKILL_DIRS = ("skills", ".claude/skills")  # <dir>/<name>/SKILL.md, one level down
+FILES = CONFIG_FILES + (".cursor/rules*",) + INSTRUCTION_FILES + ("skills/*/SKILL.md", ".claude/skills/*/SKILL.md")
 CODES = ("safe.agent_hook_runs_command", "safe.agent_auto_approve", "safe.agent_pipe_to_shell",
          "safe.agent_mcp_unpinned", "safe.agent_injection_text", "safe.agent_hidden_unicode")
 PATTERNS_FILE = Path(__file__).resolve().parent / "data" / "injection_patterns.json"
@@ -115,11 +118,37 @@ def _rules_files(root):
     return out
 
 
+def _skill_files(root):
+    """<skills dir>/<name>/SKILL.md for the folders named in SKILL_DIRS, one level down, no symlinks."""
+    out = []
+    for base in SKILL_DIRS:
+        here = os.path.join(root, *base.split("/"))
+        if not _plain_dir(root, base):
+            continue
+        try:
+            names = sorted(os.listdir(here))
+        except OSError:
+            continue
+        out += [rel for rel in ("%s/%s/SKILL.md" % (base, n) for n in names) if _plain_file(root, rel)]
+    return out
+
+
+def _plain_dir(root, rel):
+    here = root
+    for part in rel.split("/"):
+        if part in walk.SKIP_DIRS:
+            return False
+        here = os.path.join(here, part)
+        if os.path.islink(here):
+            return False
+    return os.path.isdir(here)
+
+
 def find(root):
     """The agent config files that exist under root: sorted rel paths with forward slashes."""
     root = os.fspath(root)
     rels = [rel for rel in CONFIG_FILES + INSTRUCTION_FILES if _plain_file(root, rel)]
-    return sorted(set(rels + _rules_files(root)))
+    return sorted(set(rels + _rules_files(root) + _skill_files(root)))
 
 
 def _read(root, rel):
@@ -173,7 +202,7 @@ def _hidden_unicode(rel, text, patterns):
         for lineno, line in enumerate(text.split("\n"), 1):
             marks = []
             for col, ch in enumerate(line, 1):
-                if lineno == 1 and col == 1 and ch == "﻿":
+                if lineno == 1 and col == 1 and ch == "\ufeff":
                     continue  # a byte-order mark at the very start of a file is how some editors save it
                 if any(lo <= ord(ch) <= hi for lo, hi in ranges):
                     marks.append("U+%04X at column %d" % (ord(ch), col))

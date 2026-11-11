@@ -1,0 +1,4 @@
+{"name": "fp-prose-masks-email-addresses", "kind": "false_positive",
+ "reason": "found running intake on code-guardian itself: ordinary prose with the words 'email addresses' and 'credentials' matched the exfiltration wording",
+ "files": {"README.md": "The report masks API-key shapes and email addresses; the credentials a URL can carry are hidden.\n"},
+ "expect_none": ["text.agent_instructions"]}
