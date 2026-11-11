@@ -19,6 +19,7 @@ Public contract:
 """
 
 import os
+import re
 import unicodedata
 
 CONFIDENCES = ("low", "medium", "high")
@@ -35,7 +36,51 @@ RULES = {
     },
 }
 
-CHECKS = []  # [(name, fn(ctx) -> [finding])], filled by the check groups below
+CHECKS = []  # [(name, fn(ctx) -> [finding])], filled by the check groups through @check
+
+
+def check(name):
+    """Register fn(ctx) -> [finding] as an intake check."""
+    def register(fn):
+        CHECKS.append((name, fn))
+        return fn
+    return register
+
+
+# ---- shared: what a command line does -----------------------------------------------------------------------------
+
+_FETCH = re.compile(r"(?i)\b(?:curl|wget|iwr|irm|invoke-webrequest|invoke-restmethod|start-bitstransfer|bitsadmin|"
+                    r"certutil)\b|\.(?:downloadstring|downloadfile|downloaddata)\b|\burlretrieve\b")
+_PIPE_TO_INTERPRETER = re.compile(r"(?i)\|\s*(?:sudo\s+(?:-\S+\s+)*)?(?:/(?:usr/)?bin/)?(?:(?:ba|z|da|k|c)?sh|iex|"
+                                  r"invoke-expression|python3?|node|perl|ruby|pwsh|powershell(?:\.exe)?)\b")
+_EXEC_VERB = re.compile(r"(?i)\biex\b|\binvoke-expression\b|\bstart-process\b|\bchmod\s+\+?[ugoa]*[+=]?x|"
+                        r"\bchmod\s+[0-7]*7[0-7]*\b|&&\s*\./|;\s*\./|\bmshta\b|\bregsvr32\b|\brundll32\b|"
+                        r"\bbash\s+\S|\bsh\s+\S|\bcmd(?:\.exe)?\s+/c\b|\.exe\b|&amp;&amp;\s*\S+\.exe")
+_OBFUSCATED = re.compile(r"(?i)\s-(?:e|enc|ec|encodedcommand)\s+[A-Za-z0-9+/=]{20,}|\bfrombase64string\b|"
+                         r"[A-Za-z0-9+/=]{40,}\s*\|\s*base64\s+(?:-d|--decode)\b|\bbase64\s+(?:-d|--decode)\b[^\n]*\|")
+_INLINE = re.compile(r"(?i)\bnode\s+(?:-\w+\s+)*(?:-e|--eval)\b|\bpython3?\s+(?:-\w+\s+)*-c\b|\b(?:ba|z)?sh\s+-c\b|"
+                     r"\b(?:powershell|pwsh)(?:\.exe)?\b[^\n]*\s-(?:c|command)\b|\bcmd(?:\.exe)?\s+/c\b|\beval\b|"
+                     r"\bperl\s+-e\b|\bruby\s+-e\b|\bmshta\b|\bwscript\b|\bcscript\b|\bregsvr32\b|\brundll32\b")
+_LOCAL_SCRIPT = re.compile(r"(?i)\b(?:node|python3?|bash|sh|ruby|perl|pwsh|powershell(?:\.exe)?)\s+(?:-\w+\s+)*"
+                           r"[^\s;&|]*\.(?:js|mjs|cjs|py|sh|ps1|rb|pl|bat|cmd)\b|^\s*(?:\.{0,2}[/\\])[^\s]+\.(?:sh|bat|cmd|ps1)\b")
+
+
+def command_signal(cmd):
+    """What a shell command line does, from its text alone: "obfuscated_exec" (an encoded or base64-decoded
+    command), "fetch_exec" (fetches something over the network and pipes or runs it), "inline_exec" (runs inline
+    code: node -e, python -c, sh -c, powershell -c, eval), "fetch_only" (downloads), "local_script" (runs a script
+    file from the repo), or None for anything else (husky, tsc, node-gyp, npm run, echo ...)."""
+    if _OBFUSCATED.search(cmd):
+        return "obfuscated_exec"
+    if _FETCH.search(cmd) and (_PIPE_TO_INTERPRETER.search(cmd) or _EXEC_VERB.search(cmd)):
+        return "fetch_exec"
+    if _INLINE.search(cmd):
+        return "inline_exec"
+    if _FETCH.search(cmd):
+        return "fetch_only"
+    if _LOCAL_SCRIPT.search(cmd):
+        return "local_script"
+    return None
 
 
 def show(text, limit=MATCH_MAX):
