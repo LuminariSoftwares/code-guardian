@@ -2,8 +2,8 @@
 
 ## Escalations (top)
 
-1. **[TJ] The branch could not be pushed and no pull request exists.** The `add_repo` tool named in the task is not available in this session, and the git proxy refused the push ("LuminariSoftwares/code-guardian is not in this session's authorized repository set"). Nothing was routed around. The work is complete on local branch `intake/repo-intake-checks` and is delivered as a git bundle plus this log. To open the PR: `git fetch intake-repo-intake.bundle intake/repo-intake-checks:intake/repo-intake-checks`, push that branch, open a PR against main. Nothing was merged, tagged, released or published.
-2. **[TJ] CHANGELOG.md was deliberately not edited.** Two existing acceptance tests (`test_p81_s6_acceptance`, `test_p93_s1_acceptance`) forbid an `## Unreleased` section. Add the entry at release time; suggested text is in the PR body draft shipped next to this log.
+1. **[owner] Branch pushed and PR opened for review; do not merge, tag or release from it.** The maintainer releases.
+2. **[owner] CHANGELOG.md was deliberately not edited.** Two existing acceptance tests (`test_p81_s6_acceptance`, `test_p93_s1_acceptance`) forbid an `## Unreleased` section. Add the entry at release time; suggested text is in the PR body draft shipped next to this log.
 3. Reading taken: intake is a separate `code-guardian intake PATH` command with its own low/medium/high confidence, kept out of the Safe/Works/Complete scores and MCP tools, so every existing report and golden file is unchanged.
 
 ## What closed, with evidence
@@ -23,11 +23,11 @@
 - [S5] CMake `file(DOWNLOAD)` / `execute_process` hooks; `.pre-commit-config.yaml` local hooks; lefthook.
 - [O5] Decide whether to expose `intake` as an MCP tool (blocked by the tools/list size budget; needs trimming another definition).
 - [O5] Calibrate confidence thresholds on a corpus of known-clean popular repos (intentionally not run: no third-party repo was scanned).
-- [TJ] Open the PR (see escalation 1) and add the CHANGELOG entry at release.
-- [TJ] Hash list is empty; supply known-bad SHA-256s from sources you trust.
+- [owner] Review the PR and add the CHANGELOG entry at release.
+- [owner] Hash list is empty; supply known-bad SHA-256s from sources you trust.
 
 ## Three lines
 
 1. Closed with evidence: all ten spec items plus skill-file coverage, feedback corpus and a U+FEFF cleanup; 1476 tests pass on 3.11, SARIF schema-valid.
-2. Decision for TJ: push the branch and open the PR yourself (add_repo was unavailable), and decide on the CHANGELOG wording at release.
+2. Decision for the maintainer: review the PR and decide on the CHANGELOG wording at release.
 3. Risk: the heuristic rules (hollow, entropy, lures, agent wording) false-positive on security tools and docs, which is why confidence exists and the verdict is advisory only.
