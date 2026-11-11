@@ -20,6 +20,18 @@ jobs:
           python-version: "3.11"
       - name: Install
         run: python -m pip install -e ".[test]"
+      # The UI tests call pytest.importorskip("playwright.sync_api"), so with no browser they skip and the leg
+      # goes green on a path it never ran. That is how a Windows-only bug stayed hidden: answering 413 without
+      # draining the request body killed the browser's fetch, and the page blamed the server instead of the
+      # file size. Linux never shows it -- the body fits in the socket buffers before the response is read --
+      # so the browser goes on this leg only, where the failure actually lives.
+      # Playwright is a CI tool here on purpose: keeping it out of [project.optional-dependencies] means it
+      # reaches neither the published package nor anyone running the suite locally.
+      - name: Browser for the UI tests (Windows only)
+        if: matrix.os == 'windows-latest'
+        run: |
+          python -m pip install playwright==1.62.0
+          python -m playwright install chromium
       - name: Test
         run: python -m pytest -q
 
