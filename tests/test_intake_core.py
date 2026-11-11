@@ -206,6 +206,7 @@ def test_the_cli_exit_codes_and_formats(tmp_path, capsys):
     assert cli.main(["intake", clean, "--bad-hashes", str(tmp_path / "missing.json")]) == 2
 
 
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="named pipes need POSIX")
 def test_a_named_pipe_does_not_hang_the_copy_and_is_skipped(tmp_path):
     src = mk(tmp_path / "clone", {"a.py": "x = 1\n"})
     os.mkfifo(os.path.join(src, "pipe"))
