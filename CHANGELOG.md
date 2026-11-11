@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## code-guardian-mcp 0.7.0 (2026-11-10)
 
 - **Repo intake: `code-guardian intake PATH`.** A separate command that checks a repository before you run or open it, on a read-only copy. Options: `--json`, `--sarif`, `--bad-hashes FILE`, `--stars OWNER/REPO`, `--fail-on LEVEL`. The verdict is advisory and each finding carries low, medium or high confidence. "No checks fired" is not a guarantee. Safe/Works/Complete scores, the MCP tools and the goldens are unchanged. Rule list, confidence levels and false-positive notes are in `docs/intake.md`.
 - **22 rules.** Hooks that run on open or install: `hook.npm_lifecycle`, `hook.vscode_folder_open`, `hook.msbuild_exec`, `hook.makefile_fetch_exec`, `hook.setup_exec`, `hook.build_backend_local`, `hook.git_hooks`. Hidden payloads: `hidden.long_line`, `hidden.whitespace_pad`, `hidden.oversized_file`, `hidden.high_entropy`, `hidden.blob_to_exec`. Text: `text.invisible_unicode`, `text.agent_instructions`. Binaries: `binary.disguised_executable`, `binary.embedded_executable`. Run on import: `exec.on_import`, `exec.pth_import` (Python only). Lures: `lure.pipe_to_shell`, `lure.run_download`. Also `hollow.readme_heavy` and `hash.known_bad` (the bundled hash list ships empty).
