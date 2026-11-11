@@ -134,6 +134,10 @@ def agent_instructions(ctx):
             if code and not COMMENT_LINE.match(line) and not re.search(r"\s(?:#|//)\s", line):
                 continue
             hidden = any(a <= start < b for a, b in spans)
+            if agent and "run_command" not in seen and command_signal(line) in ("fetch_exec", "obfuscated_exec"):
+                seen["run_command"] = True
+                out.append(finding("text.agent_instructions", "high", rel, i, line.strip(),
+                                   "instruction file tells the agent to fetch and run code"))
             for kind, rx in AGENT_PATTERNS:
                 m = rx.search(line)
                 if not m or kind in seen:
