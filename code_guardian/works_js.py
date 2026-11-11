@@ -74,7 +74,7 @@ def _finding(code, level, node, summary, evidence=(), try_=()):
 def _loose(text):
     """JSON text with // and /* */ comments and trailing commas blanked. Newlines stay where they were, so a line in the
     result is the same line in the file."""
-    text = text.lstrip("﻿")
+    text = text.lstrip("\ufeff")
     out = []
     commas = []
     i, n = 0, len(text)

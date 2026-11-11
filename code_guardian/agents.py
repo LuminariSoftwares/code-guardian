@@ -173,7 +173,7 @@ def _hidden_unicode(rel, text, patterns):
         for lineno, line in enumerate(text.split("\n"), 1):
             marks = []
             for col, ch in enumerate(line, 1):
-                if lineno == 1 and col == 1 and ch == "﻿":
+                if lineno == 1 and col == 1 and ch == "\ufeff":
                     continue  # a byte-order mark at the very start of a file is how some editors save it
                 if any(lo <= ord(ch) <= hi for lo, hi in ranges):
                     marks.append("U+%04X at column %d" % (ord(ch), col))

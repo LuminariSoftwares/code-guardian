@@ -38,7 +38,7 @@ KEYWORDS = frozenset(
 REGEX_AFTER_KEYWORD = frozenset("return typeof instanceof in of new delete void throw case do else yield await".split())
 DIVIDES_AFTER_PUNCT = frozenset({")", "]", "}", "</"})
 
-_WS = re.compile(r"(?:[^\S\n]|﻿)+")
+_WS = re.compile(r"(?:[^\S\n]|\ufeff)+")
 _NAME = re.compile(r"#?(?:[^\W\d]|\$)[\w$]*")
 _NUMBER = re.compile(r"0[xX][0-9a-fA-F_]+n?|0[bB][01_]+n?|0[oO][0-7_]+n?"
                      r"|(?:\d[\d_]*(?:\.[\d_]*)?|\.\d[\d_]*)(?:[eE][+-]?\d[\d_]*)?n?")
@@ -140,7 +140,7 @@ def _lex(text, i, line, ls, jsx, flag, out):
             i += 1
             ls = i
             continue
-        if c == " " or c == "\t" or c.isspace() or c == "﻿":
+        if c == " " or c == "\t" or c.isspace() or c == "\ufeff":
             i = _WS.match(text, i).end()
             continue
         if c.isalpha() or c == "_" or c == "$" or c == "#":
