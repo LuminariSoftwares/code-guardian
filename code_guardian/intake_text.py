@@ -51,8 +51,10 @@ AGENT_PATTERNS = (
                             r"system)\b[^.\n]{0,30}\b(?:instructions?|rules|prompts?|guidelines|polic(?:y|ies)|safety)\b")),
     ("conceal", re.compile(r"(?i)\b(?:do not|don't|never|without)\b[^.\n]{0,30}\b(?:tell|inform|mention|reveal|show|notify|alert)\b"
                            r"[^.\n]{0,30}\b(?:the user|user|human|operator)\b")),
-    ("exfil", re.compile(r"(?i)\b(?:send|post|upload|transmit|forward|exfiltrate|email|leak)\b[^\n]{0,80}\b(?:api[ _-]?keys?|tokens?|"
-                         r"secrets?|credentials?|passwords?|\.env\b|ssh keys?|private keys?|id_rsa|cookies|wallet|seed phrase)\b")),
+    ("exfil", re.compile(r"(?i)\b(?:send|post|upload|transmit|forward|leak|copy|email|mail)\b[^\n]{0,80}\b(?:api[ _-]?keys?|tokens?|"
+                         r"secrets?|credentials?|passwords?|\.env\b|ssh keys?|private keys?|id_rsa|cookies|wallet|seed phrase)\b"
+                         r"[^\n]{0,80}(?:https?://|\bto\s+(?:a |the |my |our |this )?(?:server|webhook|endpoint|url|address|remote|"
+                         r"attacker|me\b)|@\w)|\bexfiltrat\w*\b")),
     ("role_hijack", re.compile(r"(?i)\byou are (?:now|no longer)\b|\bnew (?:system )?instructions?\b|\bact as (?:an? )?(?:unrestricted|"
                                r"jailbroken|root)\b|<\s*/?\s*(?:system|important|instructions?)\s*>")),
     ("run_command", re.compile(r"(?i)\b(?:you must|you should|please|always|first|now)\b[^.\n]{0,40}\b(?:run|execute|invoke)\b"
@@ -130,8 +132,12 @@ def agent_instructions(ctx):
         offset, seen = 0, {}
         for i, line in enumerate(text.split("\n"), 1):
             start, offset = offset, offset + len(line) + 1
-            if code and not COMMENT_LINE.match(line) and not re.search(r"\s(?:#|//)\s", line):
-                continue
+            if code:  # only the comment part of a source line is prose
+                if not COMMENT_LINE.match(line):
+                    m = re.search(r"\s(?:#|//)\s", line)
+                    if not m:
+                        continue
+                    line = line[m.end():]
             hidden = any(a <= start < b for a, b in spans)
             if agent and "run_command" not in seen and command_signal(line) in ("fetch_exec", "obfuscated_exec"):
                 seen["run_command"] = True

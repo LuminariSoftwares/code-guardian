@@ -59,3 +59,8 @@ def test_run_this_exe_lures(tmp_path):
     assert got == {"README.md": "high", "docs/y.md": "medium", "docs/x.md": "low"}
     readme = [f["match"] for f in of(res, "lure.run_download") if f["file"] == "README.md"]
     assert any("Disable your antivirus" in m for m in readme) and any("password" in m.lower() for m in readme)
+
+
+def test_a_table_cell_naming_a_password_field_is_not_an_archive_lure(tmp_path):
+    res = scan(tmp_path, {"README.md": '| `password="secret"` in documentation samples | same rule |\n'})
+    assert of(res, "lure.run_download") == []

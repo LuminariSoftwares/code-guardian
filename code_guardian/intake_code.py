@@ -168,7 +168,7 @@ SHORTENERS = ("bit.ly", "tinyurl.com", "t.co", "goo.gl", "is.gd", "cutt.ly", "rb
 URL = re.compile(r"https?://[^\s'\"`)<>|]+")
 EXE_RUN = re.compile(r"(?i)\b(download|install|run|launch|open|double[- ]click|execute|extract|unzip)\b[^.\n]{0,60}?\b([\w.-]+\.(?:exe|msi|scr|bat|cmd|ps1|vbs|jar|dmg|pkg|apk|appimage|lnk))\b")
 AV_OFF = re.compile(r"(?i)(?:disable|turn off|pause|exclude|whitelist|add (?:an )?exclusion|bypass)[^.\n]{0,40}(?:antivirus|anti-virus|defender|windows security|smartscreen)")
-ARCHIVE_PW = re.compile(r"(?i)\b(?:archive|zip|rar|7z)\b[^.\n]{0,60}\bpassword\b|\bpassword\b[^.\n]{0,30}\b(?:archive|zip|rar|7z)\b|^\W*password\s*[:=]\s*\S{2,}")
+ARCHIVE_PW = re.compile(r"(?i)\b(?:archive|zip|rar|7z)\b[^.\n]{0,60}\bpassword\b|\bpassword\b[^.\n]{0,30}\b(?:archive|zip|rar|7z)\b|^\s*(?:[-*>]|\d+[.)])?\s*password\s*:\s*\S{2,}")
 AS_ADMIN = re.compile(r"(?i)run (?:it |as |this )?(?:as )?(?:an )?administrator|as admin(?:istrator)?\b")
 DEEP_VERBS = ("download", "install", "double-click", "double click", "extract", "unzip")
 
