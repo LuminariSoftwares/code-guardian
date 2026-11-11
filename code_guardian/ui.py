@@ -54,6 +54,8 @@ DEFAULT_PORTS = tuple(range(8765, 8776))  # a stable address, so the browser kee
 CSP = "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'"
 FILE_LIMIT = 2 * 1024 * 1024
 BODY_LIMIT = 1024 * 1024
+DRAIN_LIMIT = 8 * 1024 * 1024  # an over-size body is read and dropped up to here, so the client can read the 413
+DRAIN_SECONDS = 2.0            # ...but only for this long: a Content-Length that lies must not hold the handler
 UI_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")
 ASSETS = {"/": ("index.html", "text/html; charset=utf-8"), "/app.css": ("app.css", "text/css; charset=utf-8"),
           "/app.js": ("app.js", "text/javascript; charset=utf-8")}
@@ -418,6 +420,30 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if raw is None:
             return b""
         if not raw.isdigit() or int(raw) > BODY_LIMIT:
+            # Drain before answering 413, or the client never reads the answer. The docstring above always
+            # promised this; without it a browser's fetch dies at the network level and the page shows
+            # "code-guardian is not answering. Is it still running in the terminal?" -- sending the reader to
+            # the terminal for a problem that is not there, when the true answer is "these files are too
+            # large". It survived on Linux, where the whole body fits in the socket buffers before the
+            # response is read, and failed on Windows. Bounded: past DRAIN_LIMIT, hang up instead of reading
+            # a body a hostile Content-Length says is huge.
+            if raw.isdigit() and int(raw) <= DRAIN_LIMIT:
+                left, old = int(raw), self.connection.gettimeout()
+                try:
+                    self.connection.settimeout(DRAIN_SECONDS)
+                    while left > 0:
+                        chunk = self.rfile.read(min(65536, left))
+                        if not chunk:
+                            break
+                        left -= len(chunk)
+                except OSError:
+                    pass  # nothing more is coming, or not fast enough: answer anyway
+                finally:
+                    try:
+                        self.connection.settimeout(old)
+                    except OSError:
+                        pass
+            self.close_connection = True
             return None
         return self.rfile.read(int(raw))
 
