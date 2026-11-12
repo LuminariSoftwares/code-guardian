@@ -1,5 +1,12 @@
 # Changelog
 
+## code-guardian-mcp 0.7.1 (2026-11-11)
+
+- **`code-guardian ui`: an over-size upload gets its real answer.** The local page answered 413 from the `Content-Length` header without reading the body. A browser that was still sending raced the close, so on Windows the request died at the network level and the page said "code-guardian is not answering" where the real answer was that the files are too large to compare. The server now reads and drops the body first, bounded at 8 MiB and 2 seconds, then answers 413.
+- **`code-guardian ui`: the Luminari mark is drawn in its header slot.** Inline SVG on the existing brand tokens in both palettes; no new asset and the content security policy is unchanged.
+- **CI.** The UI tests now run with a browser on the Windows leg; before, they skipped there. Playwright stays out of the published package.
+- **Versions.** `pyproject.toml`, `__version__`, the MCP server and both `version` fields of `server.json` read 0.7.1.
+
 ## code-guardian-mcp 0.7.0 (2026-11-10)
 
 - **Repo intake: `code-guardian intake PATH`.** A separate command that checks a repository before you run or open it, on a read-only copy. Options: `--json`, `--sarif`, `--bad-hashes FILE`, `--stars OWNER/REPO`, `--fail-on LEVEL`. The verdict is advisory and each finding carries low, medium or high confidence. "No checks fired" is not a guarantee. Safe/Works/Complete scores, the MCP tools and the goldens are unchanged. Rule list, confidence levels and false-positive notes are in `docs/intake.md`.

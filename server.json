@@ -4,13 +4,13 @@
   "title": "Code Guardian",
   "description": "Safe to run? Will it work? Complete? An A-F grade for any repo, plus a verify loop. Never runs it.",
   "repository": {"url": "https://github.com/LuminariSoftwares/code-guardian", "source": "github"},
-  "version": "0.7.0",
+  "version": "0.7.1",
   "packages": [
     {
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "code-guardian-mcp",
-      "version": "0.7.0",
+      "version": "0.7.1",
       "runtimeHint": "uvx",
       "transport": {"type": "stdio"},
       "packageArguments": [{"type": "positional", "value": "mcp"}],

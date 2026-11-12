@@ -172,7 +172,7 @@ def test_releasing_doc_names_the_trusted_publisher_fields():
 
 def test_version_is_042_and_changelog_names_it():
     # amended by the overseer for P81 S6: 0.5.0 follows 0.4.2; and for P141 S14: 0.6.0 follows 0.5.0
-    assert re.search(r'^version\s*=\s*"0\.(?:4\.2|5\.0|6\.0|7\.0)"', (ROOT / "pyproject.toml").read_text(encoding="utf-8"), re.M)
+    assert re.search(r'^version\s*=\s*"0\.(?:4\.2|5\.0|6\.0|7\.0|7\.1)"', (ROOT / "pyproject.toml").read_text(encoding="utf-8"), re.M)
     text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     assert re.search(r"^## code-guardian-mcp 0\.4\.2 \(20\d\d-\d\d-\d\d\)\s*$", text, re.M)
     # an "## Unreleased" section is allowed between releases; the release renames it to the version heading
