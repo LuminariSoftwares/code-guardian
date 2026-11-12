@@ -206,7 +206,7 @@ def status_of(outcomes, inv, unparsed, unreadable, invalid, coverage=None):
     """(status, reasons). INVALID: nothing could be judged. PARTIAL: there is no Python or JavaScript / TypeScript source,
     or most source is in languages code-guardian does not analyse (coverage), a check crashed or was skipped, or a file that would have
     been analysed was not (did not parse, too large, unreadable). Binary files, symlinks and large non-source assets
-    (only ever secret-scanned) do not make a scan PARTIAL; the notes still list them."""
+    (skipped by the walk and never read, so not secret-scanned either) do not make a scan PARTIAL; the notes still list them."""
     if invalid:
         return "INVALID", invalid
     reasons = [coverage["reason"]] if coverage and coverage["reason"] else []
