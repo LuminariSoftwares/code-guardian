@@ -28,7 +28,7 @@ code-guardian scan /home/user/project              # the grade, every finding wi
 code-guardian plan /home/user/project --top 3      # the three fixes worth the most Overall points
 ```
 
-Success looks like a first line `code-guardian 0.7.0  scan of <name>`, then a `status: COMPLETE` line and four score
+Success looks like a first line `code-guardian 0.7.1  scan of <name>`, then a `status: COMPLETE` line and four score
 lines. On a one-file project it takes well under a second. To give the same tools to an AI client, add the MCP server
 (see [MCP server](#mcp-server) for Claude Desktop and other clients):
 
@@ -845,7 +845,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: LuminariSoftwares/code-guardian@v0.7.0
+      - uses: LuminariSoftwares/code-guardian@v0.7.1
         with:
           path: .
           fail-on: FAIL        # or WARN
@@ -861,7 +861,7 @@ environment variables, never by text substitution.
 ```yaml
 repos:
   - repo: https://github.com/LuminariSoftwares/code-guardian
-    rev: v0.7.0
+    rev: v0.7.1
     hooks:
       - id: code-guardian
         # args: [--fail-on, WARN]

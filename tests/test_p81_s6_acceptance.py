@@ -51,7 +51,8 @@ def _cg(*args):
 def test_version_is_050_everywhere():
     # amended by the overseer for P141 S14: 0.7.0 follows 0.6.0 (precedent: test_p93_s1_acceptance :174); every
     # version field must still agree with the others and with the CLI
-    m = re.search(r'^version\s*=\s*"(0\.(?:5|6|7)\.0)"\s*$', _read("pyproject.toml"), re.M)
+    # amended for 0.7.1: a patch release follows 0.7.0; the agreement checks below are unchanged
+    m = re.search(r'^version\s*=\s*"(0\.(?:5\.0|6\.0|7\.0|7\.1))"\s*$', _read("pyproject.toml"), re.M)
     assert m
     cur = m.group(1)
     import code_guardian
@@ -76,7 +77,7 @@ def test_changelog_is_dated():
 def test_readme_says_050():
     # amended by the overseer for P141 S14: 0.6.0 follows 0.5.0 (precedent: test_p93_s1_acceptance :174)
     readme = _read("README.md")
-    cur = next(v for v in ("0.7.0", "0.6.0", "0.5.0") if "`code-guardian %s  scan of <name>`" % v in readme)  # P82 R2 (C12 a): the version lives in the PyPI badge, not a status sentence
+    cur = next(v for v in ("0.7.1", "0.7.0", "0.6.0", "0.5.0") if "`code-guardian %s  scan of <name>`" % v in readme)  # the version lives in the PyPI badge, not a status sentence
     assert "`code-guardian %s  scan of <name>`" % cur in readme
     assert "code-guardian 0.5.0  scan of risky_repo" in readme
     assert "LuminariSoftwares/code-guardian@v%s" % cur in readme and "@v0.4.2" not in readme
