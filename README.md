@@ -493,8 +493,9 @@ computed as usual. A Python or JavaScript project with a few build, docs or shel
 COMPLETE. A JavaScript / TypeScript repo with a `package.json` is COMPLETE with Works scored. `tests/test_coverage.py`
 pins both sides of the line.
 
-Binary files, symlinks and large non-source files (images, design files) are only ever secret-scanned; skipping them
-is listed in the notes but does not make a scan PARTIAL.
+Binary files, symlinks and files larger than 2 MB are skipped: they are not read at all, so nothing in them is
+scanned, secrets included. Each one is listed in the notes and counted under `files.skipped`. Skipping them does not
+make a scan PARTIAL, except for a Python file or manifest that is too large to analyse.
 
 ### JSON shape (`--json`, and the MCP `scan` tool)
 

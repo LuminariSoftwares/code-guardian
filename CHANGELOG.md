@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **README correction: skipped files are not secret-scanned.** The README said binary files, symlinks and large non-source files "are only ever secret-scanned". They are skipped by the file walk and never read: a key inside a binary file is not reported. The sentence now says so, and names the 2 MB size limit and the `files.skipped` count. No behaviour change.
+
 ## code-guardian-mcp 0.7.1 (2026-11-11)
 
 - **`code-guardian ui`: an over-size upload gets its real answer.** The local page answered 413 from the `Content-Length` header without reading the body. A browser that was still sending raced the close, so on Windows the request died at the network level and the page said "code-guardian is not answering" where the real answer was that the files are too large to compare. The server now reads and drops the body first, bounded at 8 MiB and 2 seconds, then answers 413.
